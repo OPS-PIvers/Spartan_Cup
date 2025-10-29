@@ -1,0 +1,337 @@
+<script>
+    // --- STATE & PAGE ROUTING -----------------------------------------------
+    let html5QrCode = null;
+    
+    // Page titles map
+    const TITLES = {
+      'profile': 'My Profile',
+      'history': 'Event History',
+      'prizes': 'Prizes & Awards',
+      'fanfeed': 'Fan Feed',
+      'scanner': 'Scan Event Code',
+      'submit': 'Submit Attendance',
+      'settings': 'Settings',
+      'all-badges': 'All Badges',
+      'admin': 'Admin Dashboard'
+    };
+
+    /**
+     * Main function to navigate between pages using URL parameters
+     * @param {string} pageName - The ID of the page to show (e.g., 'profile')
+     */
+    function navigateToPage(pageName) {
+      if (pageName) {
+        // Show loading spinner immediately for better UX
+        const loadingModal = document.getElementById('loading-modal');
+        if(loadingModal) loadingModal.classList.remove('hidden');
+        
+        window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
+      }
+    }
+
+    // --- QR SCANNER LOGIC ---------------------------------------------------
+    
+    /** Start the QR Code scanner */
+    function startScanner() {
+      // Prevent starting multiple scanners
+      if (html5QrCode && html5QrCode.isScanning) {
+        return;
+      }
+      
+      html5QrCode = new Html5Qrcode("qr-reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+      html5QrCode.start(
+        { facingMode: "environment" }, // Use rear camera
+        config,
+        (decodedText, decodedResult) => { // onScanSuccess
+          console.log(`Scan result: ${decodedText}`, decodedResult);
+          stopScanner();
+          
+          try {
+            // Validate that it's our app's URL
+            const url = new URL(decodedText);
+            if (url.origin !== new URL(APP_DATA.appUrl).origin) {
+              alert('Invalid QR Code. Not a Spartan Cup code.');
+              return;
+            }
+            
+            const eventId = url.searchParams.get('event');
+            if (eventId) {
+              // Navigate to the submit page with the eventId
+              navigateToPage('submit&event=' + eventId);
+            } else {
+              alert('Invalid QR Code. No event ID found.');
+            }
+          } catch (e) {
+            console.error(e);
+            alert('Scanned code is not a valid event URL.');
+          }
+        },
+        (error) => { /* onScanFailure, optional */ }
+      );
+    }
+    
+    /** Stop the QR Code scanner */
+    function stopScanner() {
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
+          console.log("QR Scanner stopped.");
+        }).catch(err => {
+          console.error("Failed to stop QR scanner:", err);
+        });
+        html5QrCode = null;
+      }
+    }
+
+    /** Simulates manually entering an event code */
+    function enterCodeManually() {
+      stopScanner();
+      const eventId = prompt("Please enter the 6-digit event code:");
+      if (eventId && eventId.length > 3) { // Simple validation
+        navigateToPage('submit&event=' + eventId);
+      }
+    }
+
+    // --- EVENT LISTENERS ----------------------------------------------------
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      
+      // 1. Set Page Title from the APP_DATA passed from server
+      const pageKey = APP_DATA.page.split('&')[0]; // Get base page (e.g., 'submit' from 'submit&event=123')
+      document.getElementById('page-title').innerText = TITLES[pageKey] || 'The Spartan Cup';
+      
+      // 2. Set Active Nav Item
+      const activeNavItem = document.querySelector(`.nav-item[data-page="${pageKey}"]`);
+      if (activeNavItem) activeNavItem.classList.add('active');
+
+      // 3. Handle Back/Settings Buttons
+      const backButton = document.getElementById('header-back-button');
+      const settingsButton = document.getElementById('settings-button');
+      
+      if (pageKey !== 'profile') {
+        backButton.classList.remove('hidden');
+        backButton.addEventListener('click', () => navigateToPage('profile')); // Always go back to profile
+      }
+      settingsButton.addEventListener('click', () => navigateToPage('settings'));
+
+      // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
+      
+      if (pageKey === 'profile') {
+        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
+        document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
+        
+        // Admin button
+        const adminButton = document.getElementById('admin-button');
+        if (APP_DATA.isAdmin) {
+          adminButton.classList.remove('hidden');
+          adminButton.addEventListener('click', () => navigateToPage('admin'));
+        } else {
+          adminButton.classList.add('hidden');
+        }
+        
+        // Leaderboard Toggle
+        document.getElementById('leaderboard-toggle').addEventListener('click', (e) => {
+          if (e.target.tagName === 'BUTTON') {
+            document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
+            e.target.classList.add('active-toggle');
+            // TODO: Add logic to fetch and display the correct leaderboard
+            console.log("Leaderboard view changed to:", e.target.dataset.view);
+          }
+        });
+        
+        // Load dynamic profile data
+        google.script.run.withSuccessHandler(populateProfile).getProfileData();
+      }
+      
+      if (pageKey === 'scanner') {
+        document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
+        document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
+        startScanner(); // Auto-start scanner
+      }
+      
+      if (pageKey === 'history') {
+        // Load dynamic history data
+        google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
+      }
+      
+      if (pageKey === 'all-badges') {
+        document.getElementById('view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
+      }
+
+      if (pageKey === 'submit') {
+        document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
+        
+        // Get eventId from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('event');
+        
+        if(eventId) {
+          // TODO: Call server to get event details
+          // google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
+          // For now, just show the ID
+          document.getElementById('event-name').value = `Event ID: ${eventId}`;
+        } else {
+          document.getElementById('event-name').value = "Error: No Event ID";
+        }
+      }
+      
+      // Onboarding
+      // TODO: Use google.script.run to check PropertiesService
+      // document.getElementById('onboarding-modal').classList.remove('hidden');
+      document.getElementById('onboarding-agree').addEventListener('click', () => {
+        document.getElementById('onboarding-modal').classList.add('hidden');
+      });
+      
+      // Modal Buttons
+      document.getElementById('modal-cancel').addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        pendingFormData = null;
+        pendingPhotoBlob = null;
+      });
+      document.getElementById('modal-proceed').addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        // Call the resubmit function
+        if (pendingFormData && pendingPhotoBlob) {
+          document.getElementById('loading-modal').classList.remove('hidden');
+          google.script.run
+            .withSuccessHandler(handleSubmissionResponse)
+            .withFailureHandler(handleFailure)
+            .resubmitEvent(pendingFormData, pendingPhotoBlob);
+        }
+        pendingFormData = null;
+        pendingPhotoBlob = null;
+      });
+    });
+
+    // --- DATA POPULATION ---
+    function populateProfile(data) {
+      document.getElementById('profile-name').innerText = APP_DATA.userName;
+      document.getElementById('profile-email').innerText = APP_DATA.userEmail;
+      document.getElementById('profile-photo').style.backgroundImage = `url('${APP_DATA.userPhoto}')`;
+      document.getElementById('profile-points').innerText = data.seasonPoints;
+      document.getElementById('profile-rank').innerText = `#${data.seasonRank}`;
+      document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
+      
+      const badgeContainer = document.getElementById('badge-container');
+      badgeContainer.innerHTML = ''; // Clear
+      data.badges.forEach(badge => {
+        badgeContainer.innerHTML += `
+          <div class="flex flex-col items-center gap-1 shrink-0">
+            <div class="flex items-center justify-center w-14 h-14 rounded-full ${badge.color} text-white shadow-md">
+              <span class="material-symbols-outlined text-3xl">${badge.icon}</span>
+            </div>
+            <span class="text-xs font-medium text-gray-600 dark:text-gray-300">${badge.name}</span>
+          </div>`;
+      });
+      badgeContainer.innerHTML += document.getElementById('view-all-badges-template').innerHTML; // Add back the 'View All'
+      badgeContainer.querySelector('#view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
+
+      const lbContainer = document.getElementById('leaderboard-container');
+      lbContainer.innerHTML = ''; // Clear
+      data.leaderboard.forEach(item => {
+        lbContainer.innerHTML += `
+          <div class="flex items-center gap-3 rounded-lg p-3 ${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
+            <span class="font-bold text-lg ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">${item.rank}</span>
+            <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
+            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">${item.name}</span>
+            <span class="font-bold ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">${item.points} PTS</span>
+          </div>`;
+      });
+    }
+    
+    function populateHistory(data) {
+      document.getElementById('history-points').innerText = data.seasonPoints;
+      const historyContainer = document.getElementById('history-container');
+      historyContainer.innerHTML = ''; // Clear
+      data.history.forEach(item => {
+        let statusColor = item.status === 'Approved' ? 'text-green-600' : (item.status === 'Pending' ? 'text-gray-500' : 'text-red-600');
+        historyContainer.innerHTML += `
+          <div class="flex items-center gap-4 rounded-xl bg-white dark:bg-gray-800/50 p-4 shadow-sm ${item.status !== 'Approved' ? 'opacity-60' : ''}">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20">
+              <span class="material-symbols-outlined text-3xl ${item.color}">${item.icon}</span>
+            </div>
+            <div class="flex-1">
+              <p class="font-bold text-[#111318] dark:text-white">${item.name}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">${item.date}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-lg font-bold ${item.color}">${item.status === 'Approved' ? '+' + item.points + ' PTS' : '+0 PTS'}</p>
+
+              <span class="text-xs font-semibold ${statusColor}">${item.status}</span>
+            </div>
+          </div>`;
+      });
+    }
+
+    // --- FORM SUBMISSION ---
+    let pendingFormData = null;
+    let pendingPhotoBlob = null;
+    
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      document.getElementById('loading-modal').classList.remove('hidden');
+      
+      const photoFile = document.getElementById('photo-input').files[0];
+      if (!photoFile) {
+        alert('Please select a photo!');
+        document.getElementById('loading-modal').classList.add('hidden');
+        return;
+      }
+      
+      const formData = {
+        eventId: new URLSearchParams(window.location.search).get('event'),
+        theme: document.getElementById('theme-check').checked,
+        notes: document.getElementById('notes').value,
+        location: null
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          formData.location = {
+            lat: position.coords.latitude, lon: position.coords.longitude, acc: position.coords.accuracy
+          };
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const photoBlob = e.target.result;
+            pendingFormData = formData;
+            pendingPhotoBlob = photoBlob;
+
+            google.script.run
+              .withSuccessHandler(handleSubmissionResponse)
+              .withFailureHandler(handleFailure)
+              .submitEvent(formData, photoBlob);
+          };
+          reader.readAsDataURL(photoFile);
+        },
+        (error) => {
+          alert(`Error: Location services are required. ${error.message}`);
+          document.getElementById('loading-modal').classList.add('hidden');
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+
+    function handleSubmissionResponse(response) {
+      document.getElementById('loading-modal').classList.add('hidden');
+      
+      if (response.status === "success") {
+        alert(response.message);
+        navigateToPage('profile');
+        
+      } else if (response.status === "pending_conflict") {
+        document.getElementById('modal-message').innerText = response.message;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+        // pendingFormData and pendingPhotoBlob are already set
+        
+      } else if (response.status === "error") {
+        alert(response.message);
+      }
+    }
+
+    function handleFailure(error) {
+      document.getElementById('loading-modal').classList.add('hidden');
+      alert('A critical error occurred: ' + error.message);
+    }
+  </script>

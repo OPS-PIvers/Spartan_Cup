@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Spartan Cup</title>
+  
+  <!-- 1. Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  
+  <!-- 2. Load Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+  
+  <!-- 3. Load QR Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <!-- 4. Inject School Colors into Tailwind -->
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            // New colors from your design
+            "primary": "#1b3b87",
+            "secondary": "#b5121b",
+            "light-gray": "#cacbcd",
+            "background-light": "#f6f6f8",
+            "background-dark": "#0a1f47",
+            "gold": "#FFD700",
+            "silver": "#C0C0C0",
+            "bronze": "#CD7F32",
+          },
+          fontFamily: {
+            "display": ["Public Sans", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.5rem",
+            "lg": "0.75rem",
+            "xl": "1rem",
+            "full": "9999px"
+          },
+        },
+      },
+    }
+  </script>
+  
+  <!-- 5. Include CSS from CSS.html -->
+  <?!= include('CSS'); ?>
+</head>
+
+<body class="font-display bg-background-light dark:bg-background-dark">
+
+  <!-- ====================================================================== -->
+  <!-- MAIN APP CONTAINER -->
+  <!-- ====================================================================== -->
+  <div class="max-w-md mx-auto bg-background-light dark:bg-background-dark min-h-screen shadow-lg">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 flex h-16 items-center bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm px-4 justify-between border-b border-gray-200 dark:border-gray-800">
+      <div class="flex size-10 shrink-0 items-center justify-start">
+        <!-- Back button, hidden by default -->
+        <span id="header-back-button" class="material-symbols-outlined text-2xl text-[#111318] dark:text-white cursor-pointer hidden">arrow_back_ios_new</span>
+      </div>
+      <h1 id="page-title" class="text-lg font-bold leading-tight tracking-[-0.015em] text-[#111318] dark:text-white flex-1 text-center"></h1>
+      <div class="flex size-10 shrink-0 items-center justify-end">
+        <!-- Settings button -->
+        <span id="settings-button" class="material-symbols-outlined text-2xl text-[#111318] dark:text-white cursor-pointer">settings</span>
+      </div>
+    </header>
+
+    <!-- ====================================================================== -->
+    <!-- PAGE CONTENT AREA -->
+    <!-- ====================================================================== -->
+    <main class="pb-24">
+      <!-- This is where the magic happens. -->
+      <!-- 'page' is a server-side variable from doGet() -->
+      <!-- It will inject the content of 'Page.profile.html', 'Page.history.html', etc. -->
+      <?!= include('Page.' + page); ?>
+    </main>
+  </div> <!-- End Main App Container -->
+
+  <!-- ====================================================================== -->
+  <!-- MODALS (HIDDEN BY DEFAULT) -->
+  <!-- ====================================================================== -->
+  <?!= include('Modals'); ?>
+
+  <!-- ====================================================================== -->
+  <!-- MAIN 4-TAB NAVIGATION BAR -->
+  <!-- ====================================================================== -->
+  <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 flex justify-around">
+    <!-- The links now use URL parameters to trigger the router in Code.gs -->
+    <a href="<?= getWebAppUrl() ?>?page=profile" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4" data-page="profile">
+      <span class="material-symbols-outlined text-2xl">person</span>
+      <span class="text-xs font-medium">Profile</span>
+    </a>
+    <a href="<?= getWebAppUrl() ?>?page=history" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4" data-page="history">
+      <span class="material-symbols-outlined text-2xl">event</span>
+      <span class="text-xs font-medium">History</span>
+    </a>
+    <a href="<?= getWebAppUrl() ?>?page=prizes" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4" data-page="prizes">
+      <span class="material-symbols-outlined text-2xl">emoji_events</span>
+      <span class="text-xs font-medium">Prizes</span>
+    </a>
+    <a href="<?= getWebAppUrl() ?>?page=fanfeed" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4" data-page="fanfeed">
+      <span class="material-symbols-outlined text-2xl">dynamic_feed</span>
+      <span class="text-xs font-medium">Fan Feed</span>
+    </a>
+  </nav>
+
+  <!-- ====================================================================== -->
+  <!-- CLIENT-SIDE JAVASCRIPT -->
+  <!-- ====================================================================== -->
+  <script>
+    // Pass server-side data (from doGet) to client-side JS
+    const APP_DATA = {
+      page: "<?= page ?>",
+      userEmail: "<?= userEmail ?>",
+      userName: "<?= userName ?>",
+      userPhoto: "<?= userPhoto ?>",
+      isAdmin: <?= isAdmin ?>,
+      appUrl: "<?= getWebAppUrl() ?>"
+    };
+  </script>
+  
+  <!-- Include JavaScript from JavaScript.html -->
+  <?!= include('JavaScript'); ?>
+</body>
+</html>
+

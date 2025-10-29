@@ -1,0 +1,33 @@
+<!-- 
+  This file holds the content for the 'submit' page.
+  It is dynamically injected into Index.html by Code.gs
+-->
+<div class="page p-4">
+  <form id="submission-form" class="space-y-4">
+    <div>
+      <label class="font-bold text-[#111318] dark:text-white">Event</label>
+      <input type="text" id="event-name" value="Loading event..." readonly class="w-full p-3 border rounded-lg bg-gray-200 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
+      <!-- The Event ID will be in the URL, not a hidden input -->
+    </div>
+    
+    <div>
+      <label class="font-bold text-[#111318] dark:text-white">Take a Photo</label>
+      <input type="file" id="photo-input" accept="image/*" capture="environment" required class="w-full text-sm file:mr-4 file:py-3 file:px-5 file:rounded-lg file:border-0 file:font-bold file:bg-primary/10 file:text-primary dark:file:bg-primary/20 dark:file:text-blue-300 hover:file:bg-primary/20">
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Tip: Use your camera! Old photos may be denied.</p>
+    </div>
+    
+    <div class="flex items-center">
+      <input type="checkbox" id="theme-check" class="h-5 w-5 rounded text-primary focus:ring-primary">
+      <label for="theme-check" class="ml-2 font-bold text-[#111318] dark:text-white">I'm dressed for the theme!</label>
+    </div>
+    
+    <div>
+      <label for="notes" class="font-bold text-[#111318] dark:text-white">Notes (Optional)</label>
+      <textarea id="notes" rows="3" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary dark:bg-gray-800/50 dark:border-gray-700 dark:text-white" placeholder="e.g., My face is painted!"></textarea>
+    </div>
+    
+    <button type="submit" class="w-full bg-secondary text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition-colors active:scale-95">
+      Submit Attendance
+    </button>
+  </form>
+</div>

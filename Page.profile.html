@@ -1,0 +1,80 @@
+<!-- 
+  This file holds the content for the 'profile' page.
+  It is dynamically injected into Index.html by Code.gs
+-->
+<div class="page">
+  <div class="p-4 pt-6 @container">
+    <div class="flex w-full flex-col gap-4">
+      <div class="flex gap-4 items-center">
+        <div id="profile-photo" class="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-24 w-24 shrink-0 border-4 border-white dark:border-gray-700 shadow-md" style='background-image: url("https://placehold.co/100x100/f6f6f8/cacbcd?text=?");'></div>
+        <div class="flex flex-col justify-center">
+          <p id="profile-name" class="text-[#111318] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em]">Loading...</p>
+          <p id="profile-email" class="text-[#616f89] dark:text-gray-400 text-base font-normal leading-normal">Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="px-4 mt-2">
+    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Earned Badges</h3>
+    <div id="badge-container" class="flex items-center gap-4 overflow-x-auto pb-2 -mb-2">
+      <div class="text-xs text-gray-500">Loading badges...</div>
+    </div>
+    <!-- This template is grabbed by JS and re-added after populating badges -->
+    <template id="view-all-badges-template">
+      <div id="view-all-badges-button" class="flex flex-col items-center gap-1 shrink-0 cursor-pointer">
+        <div class="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-gray-500 to-gray-400 text-white shadow-md">
+          <span class="material-symbols-outlined text-3xl">more_horiz</span>
+        </div>
+        <span class="text-xs font-medium text-gray-600 dark:text-gray-300">View All</span>
+      </div>
+    </template>
+  </div>
+  <div class="flex flex-col gap-3 px-4 mt-6">
+    <button id="scan-qr-button" class="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-14 px-5 bg-gradient-button text-white text-base font-bold leading-normal tracking-[0.015em] w-full shadow-lg shadow-primary/30 active:scale-95 transition-transform" style="background-image: linear-gradient(to right, #b5121b, #1b3b87)">
+      <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
+      <span class="truncate">Scan QR to Earn Points</span>
+    </button>
+    <button id="event-history-button" class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gray-200 dark:bg-gray-700/50 text-[#111318] dark:text-white text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
+      <span class="truncate">Previously Attended Events &amp; Point Earnings</span>
+    </button>
+  </div>
+  <div class="flex flex-col gap-2 px-4 mt-6">
+    <div class="flex w-full flex-col gap-4 rounded-xl p-4 bg-white dark:bg-gray-800/50 shadow-sm">
+      <p class="text-base font-bold text-primary dark:text-blue-300 leading-normal">Current Season: Winter 25-26</p>
+      <div class="flex">
+        <div class="flex-1">
+          <p class="text-base font-medium leading-normal text-gray-500 dark:text-gray-400">Points</p>
+          <p id="profile-points" class="text-primary dark:text-white tracking-[-0.02em] text-5xl font-black leading-tight">...</p>
+        </div>
+        <div class="border-l border-gray-200 dark:border-gray-700 mx-4"></div>
+        <div class="flex-1">
+          <p class="text-base font-medium leading-normal text-gray-500 dark:text-gray-400">Rank</p>
+          <p id="profile-rank" class="text-secondary dark:text-red-400 tracking-[-0.02em] text-5xl font-black leading-tight">...</p>
+        </div>
+      </div>
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between items-center text-sm">
+        <p class="text-gray-500 dark:text-gray-400 font-medium">All Time:</p>
+        <p id="profile-alltime" class="text-gray-600 dark:text-gray-300 font-bold">... PTS / Rank ...</p>
+      </div>
+    </div>
+  </div>
+  <div class="mt-4">
+    <div class="px-4 pb-3">
+      <div id="leaderboard-toggle" class="bg-gray-200 dark:bg-gray-800 p-1 rounded-lg flex items-center">
+        <button data-view="season" class="flex-1 py-2 px-3 text-center text-sm font-bold rounded-md active-toggle">Current Season</button>
+        <button data-view="all-time" class="flex-1 py-2 px-3 text-center text-sm font-bold rounded-md text-gray-600 dark:text-gray-400">All Time</button>
+      </div>
+    </div>
+    <h3 class="text-[#111318] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-2">Top 5 Spartans</h3>
+    <div class="flex flex-col gap-2 px-4">
+      <div id="leaderboard-container" class="flex flex-col gap-2 rounded-xl bg-white dark:bg-gray-800/50 p-2 shadow-sm">
+        <p class="p-4 text-center text-gray-500">Loading leaderboard...</p>
+      </div>
+    </div>
+  </div>
+  <div class="px-4 mt-6">
+    <button id="admin-button" class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform hidden">
+      <span class="truncate">Admin Dashboard</span>
+    </button>
+  </div>
+</div>
