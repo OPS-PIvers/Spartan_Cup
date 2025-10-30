@@ -66,24 +66,6 @@ Spartan_Cup/
 
 In Google Sheets where the script is bound, click the **"🏆 Spartan Cup Admin"** menu and select **"1. Run First-Time Setup"**. This creates all spreadsheet tabs, Drive folders, and dynamically generates all HTML page files.
 
-### Development & Deployment
-
-```bash
-# Install Clasp CLI (if not already installed)
-npm install -g @google/clasp
-
-# Authenticate with Google
-clasp login
-
-# Deploy code changes to Apps Script
-clasp push
-
-# Deploy as web app (done in Apps Script UI)
-# 1. Click "Deploy" → "New Deployment"
-# 2. Select "Web App"
-# 3. Configure execution settings
-```
-
 ### Testing
 
 There is no automated test framework configured. Testing is manual:
