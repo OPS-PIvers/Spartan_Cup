@@ -97,13 +97,18 @@ function doGet(e) {
  */
 function getUserProfilePhoto(email) {
   try {
-    // Try to find user's profile photo in Drive under "Profile Pictures" folder
-    const folders = DriveApp.getFoldersByName('Profile Pictures');
-    if (folders.hasNext()) {
-      const folder = folders.next();
-      const files = folder.getFilesByName(email + '.jpg');
-      if (files.hasNext()) {
-        return files.next().getDownloadUrl();
+    const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+    if (parentFolders.hasNext()) {
+      const parentFolder = parentFolders.next();
+      const profileFolders = parentFolder.getFoldersByName('Profile Pictures');
+      if (profileFolders.hasNext()) {
+        const folder = profileFolders.next();
+        const files = folder.getFilesByName(email + '.jpg');
+        if (files.hasNext()) {
+          const file = files.next();
+          file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
+          return file.getDownloadUrl();
+        }
       }
     }
   } catch (e) {
@@ -111,7 +116,6 @@ function getUserProfilePhoto(email) {
   }
 
   // Fallback: Use Google's default avatar based on email
-  // This generates a consistent avatar from the email
   return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(email) + '&background=1b3b87&color=fff&bold=true&size=96';
 }
 
@@ -459,9 +463,29 @@ function firstTimeSetup() {
  */
 function setupDriveFolders() {
   try {
-    DriveApp.createFolder('The Spartan Cup');
-    DriveApp.getFoldersByName('The Spartan Cup').next().createFolder('Submissions_Winter_25-26');
-    DriveApp.getFoldersByName('The Spartan Cup').next().createFolder('Assets_Badges');
+    let parentFolder;
+    const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+    if (parentFolders.hasNext()) {
+      parentFolder = parentFolders.next();
+    } else {
+      parentFolder = DriveApp.createFolder('The Spartan Cup');
+    }
+
+    const submissionFolders = parentFolder.getFoldersByName('Submissions_Winter_25-26');
+    if (!submissionFolders.hasNext()) {
+      parentFolder.createFolder('Submissions_Winter_25-26');
+    }
+
+    const assetFolders = parentFolder.getFoldersByName('Assets_Badges');
+    if (!assetFolders.hasNext()) {
+      parentFolder.createFolder('Assets_Badges');
+    }
+    
+    const profileFolders = parentFolder.getFoldersByName('Profile Pictures');
+    if (!profileFolders.hasNext()) {
+      parentFolder.createFolder('Profile Pictures');
+    }
+    
   } catch (e) {
     Logger.log('Drive Folders already exist or error: ' + e.message);
   }
@@ -1833,12 +1857,27 @@ function getEventDetails(eventId) {
 
 /** Utility function to save the uploaded photo to Google Drive. */
 function savePhotoToDrive(photoBlob, eventId, email) {
-  const folder = DriveApp.getFoldersByName('The Spartan Cup').next().getFoldersByName('Submissions_Winter_25-26').next();
+  let parentFolder;
+  const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+  if (parentFolders.hasNext()) {
+    parentFolder = parentFolders.next();
+  } else {
+    parentFolder = DriveApp.createFolder('The Spartan Cup');
+  }
+
+  let submissionFolder;
+  const submissionFolders = parentFolder.getFoldersByName('Submissions_Winter_25-26');
+  if (submissionFolders.hasNext()) {
+    submissionFolder = submissionFolders.next();
+  } else {
+    submissionFolder = parentFolder.createFolder('Submissions_Winter_25-26');
+  }
+
   const contentType = photoBlob.split(';')[0].replace('data:', '');
   const bytes = Utilities.base64Decode(photoBlob.split(',')[1]);
   const blob = Utilities.newBlob(bytes, contentType, `SUB_${eventId}_${email}_${new Date().getTime()}.jpg`);
-  const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const file = submissionFolder.createFile(blob);
+  file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
   
   return { id: file.getId(), url: file.getDownloadUrl() };
 }
@@ -1969,7 +2008,7 @@ function getAdminQueue() {
         eventId: pendingData[i][3],
         eventName: eventInfo.eventName,
         sportArt: eventInfo.sportArt,
-        eventDate: eventInfo.date.toLocaleDateString(),
+        eventDate: (eventInfo.date instanceof Date) ? eventInfo.date.toLocaleDateString() : eventInfo.date,
         photoUrl: pendingData[i][4],
         photoId: pendingData[i][5],
         dressedForTheme: pendingData[i][7] || false,
@@ -2072,6 +2111,18 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     // Calculate badges for the student
     calculateBadges(submissionInfo[2]);
+
+    // Get event details map for notification
+    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventData = eventSheet.getDataRange().getValues();
+    const eventMap = {};
+    for (let i = 1; i < eventData.length; i++) {
+      eventMap[eventData[i][0]] = {
+        eventName: eventData[i][2],
+        sportArt: eventData[i][1],
+        date: eventData[i][3]
+      };
+    }
 
     // Send notification to student
     const eventInfo = eventMap[submissionInfo[3]] || { name: 'Event' };

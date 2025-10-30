@@ -97,7 +97,8 @@
       const container = document.getElementById('submission-queue');
       const status = document.getElementById('queue-status');
 
-      if (response.status === 'error') {
+      if (!response || response.status === 'error') {
+        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response ? response.message : 'An unexpected error occurred.'}</p>`;
         status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response.message}</p>`;
         container.innerHTML = '';
         return;
@@ -155,12 +156,12 @@
       const points = parseInt(document.getElementById('modal-points').value) || 50;
 
       google.script.run.withSuccessHandler((response) => {
-        if (response.status === 'success') {
+        if (response && response.status === 'success') {
           closeSubmissionModal();
           loadAdminQueue();
           alert('Submission approved!');
         } else {
-          alert('Error: ' + response.message);
+          alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
         }
       }).approveSubmission(currentSubmission.submissionId, points);
     }
@@ -170,12 +171,12 @@
       const reason = document.getElementById('denial-reason').value || 'Photo does not meet requirements';
 
       google.script.run.withSuccessHandler((response) => {
-        if (response.status === 'success') {
+        if (response && response.status === 'success') {
           closeSubmissionModal();
           loadAdminQueue();
           alert('Submission denied');
         } else {
-          alert('Error: ' + response.message);
+          alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
         }
       }).denySubmission(currentSubmission.submissionId, reason);
     }

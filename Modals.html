@@ -29,6 +29,27 @@
   </div>
 </div>
 
+<!-- Manual Code Entry Modal -->
+<div id="manual-code-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-background-light dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Enter Event Code</h3>
+    <form id="manual-code-form" class="space-y-4">
+      <input
+        id="manual-code-input"
+        type="text"
+        placeholder="Enter 6-digit event code"
+        maxlength="10"
+        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
+        required
+      >
+      <div class="flex justify-end space-x-2">
+        <button type="button" id="manual-code-cancel" class="px-4 py-2 rounded bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-white font-semibold">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded bg-primary text-white font-semibold">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Loading Spinner Modal -->
 <div id="loading-modal" class="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center p-4 z-50 hidden">
   <div class="bg-background-light dark:bg-gray-800 p-6 rounded-lg shadow-xl flex items-center space-x-4">

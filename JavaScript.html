@@ -24,7 +24,7 @@
         // Show loading spinner immediately for better UX
         const loadingModal = document.getElementById('loading-modal');
         if(loadingModal) loadingModal.classList.remove('hidden');
-        
+
         window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
       }
     }
@@ -84,13 +84,11 @@
       }
     }
 
-    /** Simulates manually entering an event code */
+    /** Show modal for manually entering an event code */
     function enterCodeManually() {
       stopScanner();
-      const eventId = prompt("Please enter the 6-digit event code:");
-      if (eventId && eventId.length > 3) { // Simple validation
-        navigateToPage('submit&event=' + eventId);
-      }
+      document.getElementById('manual-code-modal').classList.remove('hidden');
+      document.getElementById('manual-code-input').focus();
     }
 
     // --- EVENT LISTENERS ----------------------------------------------------
@@ -206,6 +204,23 @@
         pendingFormData = null;
         pendingPhotoBlob = null;
       });
+
+      // Manual Code Entry Modal
+      document.getElementById('manual-code-cancel').addEventListener('click', () => {
+        document.getElementById('manual-code-modal').classList.add('hidden');
+        document.getElementById('manual-code-input').value = '';
+      });
+      document.getElementById('manual-code-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const eventId = document.getElementById('manual-code-input').value.trim();
+        if (eventId && eventId.length > 2) {
+          document.getElementById('manual-code-modal').classList.add('hidden');
+          document.getElementById('manual-code-input').value = '';
+          navigateToPage('submit&event=' + eventId);
+        } else {
+          alert('Please enter a valid event code (at least 3 characters)');
+        }
+      });
     });
 
     // --- SHARED STATE ---
@@ -310,22 +325,50 @@
           
           const reader = new FileReader();
           reader.onload = (e) => {
-            const photoBlob = e.target.result;
-            pendingFormData = formData;
-            pendingPhotoBlob = photoBlob;
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 800;
+              const MAX_HEIGHT = 600;
+              let width = img.width;
+              let height = img.height;
 
-            google.script.run
-              .withSuccessHandler(handleSubmissionResponse)
-              .withFailureHandler(handleFailure)
-              .submitEvent(formData, photoBlob);
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // Use JPEG with 80% quality
+
+              const photoBlob = dataUrl;
+              pendingFormData = formData;
+              pendingPhotoBlob = photoBlob;
+
+              google.script.run
+                .withSuccessHandler(handleSubmissionResponse)
+                .withFailureHandler(handleFailure)
+                .submitEvent(formData, photoBlob);
+            }
+            img.src = e.target.result;
           };
           reader.readAsDataURL(photoFile);
         },
         (error) => {
+          console.error('Geolocation error:', error);
           alert(`Error: Location services are required. ${error.message}`);
           document.getElementById('loading-modal').classList.add('hidden');
         },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
