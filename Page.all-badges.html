@@ -1,11 +1,55 @@
-<!-- 
+<!--
   This file holds the content for the 'all-badges' page.
   It is dynamically injected into Index.html by Code.gs
 -->
-<div class="page p-4">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">All Earned Badges</h2>
-    <p class="text-[#111318] dark:text-white">A full grid or list of all earned badges will go here.</p>
-    <!-- TODO: Populate with a grid of all badges from user's profile -->
+<div class="page p-4 pb-24">
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">All Earned Badges</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">You've earned <span id="badge-count" class="font-bold">0</span> badges!</p>
+    </div>
+
+    <div id="badges-grid" class="grid grid-cols-2 @sm:grid-cols-3 gap-4">
+      <p class="col-span-full text-center text-gray-500 py-8">Loading badges...</p>
+    </div>
+
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl">
+      <p class="text-sm text-blue-900 dark:text-blue-200">
+        <span class="font-bold">Keep attending events!</span> Earn more badges by supporting Orono events and completing challenges.
+      </p>
+    </div>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(populateAllBadges).getProfileData();
+    });
+
+    function populateAllBadges(data) {
+      const grid = document.getElementById('badges-grid');
+      const badgeCount = document.getElementById('badge-count');
+
+      if (!data.badges || data.badges.length === 0) {
+        grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-12">No badges earned yet. Scan an event to get started!</p>';
+        badgeCount.textContent = '0';
+        return;
+      }
+
+      badgeCount.textContent = data.badges.length;
+      grid.innerHTML = '';
+
+      data.badges.forEach((badge, index) => {
+        const badgeEl = document.createElement('div');
+        badgeEl.className = 'flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm hover:shadow-md transition-shadow';
+        badgeEl.innerHTML = `
+          <div class="flex items-center justify-center w-16 h-16 rounded-full ${badge.color} text-white shadow-md">
+            <span class="material-symbols-outlined text-4xl">${badge.icon}</span>
+          </div>
+          <p class="text-sm font-bold text-center text-[#111318] dark:text-white">${badge.name}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 text-center">Achievement unlocked!</p>
+        `;
+        grid.appendChild(badgeEl);
+      });
+    }
+  </script>
 </div>

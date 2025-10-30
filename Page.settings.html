@@ -1,11 +1,142 @@
-<!-- 
+<!--
   This file holds the content for the 'settings' page.
   It is dynamically injected into Index.html by Code.gs
 -->
-<div class="page p-4">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Settings</h2>
-    <p class="text-[#111318] dark:text-white mt-4">App settings and account information will go here.</p>
-    <!-- TODO: Add dark mode toggle, notification preferences, etc. -->
+<div class="page p-4 pb-24">
+  <div class="space-y-6">
+    <!-- Account Section -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">Account</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm text-gray-600 dark:text-gray-400">Email</label>
+          <p id="settings-email" class="text-[#111318] dark:text-white font-semibold">loading...</p>
+        </div>
+        <div>
+          <label class="text-sm text-gray-600 dark:text-gray-400">Display Name</label>
+          <p id="settings-name" class="text-[#111318] dark:text-white font-semibold">loading...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Appearance Section -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h2 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Appearance</h2>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-2xl text-primary">dark_mode</span>
+            <div>
+              <p class="font-semibold text-[#111318] dark:text-white">Dark Mode</p>
+              <p class="text-xs text-gray-600 dark:text-gray-400">Enable dark theme for easier reading at night</p>
+            </div>
+          </div>
+          <button id="dark-mode-toggle" class="relative inline-flex h-7 w-12 items-center rounded-full bg-gray-300 dark:bg-primary transition-colors" role="switch" aria-checked="false">
+            <span id="toggle-dot" class="inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform dark:translate-x-5"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications Section -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h2 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Notifications</h2>
+      <div class="space-y-3">
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30 cursor-pointer">
+          <input type="checkbox" id="event-notifications" checked class="h-5 w-5 rounded text-primary">
+          <div>
+            <p class="font-semibold text-[#111318] dark:text-white">Event Reminders</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Get notified about upcoming events</p>
+          </div>
+        </label>
+
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30 cursor-pointer">
+          <input type="checkbox" id="approval-notifications" checked class="h-5 w-5 rounded text-primary">
+          <div>
+            <p class="font-semibold text-[#111318] dark:text-white">Submission Updates</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Notify when your submissions are approved or denied</p>
+          </div>
+        </label>
+
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30 cursor-pointer">
+          <input type="checkbox" id="badge-notifications" checked class="h-5 w-5 rounded text-primary">
+          <div>
+            <p class="font-semibold text-[#111318] dark:text-white">Badge Achievements</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400">Celebrate when you earn new badges</p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h2 class="text-lg font-bold text-[#111318] dark:text-white mb-4">About</h2>
+      <div class="space-y-3 text-sm">
+        <div class="flex justify-between">
+          <span class="text-gray-600 dark:text-gray-400">App Version</span>
+          <span class="text-[#111318] dark:text-white font-semibold">1.0.0</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600 dark:text-gray-400">School</span>
+          <span class="text-[#111318] dark:text-white font-semibold">Orono High School</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logout Button -->
+    <button onclick="logoutUser()" class="w-full p-3 rounded-lg bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 font-bold hover:bg-secondary/20 dark:hover:bg-secondary/30 transition-colors">
+      Log Out
+    </button>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load user data
+      document.getElementById('settings-email').textContent = APP_DATA.userEmail;
+      document.getElementById('settings-name').textContent = APP_DATA.userName;
+
+      // Set dark mode toggle state
+      const isDarkMode = localStorage.getItem('spartan-cup-dark-mode') === 'true';
+      updateDarkModeToggle(isDarkMode);
+
+      // Dark mode toggle
+      document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+
+      // Load notification preferences
+      document.getElementById('event-notifications').checked = JSON.parse(localStorage.getItem('event-notifications') ?? 'true');
+      document.getElementById('approval-notifications').checked = JSON.parse(localStorage.getItem('approval-notifications') ?? 'true');
+      document.getElementById('badge-notifications').checked = JSON.parse(localStorage.getItem('badge-notifications') ?? 'true');
+
+      // Save notification preferences
+      ['event-notifications', 'approval-notifications', 'badge-notifications'].forEach(id => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          localStorage.setItem(id, e.target.checked);
+        });
+      });
+    });
+
+    function toggleDarkMode() {
+      const isDarkMode = document.documentElement.classList.contains('dark');
+      const newState = !isDarkMode;
+      updateDarkModeToggle(newState);
+      localStorage.setItem('spartan-cup-dark-mode', newState);
+    }
+
+    function updateDarkModeToggle(isDarkMode) {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+        document.getElementById('dark-mode-toggle').setAttribute('aria-checked', 'true');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('dark-mode-toggle').setAttribute('aria-checked', 'false');
+      }
+    }
+
+    function logoutUser() {
+      if (confirm('Are you sure you want to log out?')) {
+        // Google Apps Script will handle logout via the Apps Script authentication
+        window.top.location.href = 'https://accounts.google.com/logout';
+      }
+    }
+  </script>
 </div>

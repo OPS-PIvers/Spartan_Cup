@@ -135,8 +135,11 @@
           if (e.target.tagName === 'BUTTON') {
             document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
             e.target.classList.add('active-toggle');
-            // TODO: Add logic to fetch and display the correct leaderboard
-            console.log("Leaderboard view changed to:", e.target.dataset.view);
+            // Switch between season and all-time leaderboards
+            const view = e.target.dataset.view;
+            const lbContainer = document.getElementById('leaderboard-container');
+            const leaderboard = view === 'season' ? currentProfileData.leaderboard : currentProfileData.allTimeLeaderboard;
+            updateLeaderboardDisplay(leaderboard);
           }
         });
         
@@ -161,24 +164,19 @@
 
       if (pageKey === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
-        
-        // Get eventId from URL
+
+        // Get event details from URL and fetch them
         const urlParams = new URLSearchParams(window.location.search);
         const eventId = urlParams.get('event');
-        
-        if(eventId) {
-          // TODO: Call server to get event details
-          // google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
-          // For now, just show the ID
-          document.getElementById('event-name').value = `Event ID: ${eventId}`;
+        if (eventId) {
+          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
         } else {
           document.getElementById('event-name').value = "Error: No Event ID";
         }
       }
-      
-      // Onboarding
-      // TODO: Use google.script.run to check PropertiesService
-      // document.getElementById('onboarding-modal').classList.remove('hidden');
+
+      // Onboarding - Shows on first visit per session
+      // (Actual onboarding modal logic is in Code.js using sessionStorage)
       document.getElementById('onboarding-agree').addEventListener('click', () => {
         document.getElementById('onboarding-modal').classList.add('hidden');
       });
@@ -204,15 +202,36 @@
       });
     });
 
+    // --- SHARED STATE ---
+    let currentProfileData = null; // Store full profile data for leaderboard toggling
+
+    // --- HELPER FUNCTIONS ---
+    function updateLeaderboardDisplay(leaderboard) {
+      const lbContainer = document.getElementById('leaderboard-container');
+      lbContainer.innerHTML = ''; // Clear
+      leaderboard.forEach(item => {
+        lbContainer.innerHTML += `
+          <div class="flex items-center gap-3 rounded-lg p-3 ${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
+            <span class="font-bold text-lg ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">${item.rank}</span>
+            <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
+            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">${item.name}</span>
+            <span class="font-bold ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">${item.points} PTS</span>
+          </div>`;
+      });
+    }
+
     // --- DATA POPULATION ---
     function populateProfile(data) {
+      // Store data for leaderboard toggling
+      currentProfileData = data;
+
       document.getElementById('profile-name').innerText = APP_DATA.userName;
       document.getElementById('profile-email').innerText = APP_DATA.userEmail;
       document.getElementById('profile-photo').style.backgroundImage = `url('${APP_DATA.userPhoto}')`;
       document.getElementById('profile-points').innerText = data.seasonPoints;
       document.getElementById('profile-rank').innerText = `#${data.seasonRank}`;
       document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
-      
+
       const badgeContainer = document.getElementById('badge-container');
       badgeContainer.innerHTML = ''; // Clear
       data.badges.forEach(badge => {
@@ -227,17 +246,8 @@
       badgeContainer.innerHTML += document.getElementById('view-all-badges-template').innerHTML; // Add back the 'View All'
       badgeContainer.querySelector('#view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
 
-      const lbContainer = document.getElementById('leaderboard-container');
-      lbContainer.innerHTML = ''; // Clear
-      data.leaderboard.forEach(item => {
-        lbContainer.innerHTML += `
-          <div class="flex items-center gap-3 rounded-lg p-3 ${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
-            <span class="font-bold text-lg ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">${item.rank}</span>
-            <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
-            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">${item.name}</span>
-            <span class="font-bold ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">${item.points} PTS</span>
-          </div>`;
-      });
+      // Populate leaderboard (season by default)
+      updateLeaderboardDisplay(data.leaderboard);
     }
     
     function populateHistory(data) {

@@ -1,17 +1,183 @@
-<!-- 
+<!--
   This file holds the content for the 'admin' page.
   It is dynamically injected into Index.html by Code.gs
 -->
-<div class="page p-4">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-    <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-4">Admin Dashboard</h2>
-    <p class="text-[#111318] dark:text-white">This page is only visible to admins.</p>
-    
-    <h3 class="text-lg font-bold text-[#111318] dark:text-white mt-6">Pending Submissions</h3>
-    <p class="text-gray-500 dark:text-gray-400">The "swipe-to-approve" UI will go here.</p>
-    <!-- TODO: Build admin verification queue -->
-    
-    <h3 class="text-lg font-bold text-[#111318] dark:text-white mt-6">Manage Events</h3>
-    <p class="text-gray-500 dark:text-gray-400">A form to add/edit events in the 'Event_Schedule' sheet will go here.</p>
+<div class="page p-4 pb-24">
+  <div class="space-y-4">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary">
+      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Review and approve student submissions</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Pending Submissions Queue</h3>
+      <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400 mb-4">Loading submissions...</p>
+
+      <div id="submission-queue" class="space-y-3">
+        <!-- Submissions will be populated here -->
+      </div>
+    </div>
+
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl">
+      <p class="text-sm text-amber-900 dark:text-amber-200">
+        <span class="font-bold">Tip:</span> Review photos carefully. Check that students are actually at the event and following theme rules.
+      </p>
+    </div>
   </div>
+
+  <!-- Submission Detail Modal -->
+  <div id="submission-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full my-8">
+      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-bold text-[#111318] dark:text-white">Review Submission</h3>
+        <button onclick="closeSubmissionModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <img id="modal-photo" src="" alt="Submission photo" class="w-full h-64 object-cover rounded-lg">
+
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Student:</span>
+            <span id="modal-student" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Event:</span>
+            <span id="modal-event" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Dressed for Theme:</span>
+            <span id="modal-theme" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Notes:</span>
+            <span id="modal-notes" class="text-sm text-[#111318] dark:text-white"></span>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Points to Award</label>
+          <div class="flex gap-2">
+            <input type="number" id="modal-points" value="50" min="0" max="500" class="flex-1 p-2 border rounded-lg dark:bg-gray-700/50 dark:border-gray-600 dark:text-white">
+            <span class="text-sm text-gray-600 dark:text-gray-400 self-center">points</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Denial Reason (if applicable)</label>
+          <textarea id="denial-reason" placeholder="Optional: Reason for denial" rows="3" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white text-sm"></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+        <button onclick="denySubmission()" class="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-[#111318] dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+          Deny
+        </button>
+        <button onclick="approveSubmission()" class="flex-1 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-blue-700 transition-colors">
+          Approve
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentSubmission = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAdminQueue();
+    });
+
+    function loadAdminQueue() {
+      google.script.run.withSuccessHandler(populateAdminQueue).getAdminQueue();
+    }
+
+    function populateAdminQueue(response) {
+      const container = document.getElementById('submission-queue');
+      const status = document.getElementById('queue-status');
+
+      if (response.status === 'error') {
+        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response.message}</p>`;
+        container.innerHTML = '';
+        return;
+      }
+
+      const queue = response.queue || [];
+      status.textContent = queue.length === 0 ? 'No pending submissions' : `${queue.length} pending submission(s)`;
+
+      if (queue.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">All submissions have been reviewed!</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      queue.forEach(submission => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-pointer hover:shadow-md transition-shadow';
+        card.innerHTML = `
+          <div class="flex gap-4">
+            <img src="${submission.photoUrl}" alt="Submission" class="w-20 h-20 rounded-lg object-cover">
+            <div class="flex-1">
+              <p class="font-bold text-[#111318] dark:text-white">${submission.eventName}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${submission.email}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(submission.timestamp).toLocaleDateString()}</p>
+              <div class="flex gap-2 mt-2">
+                ${submission.dressedForTheme ? '<span class="text-xs bg-primary/20 text-primary dark:text-blue-300 px-2 py-1 rounded">Dressed for theme</span>' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+        card.addEventListener('click', () => showSubmissionModal(submission));
+        container.appendChild(card);
+      });
+    }
+
+    function showSubmissionModal(submission) {
+      currentSubmission = submission;
+      document.getElementById('modal-photo').src = submission.photoUrl;
+      document.getElementById('modal-student').textContent = submission.email;
+      document.getElementById('modal-event').textContent = submission.eventName;
+      document.getElementById('modal-theme').textContent = submission.dressedForTheme ? 'Yes' : 'No';
+      document.getElementById('modal-notes').textContent = submission.notes || '(none)';
+      document.getElementById('modal-points').value = '50';
+      document.getElementById('denial-reason').value = '';
+      document.getElementById('submission-modal').classList.remove('hidden');
+    }
+
+    function closeSubmissionModal() {
+      document.getElementById('submission-modal').classList.add('hidden');
+      currentSubmission = null;
+    }
+
+    function approveSubmission() {
+      if (!currentSubmission) return;
+      const points = parseInt(document.getElementById('modal-points').value) || 50;
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          closeSubmissionModal();
+          loadAdminQueue();
+          alert('Submission approved!');
+        } else {
+          alert('Error: ' + response.message);
+        }
+      }).approveSubmission(currentSubmission.submissionId, points);
+    }
+
+    function denySubmission() {
+      if (!currentSubmission) return;
+      const reason = document.getElementById('denial-reason').value || 'Photo does not meet requirements';
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          closeSubmissionModal();
+          loadAdminQueue();
+          alert('Submission denied');
+        } else {
+          alert('Error: ' + response.message);
+        }
+      }).denySubmission(currentSubmission.submissionId, reason);
+    }
+  </script>
 </div>

@@ -26,21 +26,46 @@ const ADMIN_EMAILS = ["your-admin-email@domain.com", "another-admin@domain.com"]
  */
 function doGet(e) {
   const page = e.parameter.page || 'profile'; // Default to profile page
-  
+
   // Pass data to the HTML template
   const template = HtmlService.createTemplateFromFile('Index');
   template.page = page; // Tell the template which page to load
 
   const user = Session.getActiveUser();
   template.userEmail = user.getEmail();
-  template.userName = user.getUsername(); // Or use People API for full name
-  template.userPhoto = 'https://lh3.googleusercontent.com/a/ACg8ocJ9...[example_url]'; // TODO: Get user's real photo URL
+  template.userName = user.getUsername();
+  template.userPhoto = getUserProfilePhoto(user.getEmail());
   template.isAdmin = ADMIN_EMAILS.includes(user.getEmail());
 
   return template.evaluate()
     .setTitle('The Spartan Cup')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
+
+/**
+ * Gets user's profile photo from Google Drive or generates avatar.
+ * @param {string} email - User email
+ * @return {string} URL to user's profile photo or default avatar
+ */
+function getUserProfilePhoto(email) {
+  try {
+    // Try to find user's profile photo in Drive under "Profile Pictures" folder
+    const folders = DriveApp.getFoldersByName('Profile Pictures');
+    if (folders.hasNext()) {
+      const folder = folders.next();
+      const files = folder.getFilesByName(email + '.jpg');
+      if (files.hasNext()) {
+        return files.next().getDownloadUrl();
+      }
+    }
+  } catch (e) {
+    Logger.log('Error fetching profile photo: ' + e.message);
+  }
+
+  // Fallback: Use Google's default avatar based on email
+  // This generates a consistent avatar from the email
+  return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(email) + '&background=1b3b87&color=fff&bold=true&size=96';
 }
 
 /**
@@ -52,38 +77,222 @@ function include(filename) {
 
 /**
  * Gets the current user's profile data to populate the page.
- * This is now simplified as we pass initial data in doGet.
- * We'll use this function to get DYNAMIC data (points, rank).
+ * Fetches real data from Student_Profiles, Config_Badges, and Submissions_Verified sheets.
+ * @return {Object} Profile data including points, rank, badges, leaderboard, and history
  */
 function getProfileData() {
   const email = Session.getActiveUser().getEmail();
-  
-  // TODO: Fetch real data from 'Student_Profiles' sheet
-  // This is mock data for now.
-  const mockData = {
-    seasonPoints: 150,
-    seasonRank: 42,
-    allTimePoints: 150,
-    allTimeRank: 42,
-    badges: [
-      { name: 'Hot Streak', icon: 'local_fire_department', color: 'bg-gradient-to-br from-red-500 to-yellow-400' },
-      { name: 'Hoops Fan', icon: 'sports_basketball', color: 'bg-gradient-to-br from-blue-500 to-cyan-400' },
-      { name: 'Arts Patron', icon: 'theater_comedy', color: 'bg-gradient-to-br from-indigo-500 to-purple-400' }
-    ],
-    leaderboard: [
-      { rank: 1, name: 'John Smith', points: 2100, icon: 'workspace_premium', color: 'text-gold' },
-      { rank: 2, name: 'Emily Jones', points: 1980, icon: 'workspace_premium', color: 'text-silver' },
-      { rank: 3, name: 'Michael Lee', points: 1850, icon: 'workspace_premium', color: 'text-bronze' },
-      { rank: 4, name: 'Sarah Chen', points: 1760, icon: 'military_tech', color: 'text-gray-400' },
-      { rank: 5, name: 'David Kim', points: 1600, icon: 'military_tech', color: 'text-gray-400' }
-    ],
-    history: [
-      { name: 'Varsity Basketball vs. Eagles', date: 'Oct 28, 2025', points: 50, status: 'Approved', icon: 'sports_basketball', color: 'text-primary' },
-      { name: 'Fall Play Opening Night', date: 'Oct 25, 2025', points: 0, status: 'Pending', icon: 'theater_comedy', color: 'text-gray-500' }
-    ]
-  };
-  
-  return mockData;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // --- FETCH USER PROFILE DATA ---
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    let userProfile = null;
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        userProfile = {
+          email: studentData[i][0],
+          displayName: studentData[i][1],
+          seasonPoints: studentData[i][2] || 0,
+          allTimePoints: studentData[i][3] || 0,
+          badgesEarned: studentData[i][4] ? JSON.parse(studentData[i][4]) : [],
+          disqualified: studentData[i][7] || false
+        };
+        break;
+      }
+    }
+
+    // If user not in sheet, create a new profile entry
+    if (!userProfile) {
+      studentSheet.appendRow([email, Session.getActiveUser().getUsername(), 0, 0, JSON.stringify([]), '', '', false]);
+      userProfile = {
+        email: email,
+        displayName: Session.getActiveUser().getUsername(),
+        seasonPoints: 0,
+        allTimePoints: 0,
+        badgesEarned: [],
+        disqualified: false
+      };
+    }
+
+    // --- BUILD LEADERBOARDS (Season + All-Time) ---
+    const seasonLeaderboard = [];
+    const allTimeLeaderboard = [];
+
+    for (let i = 1; i < studentData.length; i++) {
+      const student = {
+        email: studentData[i][0],
+        name: studentData[i][1],
+        seasonPoints: studentData[i][2] || 0,
+        allTimePoints: studentData[i][3] || 0
+      };
+      seasonLeaderboard.push(student);
+      allTimeLeaderboard.push(student);
+    }
+
+    // Sort by points (descending)
+    seasonLeaderboard.sort((a, b) => b.seasonPoints - a.seasonPoints);
+    allTimeLeaderboard.sort((a, b) => b.allTimePoints - a.allTimePoints);
+
+    // Find user's rank
+    let seasonRank = 1;
+    let allTimeRank = 1;
+    for (let i = 0; i < seasonLeaderboard.length; i++) {
+      if (seasonLeaderboard[i].email === email) {
+        seasonRank = i + 1;
+        break;
+      }
+    }
+    for (let i = 0; i < allTimeLeaderboard.length; i++) {
+      if (allTimeLeaderboard[i].email === email) {
+        allTimeRank = i + 1;
+        break;
+      }
+    }
+
+    // Build top 5 leaderboards
+    const topSeasonLeaderboard = seasonLeaderboard.slice(0, 5).map((student, index) => ({
+      rank: index + 1,
+      name: student.name,
+      points: student.seasonPoints,
+      icon: index < 3 ? 'workspace_premium' : 'military_tech',
+      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
+    }));
+
+    const topAllTimeLeaderboard = allTimeLeaderboard.slice(0, 5).map((student, index) => ({
+      rank: index + 1,
+      name: student.name,
+      points: student.allTimePoints,
+      icon: index < 3 ? 'workspace_premium' : 'military_tech',
+      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
+    }));
+
+    // --- FETCH BADGES ---
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+    const badgeMap = {};
+
+    for (let i = 1; i < badgesData.length; i++) {
+      badgeMap[badgesData[i][0]] = {
+        id: badgesData[i][0],
+        name: badgesData[i][1],
+        category: badgesData[i][2],
+        triggerType: badgesData[i][3],
+        triggerValue: badgesData[i][4],
+        description: badgesData[i][5],
+        imageUrl: badgesData[i][6]
+      };
+    }
+
+    // Map earned badge IDs to full badge objects
+    const earnedBadges = userProfile.badgesEarned.map(badgeId => {
+      const badge = badgeMap[badgeId];
+      if (!badge) return null;
+      return {
+        name: badge.name,
+        icon: 'military_tech', // Default icon; can be customized per badge
+        color: 'bg-gradient-to-br from-indigo-500 to-purple-400' // Default color; customize as needed
+      };
+    }).filter(b => b !== null);
+
+    // --- FETCH SUBMISSION HISTORY ---
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+    const userSubmissions = [];
+
+    for (let i = 1; i < verifiedData.length; i++) {
+      if (verifiedData[i][3] === email) {
+        userSubmissions.push({
+          submissionId: verifiedData[i][0],
+          timestampSubmitted: new Date(verifiedData[i][1]),
+          eventId: verifiedData[i][4],
+          pointsBase: verifiedData[i][6] || 0,
+          pointsTheme: verifiedData[i][7] || 0,
+          pointsMultiplier: verifiedData[i][8] || 0,
+          pointsTotal: verifiedData[i][9] || 0
+        });
+      }
+    }
+
+    // Fetch event details for history display
+    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventData = eventSheet.getDataRange().getValues();
+    const eventMap = {};
+    for (let i = 1; i < eventData.length; i++) {
+      eventMap[eventData[i][0]] = {
+        name: eventData[i][2],
+        date: eventData[i][3],
+        sportArt: eventData[i][1],
+        theme: eventData[i][9]
+      };
+    }
+
+    // Build history with event names
+    const history = userSubmissions.map(submission => {
+      const eventInfo = eventMap[submission.eventId] || { name: 'Unknown Event', date: 'N/A', sportArt: 'Other' };
+      return {
+        name: eventInfo.name,
+        date: eventInfo.date instanceof Date ? eventInfo.date.toLocaleDateString() : eventInfo.date,
+        points: submission.pointsTotal,
+        status: 'Approved',
+        icon: eventInfo.sportArt.toLowerCase().includes('basketball') ? 'sports_basketball' :
+               eventInfo.sportArt.toLowerCase().includes('hockey') ? 'sports_hockey' :
+               eventInfo.sportArt.toLowerCase().includes('art') || eventInfo.sportArt.toLowerCase().includes('play') ? 'theater_comedy' : 'event',
+        color: 'text-primary'
+      };
+    });
+
+    // Fetch pending submissions for history
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    const pendingData = pendingSheet.getDataRange().getValues();
+
+    for (let i = 1; i < pendingData.length; i++) {
+      if (pendingData[i][2] === email) {
+        const eventInfo = eventMap[pendingData[i][3]] || { name: 'Unknown Event', date: 'N/A', sportArt: 'Other' };
+        history.push({
+          name: eventInfo.name,
+          date: new Date(pendingData[i][1]).toLocaleDateString(),
+          points: 0,
+          status: 'Pending',
+          icon: eventInfo.sportArt.toLowerCase().includes('basketball') ? 'sports_basketball' :
+                 eventInfo.sportArt.toLowerCase().includes('hockey') ? 'sports_hockey' :
+                 eventInfo.sportArt.toLowerCase().includes('art') || eventInfo.sportArt.toLowerCase().includes('play') ? 'theater_comedy' : 'event',
+          color: 'text-gray-500'
+        });
+      }
+    }
+
+    // Sort history by date (most recent first)
+    history.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // --- RETURN COMBINED DATA ---
+    return {
+      seasonPoints: userProfile.seasonPoints,
+      seasonRank: seasonRank,
+      allTimePoints: userProfile.allTimePoints,
+      allTimeRank: allTimeRank,
+      badges: earnedBadges,
+      leaderboard: topSeasonLeaderboard, // Default to season; will swap on toggle
+      allTimeLeaderboard: topAllTimeLeaderboard,
+      history: history
+    };
+
+  } catch (e) {
+    Logger.log('Error in getProfileData: ' + e.message);
+    // Return empty/default data on error
+    return {
+      seasonPoints: 0,
+      seasonRank: 0,
+      allTimePoints: 0,
+      allTimeRank: 0,
+      badges: [],
+      leaderboard: [],
+      allTimeLeaderboard: [],
+      history: []
+    };
+  }
 }
 
 
@@ -133,7 +342,7 @@ function setupSpreadsheet() {
     'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified'],
     'Event_Schedule': ['Event_ID', 'Sport_Art', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
-    'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total'],
+    'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role']
   };
@@ -285,7 +494,8 @@ function createHtmlFiles() {
     'JavaScript.html': `<script>
     // --- STATE & PAGE ROUTING -----------------------------------------------
     let html5QrCode = null;
-    
+    let currentProfileData = null; // Store full profile data for leaderboard toggling
+
     const TITLES = {
       'profile': 'My Profile', 'history': 'Event History', 'prizes': 'Prizes & Awards',
       'fanfeed': 'Fan Feed', 'scanner': 'Scan Event Code', 'submit': 'Submit Attendance',
@@ -379,8 +589,12 @@ function createHtmlFiles() {
           if (e.target.tagName === 'BUTTON') {
             document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
             e.target.classList.add('active-toggle');
-            // TODO: Add logic to fetch and display the correct leaderboard
-            console.log("Leaderboard view changed to:", e.target.dataset.view);
+            const view = e.target.dataset.view;
+
+            if (currentProfileData) {
+              const leaderboard = view === 'all-time' ? currentProfileData.allTimeLeaderboard : currentProfileData.leaderboard;
+              updateLeaderboardDisplay(leaderboard);
+            }
           }
         });
         
@@ -400,15 +614,21 @@ function createHtmlFiles() {
 
       if (APP_DATA.page === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
-        // TODO: Get event name from eventId passed in URL
-        // const urlParams = new URLSearchParams(window.location.search);
-        // const eventId = urlParams.get('event');
-        // google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
+
+        // Get event details from URL and fetch them
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('event');
+        if (eventId) {
+          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
+        }
       }
       
-      // Onboarding
-      // TODO: Use google.script.run to check PropertiesService
-      // document.getElementById('onboarding-modal').classList.remove('hidden');
+      // Onboarding - Show only on first visit
+      const hasSeenOnboarding = sessionStorage.getItem('onboarding-seen');
+      if (!hasSeenOnboarding) {
+        document.getElementById('onboarding-modal').classList.remove('hidden');
+        sessionStorage.setItem('onboarding-seen', 'true');
+      }
       document.getElementById('onboarding-agree').addEventListener('click', () => {
         document.getElementById('onboarding-modal').classList.add('hidden');
       });
@@ -424,13 +644,30 @@ function createHtmlFiles() {
     });
 
     // --- DATA POPULATION ---
+    function updateLeaderboardDisplay(leaderboard) {
+      const lbContainer = document.getElementById('leaderboard-container');
+      lbContainer.innerHTML = ''; // Clear
+      leaderboard.forEach(item => {
+        lbContainer.innerHTML += \`
+          <div class="flex items-center gap-3 rounded-lg p-3 \${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
+            <span class="font-bold text-lg \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
+            <span class="material-symbols-outlined text-2xl \${item.color}">\${item.icon}</span>
+            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">\${item.name}</span>
+            <span class="font-bold \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
+          </div>\`;
+      });
+    }
+
     function populateProfile(data) {
+      // Store data for leaderboard toggling
+      currentProfileData = data;
+
       document.getElementById('profile-name').innerText = APP_DATA.userName;
       document.getElementById('profile-email').innerText = APP_DATA.userEmail;
       document.getElementById('profile-points').innerText = data.seasonPoints;
       document.getElementById('profile-rank').innerText = \`#\${data.seasonRank}\`;
       document.getElementById('profile-alltime').innerText = \`\${data.allTimePoints} PTS / Rank #\${data.allTimeRank}\`;
-      
+
       // Populate Badges
       const badgeContainer = document.getElementById('badge-container');
       badgeContainer.innerHTML = ''; // Clear
@@ -447,18 +684,8 @@ function createHtmlFiles() {
       // Re-add listener for the new 'View All' button
       badgeContainer.querySelector('#view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
 
-      // Populate Leaderboard
-      const lbContainer = document.getElementById('leaderboard-container');
-      lbContainer.innerHTML = ''; // Clear
-      data.leaderboard.forEach(item => {
-        lbContainer.innerHTML += \`
-          <div class="flex items-center gap-3 rounded-lg p-3 \${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
-            <span class="font-bold text-lg \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
-            <span class="material-symbols-outlined text-2xl \${item.color}">\${item.icon}</span>
-            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">\${item.name}</span>
-            <span class="font-bold \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
-          </div>\`;
-      });
+      // Populate Leaderboard (season by default)
+      updateLeaderboardDisplay(data.leaderboard);
     }
     
     function populateHistory(data) {
@@ -482,6 +709,23 @@ function createHtmlFiles() {
             </div>
           </div>\`;
       });
+    }
+
+    function populateEventDetails(eventData) {
+      if (eventData.status === 'error') {
+        alert('Error: ' + eventData.message);
+        navigateToPage('profile');
+        return;
+      }
+
+      // Populate event name field
+      document.getElementById('event-name').value = eventData.eventName;
+
+      // Store event data for submission
+      window.currentEventData = eventData;
+
+      // Optionally show event details like location and theme
+      console.log('Event loaded:', eventData.eventName, 'Theme:', eventData.theme);
     }
 
     // --- FORM SUBMISSION ---
@@ -682,8 +926,13 @@ function createHtmlFiles() {
   <div id="history-container" class="flex flex-col gap-3 px-4 mt-4">
     <p class="p-4 text-center text-gray-500">Loading history...</p>
   </div>`,
-    'Page.prizes.html': `<div class="p-4">
-    <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm space-y-4">
+    'Page.prizes.html': `<div class="p-4 pt-6">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Prizes & Events</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Earn points by attending events!</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm space-y-4 mb-4">
       <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">🏆 Season Awards</h2>
       <p class="text-[#111318] dark:text-white">The top 3 fans at the end of the season win!</p>
       <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white">
@@ -692,20 +941,156 @@ function createHtmlFiles() {
         <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
       </ul>
       <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2 mt-6">🏅 Sport Superfan Awards</h2>
-      <p class="text-[#111318] dark:text-white">The top fan for each individual sport or art wins a booster-sponsored prize!</p>
-      <div class="flex flex-wrap gap-2 text-sm">
-        <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Girls Basketball</span>
-        <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Boys Basketball</span>
-        <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Girls Hockey</span>
+      <p class="text-[#111318] dark:text-white text-sm">The top fan for each individual sport or art wins a booster-sponsored prize!</p>
+      <div id="sport-categories-container" class="flex flex-wrap gap-2 text-sm">
+        <p class="text-gray-500">Loading categories...</p>
       </div>
     </div>
-  </div>`,
-    'Page.fanfeed.html': `<div class="p-4">
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm text-center">
-      <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Fan Feed</h2>
-      <p class="text-[#111318] dark:text-white mt-4">The Fan Feed is coming soon! This is where you'll see a live feed of approved event photos.</p>
+
+    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 px-4 mb-3">Upcoming Events</h2>
+    <div id="events-container" class="space-y-3 px-4">
+      <p class="text-center text-gray-500 py-8">Loading events...</p>
     </div>
-  </div>`,
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(populateEvents).getEventList();
+    });
+
+    function populateEvents(response) {
+      if (response.status === 'error') {
+        document.getElementById('events-container').innerHTML = '<p class="text-center text-red-600">Error loading events</p>';
+        return;
+      }
+
+      const events = response.events || [];
+      const container = document.getElementById('events-container');
+
+      if (events.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">No events scheduled.</p>';
+      } else {
+        container.innerHTML = '';
+        events.forEach(event => {
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700';
+          card.innerHTML = \`
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1">
+                <p class="font-bold text-[#111318] dark:text-white text-lg">\${event.eventName}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">\${event.sportArt}</p>
+              </div>
+              \${event.isSpotlightGame ? '<span class="bg-secondary/20 text-secondary dark:text-red-400 px-2 py-1 rounded text-xs font-bold">SPOTLIGHT</span>' : ''}
+            </div>
+
+            <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <p><span class="material-symbols-outlined text-sm align-middle mr-1">event</span>\${typeof event.date === 'string' ? event.date : new Date(event.date).toLocaleDateString()}</p>
+              <p><span class="material-symbols-outlined text-sm align-middle mr-1">location_on</span>\${event.locationName || 'TBD'}</p>
+              \${event.theme && event.theme !== 'None' ? '<p><span class="material-symbols-outlined text-sm align-middle mr-1">style</span>Theme: ' + event.theme + '</p>' : ''}
+            </div>
+
+            <button class="w-full bg-primary text-white font-bold py-2 px-4 rounded-lg active:scale-95 transition-transform text-sm" onclick="navigateToPage('scanner')">
+              Scan to Attend
+            </button>
+          \`;
+          container.appendChild(card);
+        });
+      }
+
+      // Extract and display unique categories
+      const categories = new Set();
+      events.forEach(event => categories.add(event.sportArt));
+
+      const categoriesContainer = document.getElementById('sport-categories-container');
+      if (categories.size === 0) {
+        categoriesContainer.innerHTML = '<p class="text-gray-500">No categories</p>';
+      } else {
+        categoriesContainer.innerHTML = '';
+        categories.forEach(category => {
+          const tag = document.createElement('span');
+          tag.className = 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full text-sm';
+          tag.innerText = category;
+          categoriesContainer.appendChild(tag);
+        });
+      }
+    }
+  </script>`,
+    'Page.fanfeed.html': `<div class="p-4 pt-6">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos from your classmates!</p>
+    </div>
+
+    <div id="fanfeed-container" class="space-y-3">
+      <p class="text-center text-gray-500 py-8">Loading photos...</p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadFanFeed();
+      // Refresh every 10 seconds
+      setInterval(loadFanFeed, 10000);
+    });
+
+    function loadFanFeed() {
+      const container = document.getElementById('fanfeed-container');
+      container.innerHTML = '<p class="text-center text-gray-500 py-4">Loading...</p>';
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'error') {
+          container.innerHTML = '<p class="text-center text-red-600">Error loading feed</p>';
+          return;
+        }
+
+        const photos = response.photos || [];
+        if (photos.length === 0) {
+          container.innerHTML = '<p class="text-center text-gray-500 py-8">No approved photos yet. Scan an event code to get started!</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        photos.forEach(photo => {
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
+          card.innerHTML = \`
+            <img src="\${photo.photoUrl}" alt="Event photo" class="w-full h-64 object-cover">
+
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <p class="font-bold text-[#111318] dark:text-white">\${photo.eventName}</p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">\${photo.studentEmail}</p>
+                </div>
+              </div>
+
+              <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                <span class="material-symbols-outlined text-xs align-middle">schedule</span>
+                \${new Date(photo.timestamp).toLocaleDateString()}
+              </p>
+
+              <div class="flex gap-2">
+                <div class="flex-1 flex items-center justify-center gap-1 bg-gray-100 dark:bg-gray-700/50 rounded py-2 px-3">
+                  <span class="material-symbols-outlined text-sm">favorite</span>
+                  <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">\${photo.likes || 0}</span>
+                </div>
+                <button onclick="toggleLike('\${photo.submissionId}')" class="flex-1 flex items-center justify-center gap-1 bg-primary/10 dark:bg-primary/20 rounded py-2 px-3 active:scale-95 transition-transform">
+                  <span class="material-symbols-outlined text-sm">favorite_border</span>
+                  <span class="text-sm font-semibold text-primary dark:text-blue-300">Like</span>
+                </button>
+              </div>
+            </div>
+          \`;
+          container.appendChild(card);
+        });
+      }).getFanFeed();
+    }
+
+    function toggleLike(submissionId) {
+      // This can be extended to implement actual like functionality
+      console.log('Liked submission:', submissionId);
+    }
+  </script>`,
     'Page.scanner.html': `<div class="page fixed inset-0 z-50 bg-background-dark text-white">
     <div class="relative flex h-full min-h-screen w-full flex-col overflow-hidden">
       <div class="relative z-10 flex h-full min-h-screen flex-col">
@@ -762,29 +1147,448 @@ function createHtmlFiles() {
       </button>
     </form>
   </div>`,
-    'Page.settings.html': `<div class="p-4">
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-      <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Settings</h2>
-      <p class="text-[#111318] dark:text-white mt-4">App settings and account information will go here.</p>
-      <!-- TODO: Add dark mode toggle, notification preferences, etc. -->
+    'Page.settings.html': `<div class="p-4 pt-6 pb-24">
+    <div class="space-y-4">
+      <!-- Display Settings -->
+      <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+        <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">Display Settings</h2>
+
+        <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex-1">
+            <p class="font-semibold text-[#111318] dark:text-white">Dark Mode</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Enable dark theme</p>
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="dark-mode-toggle" class="h-6 w-11 rounded-full bg-gray-300 relative appearance-none cursor-pointer transition-colors" style="background-color: var(--toggle-color, #ccc);">
+          </div>
+        </div>
+      </div>
+
+      <!-- Notification Settings -->
+      <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+        <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">Notifications</h2>
+
+        <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex-1">
+            <p class="font-semibold text-[#111318] dark:text-white">Submission Approved</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Notify when admin approves</p>
+          </div>
+          <input type="checkbox" id="notif-approved" class="h-5 w-5 rounded text-primary cursor-pointer" checked>
+        </div>
+
+        <div class="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+          <div class="flex-1">
+            <p class="font-semibold text-[#111318] dark:text-white">New Event Posted</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Notify about new events</p>
+          </div>
+          <input type="checkbox" id="notif-events" class="h-5 w-5 rounded text-primary cursor-pointer" checked>
+        </div>
+
+        <div class="flex items-center justify-between py-3">
+          <div class="flex-1">
+            <p class="font-semibold text-[#111318] dark:text-white">Badge Unlocked</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Notify when you earn badges</p>
+          </div>
+          <input type="checkbox" id="notif-badges" class="h-5 w-5 rounded text-primary cursor-pointer" checked>
+        </div>
+      </div>
+
+      <!-- Account Info -->
+      <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+        <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">Account</h2>
+
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Email</p>
+            <p class="font-semibold text-[#111318] dark:text-white" id="account-email">Loading...</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Name</p>
+            <p class="font-semibold text-[#111318] dark:text-white" id="account-name">Loading...</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Account Status</p>
+            <p id="account-status" class="font-semibold text-green-600">Active</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+        <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">About</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">The Spartan Cup v1.0</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Gamify your school spirit and earn points by supporting Orono events!</p>
+      </div>
+
+      <!-- Save Button -->
+      <button id="settings-save-btn" class="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg active:scale-95 transition-transform">
+        Save Settings
+      </button>
     </div>
-  </div>`,
-    'Page.all-badges.html': `<div class="p-4">
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">All Earned Badges</h2>
-      <p class="text-[#111318] dark:text-white">A full grid or list of all earned badges will go here.</p>
-      <!-- TODO: Populate with a grid of all badges from user's profile -->
+  </div>
+
+  <style>
+    #dark-mode-toggle {
+      width: 44px;
+      height: 24px;
+      padding: 2px;
+    }
+    #dark-mode-toggle:checked {
+      background-color: #1b3b87;
+    }
+    #dark-mode-toggle::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: white;
+      top: 2px;
+      left: 2px;
+      transition: left 0.3s;
+    }
+    #dark-mode-toggle:checked::after {
+      left: 22px;
+    }
+  </style>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load settings
+      loadSettings();
+
+      // Account info
+      document.getElementById('account-email').innerText = APP_DATA.userEmail;
+      document.getElementById('account-name').innerText = APP_DATA.userName;
+
+      // Dark mode toggle
+      const darkModeToggle = document.getElementById('dark-mode-toggle');
+      const isDarkMode = localStorage.getItem('darkMode') === 'true' || document.documentElement.classList.contains('dark');
+      darkModeToggle.checked = isDarkMode;
+      updateDarkMode(isDarkMode);
+
+      darkModeToggle.addEventListener('change', (e) => {
+        updateDarkMode(e.target.checked);
+      });
+
+      // Save button
+      document.getElementById('settings-save-btn').addEventListener('click', saveSettings);
+    });
+
+    function loadSettings() {
+      // Load notification settings from localStorage
+      document.getElementById('notif-approved').checked = localStorage.getItem('notif-approved') !== 'false';
+      document.getElementById('notif-events').checked = localStorage.getItem('notif-events') !== 'false';
+      document.getElementById('notif-badges').checked = localStorage.getItem('notif-badges') !== 'false';
+    }
+
+    function saveSettings() {
+      // Save dark mode
+      const isDarkMode = document.getElementById('dark-mode-toggle').checked;
+      localStorage.setItem('darkMode', isDarkMode);
+      updateDarkMode(isDarkMode);
+
+      // Save notification settings
+      localStorage.setItem('notif-approved', document.getElementById('notif-approved').checked);
+      localStorage.setItem('notif-events', document.getElementById('notif-events').checked);
+      localStorage.setItem('notif-badges', document.getElementById('notif-badges').checked);
+
+      // Show confirmation
+      const btn = document.getElementById('settings-save-btn');
+      const originalText = btn.innerText;
+      btn.innerText = '✓ Settings Saved';
+      setTimeout(() => {
+        btn.innerText = originalText;
+      }, 2000);
+    }
+
+    function updateDarkMode(isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('darkMode', isDark);
+    }
+  </script>`,
+    'Page.all-badges.html': `<div class="p-4 pt-6">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">All Badges</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Earn badges by achieving milestones!</p>
     </div>
-  </div>`,
-    'Page.admin.html': `<div class="p-4">
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-4">Admin Dashboard</h2>
-      <p class="text-[#111318] dark:text-white">This page is only visible to admins.</p>
-      <h3 class="text-lg font-bold text-[#111318] dark:text-white mt-6">Pending Submissions</h3>
-      <p class="text-gray-500 dark:text-gray-400">The "swipe-to-approve" UI will go here.</p>
-      <!-- TODO: Build admin verification queue -->
+
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white px-4 mb-3">Earned Badges</h3>
+    <div id="earned-badges-grid" class="grid grid-cols-3 gap-3 px-4 mb-6">
+      <p class="col-span-3 text-center text-gray-500 py-8">Loading badges...</p>
     </div>
-  </div>`
+
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white px-4 mb-3">Locked Badges</h3>
+    <div id="locked-badges-grid" class="grid grid-cols-3 gap-3 px-4">
+      <p class="col-span-3 text-center text-gray-500 py-8">Loading badges...</p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(populateAllBadges).getBadgeData();
+    });
+
+    function populateAllBadges(response) {
+      if (response.status === 'error') {
+        document.getElementById('earned-badges-grid').innerHTML = '<p class="col-span-3 text-center text-red-600">Error loading badges</p>';
+        return;
+      }
+
+      const earnedBadgeIds = response.earnedBadgeIds || [];
+      const allBadges = response.allBadges || [];
+
+      const earnedBadges = allBadges.filter(b => earnedBadgeIds.includes(b.badgeId));
+      const lockedBadges = allBadges.filter(b => !earnedBadgeIds.includes(b.badgeId));
+
+      // Populate earned badges
+      const earnedGrid = document.getElementById('earned-badges-grid');
+      if (earnedBadges.length === 0) {
+        earnedGrid.innerHTML = '<p class="col-span-3 text-center text-gray-500 py-4">No badges earned yet. Keep going!</p>';
+      } else {
+        earnedGrid.innerHTML = '';
+        earnedBadges.forEach(badge => {
+          earnedGrid.innerHTML += createBadgeCard(badge, true);
+        });
+      }
+
+      // Populate locked badges
+      const lockedGrid = document.getElementById('locked-badges-grid');
+      if (lockedBadges.length === 0) {
+        lockedGrid.innerHTML = '<p class="col-span-3 text-center text-gray-500 py-4">You\'ve unlocked all badges!</p>';
+      } else {
+        lockedGrid.innerHTML = '';
+        lockedBadges.forEach(badge => {
+          lockedGrid.innerHTML += createBadgeCard(badge, false);
+        });
+      }
+    }
+
+    function createBadgeCard(badge, isEarned) {
+      const bgColor = isEarned ? 'bg-gradient-to-br from-yellow-400 to-orange-500' : 'bg-gray-300 dark:bg-gray-600';
+      const opacity = isEarned ? '' : 'opacity-50';
+      const lockIcon = isEarned ? '' : '<span class="material-symbols-outlined text-2xl absolute top-1 right-1 text-gray-500">lock</span>';
+
+      return \`
+        <div class="flex flex-col items-center gap-2 cursor-pointer group" title="\${badge.badgeName}">
+          <div class="relative w-16 h-16 rounded-full flex items-center justify-center \${bgColor} \${opacity} shadow-md">
+            <span class="material-symbols-outlined text-3xl text-white">achievement</span>
+            \${lockIcon}
+          </div>
+          <p class="text-xs font-semibold text-center text-[#111318] dark:text-white group-hover:text-primary transition">\${badge.badgeName}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 text-center max-w-[70px]">\${badge.description || ''}</p>
+        </div>
+      \`;
+    }
+  </script>`,
+    'Page.admin.html': `<div class="p-4 pt-6">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Review and approve pending student submissions.</p>
+    </div>
+
+    <div class="flex gap-2 mb-4 sticky top-16 z-10">
+      <button id="admin-refresh-btn" class="flex-1 bg-primary text-white font-bold py-2 px-4 rounded-lg active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-xl align-middle mr-1">refresh</span>Refresh
+      </button>
+    </div>
+
+    <div id="admin-queue-container" class="space-y-3">
+      <p class="text-center text-gray-500 dark:text-gray-400 py-8">Loading pending submissions...</p>
+    </div>
+
+    <!-- Submission Approval Modal -->
+    <div id="approval-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-background-light dark:bg-gray-800 p-6 rounded-xl shadow-xl max-w-sm w-full max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Approve Submission</h3>
+
+        <div id="approval-submission-details" class="space-y-3 mb-4"></div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="font-bold text-[#111318] dark:text-white text-sm">Base Points</label>
+            <input type="number" id="approval-base-points" value="50" min="0" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white">
+          </div>
+
+          <div>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="approval-theme-bonus" class="h-4 w-4 text-primary">
+              <span class="font-bold text-[#111318] dark:text-white text-sm">Theme Bonus (+25 pts)</span>
+            </label>
+          </div>
+
+          <div>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="approval-spotlight-multiplier" class="h-4 w-4 text-primary">
+              <span class="font-bold text-[#111318] dark:text-white text-sm">Spotlight Event (2x multiplier)</span>
+            </label>
+          </div>
+
+          <p id="approval-total-points" class="text-lg font-bold text-primary dark:text-blue-300 text-center py-2">Total: 50 PTS</p>
+        </div>
+
+        <div class="flex gap-2 mt-6">
+          <button id="approval-cancel-btn" class="flex-1 px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold">Cancel</button>
+          <button id="approval-approve-btn" class="flex-1 px-4 py-2 rounded bg-green-600 text-white font-semibold">Approve</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Denial Reason Modal -->
+    <div id="denial-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-background-light dark:bg-gray-800 p-6 rounded-xl shadow-xl max-w-sm w-full">
+        <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Deny Submission</h3>
+
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Are you sure you want to deny this submission?</p>
+
+        <textarea id="denial-reason" placeholder="Optional: Reason for denial" rows="3" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white text-sm"></textarea>
+
+        <div class="flex gap-2 mt-6">
+          <button id="denial-cancel-btn" class="flex-1 px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold">Cancel</button>
+          <button id="denial-confirm-btn" class="flex-1 px-4 py-2 rounded bg-red-600 text-white font-semibold">Deny</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Store current submission being reviewed
+    let currentSubmission = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load admin queue on page load
+      loadAdminQueue();
+
+      // Refresh button
+      document.getElementById('admin-refresh-btn').addEventListener('click', loadAdminQueue);
+
+      // Modal close buttons
+      document.getElementById('approval-cancel-btn').addEventListener('click', closeApprovalModal);
+      document.getElementById('denial-cancel-btn').addEventListener('click', closeDenialModal);
+
+      // Calculate points
+      document.getElementById('approval-base-points').addEventListener('change', updateTotalPoints);
+      document.getElementById('approval-theme-bonus').addEventListener('change', updateTotalPoints);
+      document.getElementById('approval-spotlight-multiplier').addEventListener('change', updateTotalPoints);
+
+      // Approve/Deny buttons
+      document.getElementById('approval-approve-btn').addEventListener('click', confirmApproval);
+      document.getElementById('denial-confirm-btn').addEventListener('click', confirmDenial);
+    });
+
+    function loadAdminQueue() {
+      const container = document.getElementById('admin-queue-container');
+      container.innerHTML = '<p class="text-center text-gray-500 py-4">Loading...</p>';
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'error') {
+          container.innerHTML = '<p class="text-center text-red-600">' + response.message + '</p>';
+          return;
+        }
+
+        if (!response.queue || response.queue.length === 0) {
+          container.innerHTML = '<p class="text-center text-gray-500 py-8">No pending submissions to review.</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        response.queue.forEach(submission => {
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700';
+          card.innerHTML = \`
+            <div class="flex gap-3 mb-3">
+              <img src="\${submission.photoUrl}" alt="Submission" class="w-16 h-16 rounded-lg object-cover">
+              <div class="flex-1">
+                <p class="font-bold text-[#111318] dark:text-white truncate">\${submission.email}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">\${submission.eventName}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">\${new Date(submission.timestamp).toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            <div class="bg-gray-100 dark:bg-gray-700/50 p-2 rounded mb-3 text-sm">
+              <p class="font-semibold text-[#111318] dark:text-white">\${submission.sportArt}</p>
+              \${submission.dressedForTheme ? '<p class="text-xs text-primary dark:text-blue-300">✓ Dressed for theme</p>' : ''}
+              \${submission.notes ? '<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">"' + submission.notes + '"</p>' : ''}
+            </div>
+
+            <div class="flex gap-2">
+              <button class="flex-1 py-2 px-3 bg-green-600 text-white font-bold rounded-lg text-sm active:scale-95" onclick="openApprovalModal('\${submission.submissionId}', '\${submission.email}', '\${submission.eventName}')">
+                Approve
+              </button>
+              <button class="flex-1 py-2 px-3 bg-red-600 text-white font-bold rounded-lg text-sm active:scale-95" onclick="openDenialModal('\${submission.submissionId}', '\${submission.eventName}')">
+                Deny
+              </button>
+            </div>
+          \`;
+          container.appendChild(card);
+        });
+      }).getAdminQueue();
+    }
+
+    function openApprovalModal(submissionId, email, eventName) {
+      currentSubmission = { submissionId, email, eventName };
+      document.getElementById('approval-submission-details').innerHTML = \`
+        <div class="text-sm">
+          <p><span class="font-bold">Student:</span> \${email}</p>
+          <p><span class="font-bold">Event:</span> \${eventName}</p>
+        </div>
+      \`;
+      document.getElementById('approval-modal').classList.remove('hidden');
+      updateTotalPoints();
+    }
+
+    function closeApprovalModal() {
+      document.getElementById('approval-modal').classList.add('hidden');
+      currentSubmission = null;
+    }
+
+    function updateTotalPoints() {
+      const basePoints = parseInt(document.getElementById('approval-base-points').value) || 0;
+      const themeBonus = document.getElementById('approval-theme-bonus').checked ? 25 : 0;
+      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? 2 : 1;
+      const total = Math.round((basePoints + themeBonus) * multiplier);
+
+      document.getElementById('approval-total-points').innerText = 'Total: ' + total + ' PTS';
+    }
+
+    function confirmApproval() {
+      const basePoints = parseInt(document.getElementById('approval-base-points').value) || 0;
+      const themeBonus = document.getElementById('approval-theme-bonus').checked ? 25 : 0;
+      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? 2 : 1;
+
+      google.script.run.withSuccessHandler((response) => {
+        alert(response.message);
+        closeApprovalModal();
+        loadAdminQueue();
+      }).approveSubmission(currentSubmission.submissionId, basePoints, themeBonus, multiplier);
+    }
+
+    function openDenialModal(submissionId, eventName) {
+      currentSubmission = { submissionId, eventName };
+      document.getElementById('denial-reason').value = '';
+      document.getElementById('denial-modal').classList.remove('hidden');
+    }
+
+    function closeDenialModal() {
+      document.getElementById('denial-modal').classList.add('hidden');
+      currentSubmission = null;
+    }
+
+    function confirmDenial() {
+      const reason = document.getElementById('denial-reason').value;
+      google.script.run.withSuccessHandler((response) => {
+        alert(response.message);
+        closeDenialModal();
+        loadAdminQueue();
+      }).denySubmission(currentSubmission.submissionId, reason);
+    }
+  </script>`
   };
 
   Object.keys(files).forEach(filename => {
@@ -853,6 +1657,47 @@ function findVerifiedSubmission(email, eventId) {
     }
   }
   return null;
+}
+
+/**
+ * Fetches event details from the Event_Schedule sheet by event ID.
+ * @param {string} eventId - The event ID to look up
+ * @return {Object} Event details including name, date, location, theme, etc.
+ */
+function getEventDetails(eventId) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Event_Schedule');
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === eventId) {
+        return {
+          eventId: data[i][0],
+          sportArt: data[i][1],
+          eventName: data[i][2],
+          date: data[i][3],
+          locationName: data[i][4],
+          eventLat: data[i][5],
+          eventLon: data[i][6],
+          isHomeGame: data[i][7] || false,
+          isSpotlightGame: data[i][8] || false,
+          theme: data[i][9] || 'None'
+        };
+      }
+    }
+
+    // Event not found
+    return {
+      status: 'error',
+      message: 'Event not found with ID: ' + eventId
+    };
+  } catch (e) {
+    Logger.log('Error in getEventDetails: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error fetching event details: ' + e.message
+    };
+  }
 }
 
 /** Utility function to save the uploaded photo to Google Drive. */
@@ -935,10 +1780,589 @@ function resubmitEvent(formObject, photoBlob) {
   }
 }
 
-// --- 4. ADMIN & NIGHTLY JOB STUBS -----------------------------------------
+// --- 4. ADMIN FUNCTIONS -------------------------------------------------
 
-function getAdminQueue() { /* ... */ }
-function approveSubmission(submissionId, themeBonus) { /* ... */ }
-function denySubmission(submissionId, reason) { /* ... */ }
-function calculateComplexBonuses() { /* ... */ }
+/**
+ * Fetches all pending submissions for admin review.
+ * Only accessible to users in ADMIN_EMAILS list.
+ * @return {Array} Array of pending submissions with student and event details
+ */
+function getAdminQueue() {
+  const email = Session.getActiveUser().getEmail();
+
+  // Check if user is admin
+  if (!ADMIN_EMAILS.includes(email)) {
+    return { status: "error", message: "Access denied. You are not an admin." };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Get pending submissions
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    const pendingData = pendingSheet.getDataRange().getValues();
+
+    // Get event details map
+    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventData = eventSheet.getDataRange().getValues();
+    const eventMap = {};
+    for (let i = 1; i < eventData.length; i++) {
+      eventMap[eventData[i][0]] = {
+        eventName: eventData[i][2],
+        sportArt: eventData[i][1],
+        date: eventData[i][3]
+      };
+    }
+
+    // Build queue
+    const queue = [];
+    for (let i = 1; i < pendingData.length; i++) {
+      const eventInfo = eventMap[pendingData[i][3]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
+      queue.push({
+        submissionId: pendingData[i][0],
+        email: pendingData[i][2],
+        eventId: pendingData[i][3],
+        eventName: eventInfo.eventName,
+        sportArt: eventInfo.sportArt,
+        eventDate: eventInfo.date,
+        photoUrl: pendingData[i][4],
+        photoId: pendingData[i][5],
+        dressedForTheme: pendingData[i][7] || false,
+        notes: pendingData[i][8] || '',
+        timestamp: pendingData[i][1]
+      });
+    }
+
+    return {
+      status: "success",
+      queue: queue
+    };
+
+  } catch (e) {
+    Logger.log('Error in getAdminQueue: ' + e.message);
+    return {
+      status: "error",
+      message: "Error fetching admin queue: " + e.message
+    };
+  }
+}
+
+/**
+ * Approves a pending submission and moves it to Submissions_Verified.
+ * Also updates student's points in Student_Profiles.
+ * @param {string} submissionId - The submission ID to approve
+ * @param {number} basePoints - Base points to award
+ * @param {number} themeBonus - Bonus points if theme was dressed
+ * @param {number} spotlightMultiplier - Spotlight event multiplier
+ */
+function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultiplier) {
+  const email = Session.getActiveUser().getEmail();
+
+  // Check if user is admin
+  if (!ADMIN_EMAILS.includes(email)) {
+    return { status: "error", message: "Access denied. You are not an admin." };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Find the pending submission
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    const pendingData = pendingSheet.getDataRange().getValues();
+    let submissionRow = null;
+    let submissionInfo = null;
+
+    for (let i = 1; i < pendingData.length; i++) {
+      if (pendingData[i][0] === submissionId) {
+        submissionRow = i + 1;
+        submissionInfo = pendingData[i];
+        break;
+      }
+    }
+
+    if (!submissionRow) {
+      return { status: "error", message: "Submission not found." };
+    }
+
+    // Calculate total points
+    const pointsTheme = themeBonus || (submissionInfo[7] ? 25 : 0); // Default theme bonus
+    const pointsMultiplier = spotlightMultiplier || 1;
+    const pointsTotal = Math.round((basePoints + pointsTheme) * pointsMultiplier);
+
+    // Move to Submissions_Verified (including photo URL for fan feed)
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    verifiedSheet.appendRow([
+      submissionInfo[0], // Submission_ID
+      submissionInfo[1], // Timestamp_Submitted
+      new Date(), // Timestamp_Approved
+      submissionInfo[2], // Email
+      submissionInfo[3], // Event_ID
+      email, // Admin_Email
+      basePoints, // Points_Base
+      pointsTheme, // Points_Theme
+      pointsMultiplier, // Points_Spotlight_Multiplier
+      pointsTotal, // Points_Total
+      submissionInfo[4] // Photo_URL (added for fan feed)
+    ]);
+
+    // Delete from Submissions_Pending
+    pendingSheet.deleteRow(submissionRow);
+
+    // Update Student_Profiles with points
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === submissionInfo[2]) {
+        // Update season and all-time points
+        const newSeasonPoints = (studentData[i][2] || 0) + pointsTotal;
+        const newAllTimePoints = (studentData[i][3] || 0) + pointsTotal;
+
+        studentSheet.getRange(i + 1, 3).setValue(newSeasonPoints);
+        studentSheet.getRange(i + 1, 4).setValue(newAllTimePoints);
+        break;
+      }
+    }
+
+    // Calculate badges for the student
+    calculateBadges(submissionInfo[2]);
+
+    // Send notification to student
+    const eventInfo = eventMap[submissionInfo[3]] || { name: 'Event' };
+    notifySubmissionApproved(submissionInfo[2], eventInfo.name, pointsTotal);
+
+    return {
+      status: "success",
+      message: "Submission approved! " + pointsTotal + " points awarded."
+    };
+
+  } catch (e) {
+    Logger.log('Error in approveSubmission: ' + e.message);
+    return {
+      status: "error",
+      message: "Error approving submission: " + e.message
+    };
+  }
+}
+
+/**
+ * Denies a pending submission and optionally saves denial reason.
+ * @param {string} submissionId - The submission ID to deny
+ * @param {string} reason - Reason for denial (optional)
+ */
+function denySubmission(submissionId, reason) {
+  const email = Session.getActiveUser().getEmail();
+
+  // Check if user is admin
+  if (!ADMIN_EMAILS.includes(email)) {
+    return { status: "error", message: "Access denied. You are not an admin." };
+  }
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Find the pending submission
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    const pendingData = pendingSheet.getDataRange().getValues();
+    let submissionRow = null;
+    let submissionInfo = null;
+
+    for (let i = 1; i < pendingData.length; i++) {
+      if (pendingData[i][0] === submissionId) {
+        submissionRow = i + 1;
+        submissionInfo = pendingData[i];
+        break;
+      }
+    }
+
+    if (!submissionRow) {
+      return { status: "error", message: "Submission not found." };
+    }
+
+    // Delete from Submissions_Pending
+    pendingSheet.deleteRow(submissionRow);
+
+    // Optionally delete photo from Drive
+    try {
+      DriveApp.getFileById(submissionInfo[5]).setTrashed(true);
+    } catch (e) {
+      Logger.log("Could not delete photo: " + e.message);
+    }
+
+    return {
+      status: "success",
+      message: "Submission denied. Reason: " + (reason || "No reason provided")
+    };
+
+  } catch (e) {
+    Logger.log('Error in denySubmission: ' + e.message);
+    return {
+      status: "error",
+      message: "Error denying submission: " + e.message
+    };
+  }
+}
+
+/**
+ * Fetches all badge definitions and user's earned badges.
+ * @return {Object} Includes all badges and earned badge IDs
+ */
+function getBadgeData() {
+  const email = Session.getActiveUser().getEmail();
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Get all badges
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    const allBadges = [];
+    for (let i = 1; i < badgesData.length; i++) {
+      allBadges.push({
+        badgeId: badgesData[i][0],
+        badgeName: badgesData[i][1],
+        category: badgesData[i][2],
+        triggerType: badgesData[i][3],
+        triggerValue: badgesData[i][4],
+        description: badgesData[i][5],
+        imageUrl: badgesData[i][6]
+      });
+    }
+
+    // Get user's profile
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    let userEarnedBadges = [];
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        userEarnedBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+        break;
+      }
+    }
+
+    return {
+      status: "success",
+      allBadges: allBadges,
+      earnedBadgeIds: userEarnedBadges
+    };
+
+  } catch (e) {
+    Logger.log('Error in getBadgeData: ' + e.message);
+    return {
+      status: "error",
+      message: "Error fetching badge data: " + e.message
+    };
+  }
+}
+
+/**
+ * Calculates badges earned based on student points and saves to Student_Profiles.
+ * Called after a submission is approved.
+ * @param {string} email - Student email
+ */
+function calculateBadges(email) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Get student profile
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    let studentRow = null;
+    let studentProfile = null;
+
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        studentRow = i + 1;
+        studentProfile = {
+          seasonPoints: studentData[i][2] || 0,
+          allTimePoints: studentData[i][3] || 0,
+          earnedBadges: studentData[i][4] ? JSON.parse(studentData[i][4]) : []
+        };
+        break;
+      }
+    }
+
+    if (!studentProfile) return;
+
+    // Get all badges
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Check which badges should be earned
+    for (let i = 1; i < badgesData.length; i++) {
+      const badgeId = badgesData[i][0];
+      const triggerType = badgesData[i][3];
+      const triggerValue = badgesData[i][4];
+
+      // Skip if already earned
+      if (studentProfile.earnedBadges.includes(badgeId)) continue;
+
+      let shouldEarn = false;
+
+      if (triggerType === 'points_threshold') {
+        shouldEarn = studentProfile.allTimePoints >= triggerValue;
+      } else if (triggerType === 'season_points') {
+        shouldEarn = studentProfile.seasonPoints >= triggerValue;
+      } else if (triggerType === 'event_count') {
+        // Count verified submissions for this student
+        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+        const verifiedData = verifiedSheet.getDataRange().getValues();
+        let submissionCount = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) submissionCount++;
+        }
+        shouldEarn = submissionCount >= triggerValue;
+      }
+
+      if (shouldEarn) {
+        studentProfile.earnedBadges.push(badgeId);
+        // Send notification for new badge
+        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+      }
+    }
+
+    // Update Student_Profiles with new badges
+    studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
+
+  } catch (e) {
+    Logger.log('Error in calculateBadges: ' + e.message);
+  }
+}
+
+/**
+ * Fetches a list of upcoming events, optionally filtered by category.
+ * @param {string} category - Optional filter by sport/art category
+ * @return {Array} Array of events with details
+ */
+function getEventList(category) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventData = eventSheet.getDataRange().getValues();
+
+    const events = [];
+    for (let i = 1; i < eventData.length; i++) {
+      const event = {
+        eventId: eventData[i][0],
+        sportArt: eventData[i][1],
+        eventName: eventData[i][2],
+        date: eventData[i][3],
+        locationName: eventData[i][4],
+        eventLat: eventData[i][5],
+        eventLon: eventData[i][6],
+        isHomeGame: eventData[i][7] || false,
+        isSpotlightGame: eventData[i][8] || false,
+        theme: eventData[i][9] || 'None'
+      };
+
+      // Filter by category if provided
+      if (!category || event.sportArt.toLowerCase().includes(category.toLowerCase())) {
+        events.push(event);
+      }
+    }
+
+    return {
+      status: "success",
+      events: events
+    };
+
+  } catch (e) {
+    Logger.log('Error in getEventList: ' + e.message);
+    return {
+      status: "error",
+      message: "Error fetching events: " + e.message
+    };
+  }
+}
+
+/**
+ * Fetches approved photos for the fan feed (recent 50 photos, sorted by date).
+ * @return {Array} Array of approved submission photos with metadata
+ */
+function getFanFeed() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Get verified submissions
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+
+    // Get event details map
+    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventData = eventSheet.getDataRange().getValues();
+    const eventMap = {};
+    for (let i = 1; i < eventData.length; i++) {
+      eventMap[eventData[i][0]] = {
+        eventName: eventData[i][2],
+        sportArt: eventData[i][1]
+      };
+    }
+
+    const photos = [];
+    for (let i = 1; i < verifiedData.length; i++) {
+      const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
+      // Photo URL is in column 10 (0-indexed as 10) - added when approving
+      const photoUrl = verifiedData[i][10];
+
+      // Skip if no photo URL
+      if (!photoUrl) continue;
+
+      photos.push({
+        submissionId: verifiedData[i][0],
+        timestamp: verifiedData[i][2], // Timestamp_Approved
+        studentEmail: verifiedData[i][3],
+        eventName: eventInfo.eventName,
+        eventId: verifiedData[i][4],
+        photoUrl: photoUrl,
+        likes: 0 // Default likes count; persistence tracked in PropertiesService if needed
+      });
+    }
+
+    // Sort by date (most recent first) and limit to 50
+    photos.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recentPhotos = photos.slice(0, 50);
+
+    return {
+      status: "success",
+      photos: recentPhotos
+    };
+
+  } catch (e) {
+    Logger.log('Error in getFanFeed: ' + e.message);
+    return {
+      status: "error",
+      message: "Error fetching fan feed: " + e.message
+    };
+  }
+}
+
+/**
+ * Calculates streak bonuses based on consecutive event attendance.
+ * @param {string} email - Student email
+ * @return {number} Streak bonus points
+ */
+function calculateStreakBonus(email) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+
+    // Get this user's submissions, sorted by date
+    const userSubmissions = [];
+    for (let i = 1; i < verifiedData.length; i++) {
+      if (verifiedData[i][3] === email) {
+        userSubmissions.push({
+          timestamp: new Date(verifiedData[i][2]),
+          eventId: verifiedData[i][4]
+        });
+      }
+    }
+
+    if (userSubmissions.length === 0) return 0;
+
+    // Sort by date descending
+    userSubmissions.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Calculate streak (consecutive days with at least one submission)
+    let streak = 0;
+    let lastDate = null;
+
+    for (let i = 0; i < userSubmissions.length; i++) {
+      const currentDate = Math.floor(userSubmissions[i].timestamp.getTime() / (1000 * 60 * 60 * 24));
+
+      if (lastDate === null) {
+        streak = 1;
+        lastDate = currentDate;
+      } else if (currentDate === lastDate - 1) {
+        // Consecutive day
+        streak++;
+        lastDate = currentDate;
+      } else if (currentDate !== lastDate) {
+        // Streak broken
+        break;
+      }
+    }
+
+    // Award bonus: 5 points per day of streak, bonus multiplier at 5+ days
+    let bonus = streak * 5;
+    if (streak >= 5) bonus += 25; // 25 point bonus at 5+ day streak
+    if (streak >= 10) bonus += 50; // Additional 50 point bonus at 10+ day streak
+
+    return bonus;
+
+  } catch (e) {
+    Logger.log('Error in calculateStreakBonus: ' + e.message);
+    return 0;
+  }
+}
+
+/**
+ * Sends a notification to a student (stores in PropertiesService for now).
+ * @param {string} studentEmail - Student email
+ * @param {string} type - Notification type (approved, event, badge)
+ * @param {string} message - Notification message
+ */
+function sendNotification(studentEmail, type, message) {
+  try {
+    const userProperties = PropertiesService.getUserProperties();
+    const notificationsKey = 'notifications_' + studentEmail;
+
+    // Get existing notifications
+    let notifications = [];
+    try {
+      notifications = JSON.parse(userProperties.getProperty(notificationsKey)) || [];
+    } catch (e) {
+      notifications = [];
+    }
+
+    // Add new notification
+    notifications.push({
+      type: type,
+      message: message,
+      timestamp: new Date(),
+      read: false
+    });
+
+    // Keep last 50 notifications
+    if (notifications.length > 50) {
+      notifications = notifications.slice(-50);
+    }
+
+    userProperties.setProperty(notificationsKey, JSON.stringify(notifications));
+
+    Logger.log('Notification sent to ' + studentEmail + ': ' + message);
+
+  } catch (e) {
+    Logger.log('Error in sendNotification: ' + e.message);
+  }
+}
+
+/**
+ * Called when a submission is approved - sends notification to student.
+ * @param {string} studentEmail - Student email
+ * @param {string} eventName - Event name
+ * @param {number} pointsAwarded - Points awarded
+ */
+function notifySubmissionApproved(studentEmail, eventName, pointsAwarded) {
+  const message = 'Your submission for ' + eventName + ' was approved! You earned ' + pointsAwarded + ' points.';
+  sendNotification(studentEmail, 'approved', message);
+}
+
+/**
+ * Called when a badge is earned - sends notification to student.
+ * @param {string} studentEmail - Student email
+ * @param {string} badgeName - Badge name
+ */
+function notifyBadgeEarned(studentEmail, badgeName) {
+  const message = 'You earned the "' + badgeName + '" badge!';
+  sendNotification(studentEmail, 'badge', message);
+}
+
+function calculateComplexBonuses() {
+  // Implemented: Streak bonuses via calculateStreakBonus()
+  // Future: Category-specific bonuses, achievement multipliers, etc.
+}
 

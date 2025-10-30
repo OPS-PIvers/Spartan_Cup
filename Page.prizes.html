@@ -1,9 +1,9 @@
-<!-- 
+<!--
   This file holds the content for the 'prizes' page.
   It is dynamically injected into Index.html by Code.gs
 -->
-<div class="page p-4">
-  <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm space-y-4">
+<div class="page p-4 pb-24">
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm space-y-4">
     <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">🏆 Season Awards</h2>
     <p class="text-[#111318] dark:text-white">The top 3 fans at the end of the season win!</p>
     <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white">
@@ -11,23 +11,85 @@
       <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
       <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
     </ul>
-    
+
     <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2 mt-6">🏅 Sport Superfan Awards</h2>
     <p class="text-[#111318] dark:text-white">The top fan for each individual sport or art wins a booster-sponsored prize!</p>
-    <div class="flex flex-wrap gap-2 text-sm">
-      <!-- TODO: This list should be populated from 'Event_Schedule' sheet -->
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Girls Basketball</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Boys Basketball</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Girls Hockey</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Boys Hockey</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Theatre</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Band</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Choir</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Dance</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Wrestling</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Boys Swim & Dive</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Nordic Ski</span>
-      <span class="bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full">Alpine Ski</span>
+    <div id="sport-categories-container" class="flex flex-wrap gap-2 text-sm">
+      <p class="text-gray-500 dark:text-gray-400">Loading categories...</p>
     </div>
   </div>
+
+  <h2 class="text-2xl font-bold text-primary dark:text-blue-300 px-4 mt-6 mb-4">Upcoming Events</h2>
+  <div id="events-container" class="space-y-3 px-4">
+    <p class="text-center text-gray-500 py-8">Loading events...</p>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(populateEvents).getEventList();
+    });
+
+    function populateEvents(response) {
+      if (response.status === 'error') {
+        document.getElementById('events-container').innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading events</p>';
+        return;
+      }
+
+      const events = response.events || [];
+      const container = document.getElementById('events-container');
+      const categories = new Set();
+
+      // Collect unique sport/art categories
+      events.forEach(event => {
+        if (event.sportArt) {
+          categories.add(event.sportArt);
+        }
+      });
+
+      // Populate sport categories
+      const categoriesContainer = document.getElementById('sport-categories-container');
+      if (categories.size === 0) {
+        categoriesContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No categories</p>';
+      } else {
+        categoriesContainer.innerHTML = '';
+        categories.forEach(category => {
+          const tag = document.createElement('span');
+          tag.className = 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full text-sm';
+          tag.innerText = category;
+          categoriesContainer.appendChild(tag);
+        });
+      }
+
+      // Populate events list
+      if (events.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">No events scheduled.</p>';
+      } else {
+        container.innerHTML = '';
+        events.forEach(event => {
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700';
+          card.innerHTML = `
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1">
+                <p class="font-bold text-[#111318] dark:text-white text-lg">${event.eventName}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">${event.sportArt}</p>
+              </div>
+              ${event.isSpotlightGame ? '<span class="bg-secondary/20 text-secondary dark:text-red-400 px-2 py-1 rounded text-xs font-bold">SPOTLIGHT</span>' : ''}
+            </div>
+
+            <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <p><span class="material-symbols-outlined text-sm align-middle mr-1">event</span>${typeof event.date === 'string' ? event.date : new Date(event.date).toLocaleDateString()}</p>
+              <p><span class="material-symbols-outlined text-sm align-middle mr-1">location_on</span>${event.locationName || 'TBD'}</p>
+              ${event.theme && event.theme !== 'None' ? '<p><span class="material-symbols-outlined text-sm align-middle mr-1">style</span>Theme: ' + event.theme + '</p>' : ''}
+            </div>
+
+            <button class="w-full bg-primary text-white font-bold py-2 px-4 rounded-lg active:scale-95 transition-transform text-sm hover:bg-blue-700" onclick="navigateToPage('scanner')">
+              Scan to Attend
+            </button>
+          `;
+          container.appendChild(card);
+        });
+      }
+    }
+  </script>
 </div>
