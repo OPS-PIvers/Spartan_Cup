@@ -90,27 +90,43 @@
   </div>
 
   <script>
+    // Store current settings in memory
+    let currentSettings = {};
+
     document.addEventListener('DOMContentLoaded', () => {
       // Load user data
       document.getElementById('settings-email').textContent = APP_DATA.userEmail;
       document.getElementById('settings-name').textContent = APP_DATA.userName;
 
+      // Load settings from server (passed via APP_DATA)
+      currentSettings = APP_DATA.userSettings || {
+        darkMode: false,
+        eventNotifications: true,
+        approvalNotifications: true,
+        badgeNotifications: true
+      };
+
       // Set dark mode toggle state
-      const isDarkMode = localStorage.getItem('spartan-cup-dark-mode') === 'true';
-      updateDarkModeToggle(isDarkMode);
+      updateDarkModeToggle(currentSettings.darkMode);
 
       // Dark mode toggle
       document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
 
       // Load notification preferences
-      document.getElementById('event-notifications').checked = JSON.parse(localStorage.getItem('event-notifications') ?? 'true');
-      document.getElementById('approval-notifications').checked = JSON.parse(localStorage.getItem('approval-notifications') ?? 'true');
-      document.getElementById('badge-notifications').checked = JSON.parse(localStorage.getItem('badge-notifications') ?? 'true');
+      document.getElementById('event-notifications').checked = currentSettings.eventNotifications;
+      document.getElementById('approval-notifications').checked = currentSettings.approvalNotifications;
+      document.getElementById('badge-notifications').checked = currentSettings.badgeNotifications;
 
-      // Save notification preferences
+      // Save notification preferences immediately when changed
       ['event-notifications', 'approval-notifications', 'badge-notifications'].forEach(id => {
         document.getElementById(id).addEventListener('change', (e) => {
-          localStorage.setItem(id, e.target.checked);
+          const settingKey = id.replace(/-/g, '');
+          // Map checkbox IDs to setting keys
+          if (id === 'event-notifications') currentSettings.eventNotifications = e.target.checked;
+          else if (id === 'approval-notifications') currentSettings.approvalNotifications = e.target.checked;
+          else if (id === 'badge-notifications') currentSettings.badgeNotifications = e.target.checked;
+
+          saveSettingsToServer();
         });
       });
     });
@@ -118,8 +134,9 @@
     function toggleDarkMode() {
       const isDarkMode = document.documentElement.classList.contains('dark');
       const newState = !isDarkMode;
+      currentSettings.darkMode = newState;
       updateDarkModeToggle(newState);
-      localStorage.setItem('spartan-cup-dark-mode', newState);
+      saveSettingsToServer();
     }
 
     function updateDarkModeToggle(isDarkMode) {
@@ -130,6 +147,21 @@
         document.documentElement.classList.remove('dark');
         document.getElementById('dark-mode-toggle').setAttribute('aria-checked', 'false');
       }
+    }
+
+    function saveSettingsToServer() {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response.status === 'success') {
+            console.log('Settings saved to server');
+          } else {
+            alert('Error saving settings: ' + response.message);
+          }
+        })
+        .withFailureHandler(function(error) {
+          alert('Failed to save settings: ' + error);
+        })
+        .saveUserSettings(currentSettings);
     }
 
     function logoutUser() {

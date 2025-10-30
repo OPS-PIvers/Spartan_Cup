@@ -122,7 +122,8 @@
       userName: "<?= userName ?>",
       userPhoto: "<?= userPhoto ?>",
       isAdmin: <?= isAdmin ?>,
-      appUrl: "<?= getWebAppUrl() ?>"
+      appUrl: "<?= getWebAppUrl() ?>",
+      userSettings: <?!= userSettings ?> // Directly embed the JSON string from the server
     };
   </script>
   

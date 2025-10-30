@@ -96,7 +96,13 @@
     // --- EVENT LISTENERS ----------------------------------------------------
     
     document.addEventListener('DOMContentLoaded', () => {
-      
+      // IMPORTANT: Initialize settings FIRST before any page rendering
+      // This ensures dark mode and other settings are applied before the page displays
+      // Settings are loaded from the server via APP_DATA.userSettings
+      if (APP_DATA.userSettings && APP_DATA.userSettings.darkMode) {
+        document.documentElement.classList.add('dark');
+      }
+
       // 1. Set Page Title from the APP_DATA passed from server
       const pageKey = APP_DATA.page.split('&')[0]; // Get base page (e.g., 'submit' from 'submit&event=123')
       document.getElementById('page-title').innerText = TITLES[pageKey] || 'The Spartan Cup';

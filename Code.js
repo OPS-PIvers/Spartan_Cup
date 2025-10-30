@@ -17,7 +17,53 @@ const CAMPUS_GEOFENCE = [
   [44.9702, -93.6300], [44.9702, -93.6180],
   [44.9630, -93.6180], [44.9630, -93.6300],
 ];
-const ADMIN_EMAILS = ["your-admin-email@domain.com", "another-admin@domain.com"];
+
+/**
+ * Reads admin emails from the Config_Admins sheet.
+ * @return {string[]} Array of admin email addresses
+ */
+function getAdminEmails() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const adminSheet = ss.getSheetByName('Config_Admins');
+    const adminData = adminSheet.getDataRange().getValues();
+    const adminEmails = [];
+    for (let i = 1; i < adminData.length; i++) {
+      if (adminData[i][0] && adminData[i][0].trim()) {
+        adminEmails.push(adminData[i][0].toLowerCase());
+      }
+    }
+    return adminEmails;
+  } catch (e) {
+    Logger.log('Error reading admin emails: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Gets the current user's display name from the Student_Profiles sheet.
+ * @return {string} User's display name, or empty string if not found
+ */
+function getUserDisplayName() {
+  const email = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    // Find user and get display name from column B (index 1)
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        return studentData[i][1] || ''; // Return display name or empty string
+      }
+    }
+  } catch (e) {
+    Logger.log('Error reading user display name: ' + e.message);
+  }
+
+  return ''; // Default to empty if not found
+}
 
 // --- 1. WEB APP ROUTER (doGet) ----------------------------------------------
 
@@ -33,9 +79,10 @@ function doGet(e) {
 
   const user = Session.getActiveUser();
   template.userEmail = user.getEmail();
-  template.userName = user.getUsername();
+  template.userName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
   template.userPhoto = getUserProfilePhoto(user.getEmail());
-  template.isAdmin = ADMIN_EMAILS.includes(user.getEmail());
+  template.isAdmin = getAdminEmails().includes(user.getEmail().toLowerCase());
+  template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
 
   return template.evaluate()
     .setTitle('The Spartan Cup')
@@ -76,6 +123,94 @@ function include(filename) {
 }
 
 /**
+ * Gets the current user's settings from the Student_Profiles sheet.
+ * Settings are stored as JSON in column I (index 8).
+ * @return {Object} User settings object with darkMode, notifications, etc.
+ */
+function getUserSettings() {
+  const email = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    // Find user and get settings from column I (index 8)
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        let settingsJson = studentData[i][8];
+        if (settingsJson && settingsJson.toString().trim()) {
+          settingsJson = settingsJson.toString().trim();
+          // Handle malformed JSON by removing extra quotes if present
+          if (settingsJson.startsWith('""') && settingsJson.endsWith('""')) {
+            settingsJson = settingsJson.slice(2, -2); // Remove outer quotes
+          }
+          Logger.log('Raw settings from sheet: ' + settingsJson);
+          try {
+            const parsed = JSON.parse(settingsJson);
+            Logger.log('Successfully parsed settings: ' + JSON.stringify(parsed));
+            return parsed;
+          } catch (parseError) {
+            Logger.log('Failed to parse settings JSON: ' + parseError.message);
+            Logger.log('Malformed JSON was: ' + settingsJson);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('Error reading user settings: ' + e.message);
+  }
+
+  // Return default settings if none found or on error
+  const defaults = {
+    darkMode: false,
+    eventNotifications: true,
+    approvalNotifications: true,
+    badgeNotifications: true
+  };
+  Logger.log('Returning default settings: ' + JSON.stringify(defaults));
+  return defaults;
+}
+
+/**
+ * Saves the current user's settings to the Student_Profiles sheet.
+ * Settings are stored as JSON in column I (index 8).
+ * @param {Object} settings - Settings object with darkMode, notifications, etc.
+ * @return {Object} Confirmation with status
+ */
+function saveUserSettings(settings) {
+  const email = Session.getActiveUser().getEmail();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
+  Logger.log('User email: ' + email);
+
+  try {
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    // Find user and update settings in column I (index 8)
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        Logger.log('Found user at row ' + (i + 1));
+        const settingsJson = JSON.stringify(settings);
+        Logger.log('Saving JSON: ' + settingsJson);
+        studentSheet.getRange(i + 1, 9).setValue(settingsJson); // Column I = column 9
+        SpreadsheetApp.flush(); // Force immediate write to sheet
+        Logger.log('Settings saved and flushed successfully');
+        return { status: 'success', message: 'Settings saved' };
+      }
+    }
+
+    Logger.log('User not found in Student_Profiles sheet');
+    return { status: 'error', message: 'User profile not found' };
+  } catch (e) {
+    Logger.log('Error saving user settings: ' + e.message);
+    return { status: 'error', message: 'Failed to save settings: ' + e.message };
+  }
+}
+
+/**
  * Gets the current user's profile data to populate the page.
  * Fetches real data from Student_Profiles, Config_Badges, and Submissions_Verified sheets.
  * @return {Object} Profile data including points, rank, badges, leaderboard, and history
@@ -106,10 +241,11 @@ function getProfileData() {
 
     // If user not in sheet, create a new profile entry
     if (!userProfile) {
-      studentSheet.appendRow([email, Session.getActiveUser().getUsername(), 0, 0, JSON.stringify([]), '', '', false]);
+      const defaultSettings = { darkMode: false, eventNotifications: true, approvalNotifications: true, badgeNotifications: true };
+      studentSheet.appendRow([email, '', 0, 0, JSON.stringify([]), '', '', false, JSON.stringify(defaultSettings)]);
       userProfile = {
         email: email,
-        displayName: Session.getActiveUser().getUsername(),
+        displayName: '', // Display name will be auto-populated by formula in sheet
         seasonPoints: 0,
         allTimePoints: 0,
         badgesEarned: [],
@@ -339,7 +475,7 @@ function setupSpreadsheet() {
   ss.setName('[The Spartan Cup] - MASTER');
   
   const sheets = {
-    'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified'],
+    'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified', 'Student_Settings'],
     'Event_Schedule': ['Event_ID', 'Sport_Art', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
@@ -361,11 +497,6 @@ function setupSpreadsheet() {
   // Add sample data
   ss.getSheetByName('Event_Schedule').appendRow(['GBB-01', 'Girls Basketball', 'vs. Edina', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, true, true, 'White Out']);
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
-  ADMIN_EMAILS.forEach(email => {
-    if (email !== Session.getActiveUser().getEmail()) {
-      ss.getSheetByName('Config_Admins').appendRow([email, 'Student Admin']);
-    }
-  });
 }
 
 /**
@@ -1265,7 +1396,7 @@ function createHtmlFiles() {
 
       // Dark mode toggle
       const darkModeToggle = document.getElementById('dark-mode-toggle');
-      const isDarkMode = localStorage.getItem('darkMode') === 'true' || document.documentElement.classList.contains('dark');
+      const isDarkMode = localStorage.getItem('spartan-cup-dark-mode') === 'true' || document.documentElement.classList.contains('dark');
       darkModeToggle.checked = isDarkMode;
       updateDarkMode(isDarkMode);
 
@@ -1287,7 +1418,7 @@ function createHtmlFiles() {
     function saveSettings() {
       // Save dark mode
       const isDarkMode = document.getElementById('dark-mode-toggle').checked;
-      localStorage.setItem('darkMode', isDarkMode);
+      localStorage.setItem('spartan-cup-dark-mode', isDarkMode);
       updateDarkMode(isDarkMode);
 
       // Save notification settings
@@ -1310,7 +1441,7 @@ function createHtmlFiles() {
       } else {
         document.documentElement.classList.remove('dark');
       }
-      localStorage.setItem('darkMode', isDark);
+      localStorage.setItem('spartan-cup-dark-mode', isDark);
     }
   </script>`,
     'Page.all-badges.html': `<div class="p-4 pt-6">
@@ -1784,26 +1915,39 @@ function resubmitEvent(formObject, photoBlob) {
 
 /**
  * Fetches all pending submissions for admin review.
- * Only accessible to users in ADMIN_EMAILS list.
+ * Only accessible to users in the Config_Admins sheet.
  * @return {Array} Array of pending submissions with student and event details
  */
 function getAdminQueue() {
   const email = Session.getActiveUser().getEmail();
+  Logger.log('getAdminQueue called by: ' + email);
 
   // Check if user is admin
-  if (!ADMIN_EMAILS.includes(email)) {
+  const adminEmails = getAdminEmails();
+  if (!adminEmails.includes(email.toLowerCase())) {
+    Logger.log('Access denied for: ' + email);
     return { status: "error", message: "Access denied. You are not an admin." };
   }
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    Logger.log('Spreadsheet accessed');
 
     // Get pending submissions
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      Logger.log('Submissions_Pending sheet not found');
+      return { status: "error", message: "Submissions_Pending sheet not found." };
+    }
     const pendingData = pendingSheet.getDataRange().getValues();
+    Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
     // Get event details map
     const eventSheet = ss.getSheetByName('Event_Schedule');
+    if (!eventSheet) {
+      Logger.log('Event_Schedule sheet not found');
+      return { status: "error", message: "Event_Schedule sheet not found." };
+    }
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
@@ -1813,6 +1957,7 @@ function getAdminQueue() {
         date: eventData[i][3]
       };
     }
+    Logger.log('Event map created');
 
     // Build queue
     const queue = [];
@@ -1824,14 +1969,15 @@ function getAdminQueue() {
         eventId: pendingData[i][3],
         eventName: eventInfo.eventName,
         sportArt: eventInfo.sportArt,
-        eventDate: eventInfo.date,
+        eventDate: eventInfo.date.toLocaleDateString(),
         photoUrl: pendingData[i][4],
         photoId: pendingData[i][5],
         dressedForTheme: pendingData[i][7] || false,
         notes: pendingData[i][8] || '',
-        timestamp: pendingData[i][1]
+        timestamp: pendingData[i][1].toISOString()
       });
     }
+    Logger.log('Queue built: ' + queue.length + ' items');
 
     return {
       status: "success",
@@ -1859,7 +2005,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
   const email = Session.getActiveUser().getEmail();
 
   // Check if user is admin
-  if (!ADMIN_EMAILS.includes(email)) {
+  if (!getAdminEmails().includes(email.toLowerCase())) {
     return { status: "error", message: "Access denied. You are not an admin." };
   }
 
@@ -1954,7 +2100,7 @@ function denySubmission(submissionId, reason) {
   const email = Session.getActiveUser().getEmail();
 
   // Check if user is admin
-  if (!ADMIN_EMAILS.includes(email)) {
+  if (!getAdminEmails().includes(email.toLowerCase())) {
     return { status: "error", message: "Access denied. You are not an admin." };
   }
 
