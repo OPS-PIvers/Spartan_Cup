@@ -1824,8 +1824,12 @@ function getEventDetails(eventId) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Event_Schedule');
     const data = sheet.getDataRange().getValues();
 
+    // Trim whitespace from the input event ID for matching
+    const trimmedEventId = String(eventId).trim();
+
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === eventId) {
+      // Trim both sides when comparing
+      if (String(data[i][0]).trim() === trimmedEventId) {
         return {
           eventId: data[i][0],
           sportArt: data[i][1],

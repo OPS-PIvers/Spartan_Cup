@@ -25,7 +25,8 @@
         const loadingModal = document.getElementById('loading-modal');
         if(loadingModal) loadingModal.classList.remove('hidden');
 
-        window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
+        // In Google Apps Script sandboxed environment, use window.location instead of window.top.location
+        window.location.href = APP_DATA.appUrl + '?page=' + pageName;
       }
     }
 
@@ -295,6 +296,21 @@
       });
     }
 
+    /**
+     * Populate the event details on the submit page
+     * Displays sport + event name (e.g., "Girls Basketball vs. Edina")
+     */
+    function populateEventDetails(eventData) {
+      if (eventData.status === 'error') {
+        document.getElementById('event-name').value = 'Error: ' + eventData.message;
+        return;
+      }
+
+      // Combine Sport (Column B) + Event Name (Column C)
+      const displayName = eventData.sportArt + ' ' + eventData.eventName;
+      document.getElementById('event-name').value = displayName;
+    }
+
     // --- FORM SUBMISSION ---
     let pendingFormData = null;
     let pendingPhotoBlob = null;
@@ -373,18 +389,19 @@
     }
 
     function handleSubmissionResponse(response) {
-      document.getElementById('loading-modal').classList.add('hidden');
-      
       if (response.status === "success") {
+        // Don't hide the loading modal - let it stay visible during navigation
         alert(response.message);
-        navigateToPage('profile');
-        
+        navigateToPage('profile'); // This will show the loading spinner and navigate
+
       } else if (response.status === "pending_conflict") {
+        document.getElementById('loading-modal').classList.add('hidden');
         document.getElementById('modal-message').innerText = response.message;
         document.getElementById('confirm-modal').classList.remove('hidden');
         // pendingFormData and pendingPhotoBlob are already set
         
       } else if (response.status === "error") {
+        document.getElementById('loading-modal').classList.add('hidden');
         alert(response.message);
       }
     }
