@@ -120,6 +120,29 @@ function getUserProfilePhoto(email) {
 }
 
 /**
+ * Serves an image file from Google Drive by file ID.
+ * Used for embedding submission photos in the admin dashboard.
+ * Returns the image as a data URL that can be used in img src attributes.
+ * @param {string} fileId - The Google Drive file ID
+ * @return {object} Object with data URL or error message
+ */
+function serveImage(fileId) {
+  try {
+    if (!fileId) {
+      return { status: "error", message: "No file ID provided" };
+    }
+    const file = DriveApp.getFileById(fileId);
+    const blob = file.getBlob();
+    const base64 = Utilities.base64Encode(blob.getBytes());
+    const dataUrl = 'data:' + blob.getContentType() + ';base64,' + base64;
+    return { status: "success", dataUrl: dataUrl };
+  } catch (e) {
+    Logger.log('Error serving image ' + fileId + ': ' + e.message);
+    return { status: "error", message: "Image not found or access denied" };
+  }
+}
+
+/**
  * Utility function to include HTML content from other files (templating).
  */
 function include(filename) {

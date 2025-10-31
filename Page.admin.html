@@ -117,7 +117,7 @@
         card.className = 'p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-pointer hover:shadow-md transition-shadow';
         card.innerHTML = `
           <div class="flex gap-4">
-            <img src="${submission.photoUrl}" alt="Submission" class="w-20 h-20 rounded-lg object-cover">
+            <img id="img-${submission.submissionId}" src="" alt="Loading..." class="w-20 h-20 rounded-lg object-cover bg-gray-200">
             <div class="flex-1">
               <p class="font-bold text-[#111318] dark:text-white">${submission.eventName}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">${submission.email}</p>
@@ -130,19 +130,46 @@
         `;
         card.addEventListener('click', () => showSubmissionModal(submission));
         container.appendChild(card);
+
+        // Load image via backend function
+        if (submission.photoId) {
+          loadSubmissionImage(submission.submissionId, submission.photoId);
+        }
       });
     }
 
     function showSubmissionModal(submission) {
       currentSubmission = submission;
-      document.getElementById('modal-photo').src = submission.photoUrl;
       document.getElementById('modal-student').textContent = submission.email;
       document.getElementById('modal-event').textContent = submission.eventName;
       document.getElementById('modal-theme').textContent = submission.dressedForTheme ? 'Yes' : 'No';
       document.getElementById('modal-notes').textContent = submission.notes || '(none)';
       document.getElementById('modal-points').value = '50';
       document.getElementById('denial-reason').value = '';
+
+      // Load image via backend function
+      if (submission.photoId) {
+        google.script.run.withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            document.getElementById('modal-photo').src = response.dataUrl;
+          } else {
+            document.getElementById('modal-photo').alt = 'Image failed to load';
+          }
+        }).serveImage(submission.photoId);
+      }
+
       document.getElementById('submission-modal').classList.remove('hidden');
+    }
+
+    function loadSubmissionImage(submissionId, photoId) {
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          const imgElement = document.getElementById('img-' + submissionId);
+          if (imgElement) {
+            imgElement.src = response.dataUrl;
+          }
+        }
+      }).serveImage(photoId);
     }
 
     function closeSubmissionModal() {
