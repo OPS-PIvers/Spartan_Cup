@@ -1882,8 +1882,12 @@ function savePhotoToDrive(photoBlob, eventId, email) {
   const blob = Utilities.newBlob(bytes, contentType, `SUB_${eventId}_${email}_${new Date().getTime()}.jpg`);
   const file = submissionFolder.createFile(blob);
   file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
-  
-  return { id: file.getId(), url: file.getDownloadUrl() };
+
+  // Use Google Drive export URL format for embedding in web pages
+  const fileId = file.getId();
+  const exportUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+  return { id: fileId, url: exportUrl };
 }
 
 /**
