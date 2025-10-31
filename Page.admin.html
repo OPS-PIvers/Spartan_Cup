@@ -1,210 +1,359 @@
 <!--
   This file holds the content for the 'admin' page.
   It is dynamically injected into Index.html by Code.gs
+
+  Swipe-based review interface: double-tap image for theme bonus, swipe right to approve, left to deny.
 -->
-<div class="page p-4 pb-24">
-  <div class="space-y-4">
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary">
-      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-400">Review and approve student submissions</p>
-    </div>
-
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
-      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Pending Submissions Queue</h3>
-      <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400 mb-4">Loading submissions...</p>
-
-      <div id="submission-queue" class="space-y-3">
-        <!-- Submissions will be populated here -->
-      </div>
-    </div>
-
-    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl">
-      <p class="text-sm text-amber-900 dark:text-amber-200">
-        <span class="font-bold">Tip:</span> Review photos carefully. Check that students are actually at the event and following theme rules.
-      </p>
-    </div>
+<div class="page p-4 pb-24 flex flex-col h-screen">
+  <!-- Header -->
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary mb-4">
+    <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
+    <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400">Loading submissions...</p>
   </div>
 
-  <!-- Submission Detail Modal -->
-  <div id="submission-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full my-8">
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-lg font-bold text-[#111318] dark:text-white">Review Submission</h3>
-        <button onclick="closeSubmissionModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-          <span class="material-symbols-outlined">close</span>
-        </button>
+  <!-- Main Card Container -->
+  <div id="card-container" class="flex-1 flex flex-col justify-center items-center px-4 relative">
+    <!-- Swipe Hints -->
+    <div class="absolute top-0 left-0 right-0 pt-2 flex justify-between text-xs font-semibold text-gray-400 dark:text-gray-500 px-4 pointer-events-none">
+      <span>← Deny</span>
+      <span>Approve →</span>
+    </div>
+
+    <!-- Card Stack Container -->
+    <div id="swipe-card" class="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden touch-none select-none relative" style="max-height: 70vh;">
+      <!-- Image Section with Double-Tap Indicator -->
+      <div class="relative bg-gray-200">
+        <img id="card-photo" src="" alt="Submission photo" class="w-full h-64 object-cover">
+        <div id="bonus-badge" class="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full hidden">
+          ✓ +25 bonus
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-10 transition-opacity">
+          <span class="text-white text-sm font-semibold">Double-tap for bonus</span>
+        </div>
       </div>
 
+      <!-- Card Content -->
       <div class="p-6 space-y-4">
-        <img id="modal-photo" src="" alt="Submission photo" class="w-full h-64 object-cover rounded-lg">
-
         <div class="space-y-2">
           <div class="flex justify-between">
             <span class="text-sm text-gray-600 dark:text-gray-400">Student:</span>
-            <span id="modal-student" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            <span id="card-student" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
           </div>
           <div class="flex justify-between">
             <span class="text-sm text-gray-600 dark:text-gray-400">Event:</span>
-            <span id="modal-event" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            <span id="card-event" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
           </div>
           <div class="flex justify-between">
             <span class="text-sm text-gray-600 dark:text-gray-400">Dressed for Theme:</span>
-            <span id="modal-theme" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            <span id="card-theme" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
           </div>
           <div class="flex justify-between">
             <span class="text-sm text-gray-600 dark:text-gray-400">Notes:</span>
-            <span id="modal-notes" class="text-sm text-[#111318] dark:text-white"></span>
+            <span id="card-notes" class="text-sm text-[#111318] dark:text-white break-words"></span>
           </div>
         </div>
 
+        <!-- Points Display -->
         <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Points to Award</label>
-          <div class="flex gap-2">
-            <input type="number" id="modal-points" value="50" min="0" max="500" class="flex-1 p-2 border rounded-lg dark:bg-gray-700/50 dark:border-gray-600 dark:text-white">
-            <span class="text-sm text-gray-600 dark:text-gray-400 self-center">points</span>
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-semibold text-[#111318] dark:text-white">Points:</span>
+            <span id="card-points-display" class="text-lg font-bold text-primary">50</span>
           </div>
+          <div id="points-breakdown" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right"></div>
         </div>
 
-        <div>
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Denial Reason (if applicable)</label>
-          <textarea id="denial-reason" placeholder="Optional: Reason for denial" rows="3" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white text-sm"></textarea>
+        <!-- Swipe Instructions -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+          <p>Swipe left to deny · Swipe right to approve</p>
         </div>
       </div>
 
-      <div class="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
-        <button onclick="denySubmission()" class="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-[#111318] dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-          Deny
-        </button>
-        <button onclick="approveSubmission()" class="flex-1 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-blue-700 transition-colors">
-          Approve
-        </button>
-      </div>
+      <!-- Swipe Feedback Overlay -->
+      <div id="swipe-feedback" class="absolute inset-0 pointer-events-none rounded-xl flex items-center justify-center font-bold text-white text-lg opacity-0 transition-opacity duration-200"></div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="text-center py-12 hidden">
+      <p class="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">All submissions reviewed!</p>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Great job keeping up with the queue.</p>
     </div>
   </div>
 
+  <style>
+    @keyframes slide-right {
+      to {
+        transform: translateX(150%) rotate(20deg);
+        opacity: 0;
+      }
+    }
+    @keyframes slide-left {
+      to {
+        transform: translateX(-150%) rotate(-20deg);
+        opacity: 0;
+      }
+    }
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    .animate-slide-right {
+      animation: slide-right 0.4s ease-in forwards;
+    }
+    .animate-slide-left {
+      animation: slide-left 0.4s ease-in forwards;
+    }
+    .animate-fade-in {
+      animation: fade-in 0.3s ease-out;
+    }
+  </style>
+
   <script>
-    let currentSubmission = null;
+    // State management
+    let currentQueue = [];
+    let currentIndex = 0;
+    let hasThemeBonus = false;
+    const THEME_BONUS_POINTS = 25;
+    const BASE_POINTS = 50;
+
+    // Touch/Mouse tracking
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchCurrentX = 0;
+    let isDragging = false;
+    let lastTapTime = 0;
 
     document.addEventListener('DOMContentLoaded', () => {
       loadAdminQueue();
+      setupGestureHandlers();
     });
+
+    function setupGestureHandlers() {
+      const card = document.getElementById('swipe-card');
+      const photo = document.getElementById('card-photo');
+
+      // Touch events
+      card.addEventListener('touchstart', handleTouchStart, false);
+      card.addEventListener('touchmove', handleTouchMove, false);
+      card.addEventListener('touchend', handleTouchEnd, false);
+
+      // Mouse events (for desktop)
+      card.addEventListener('mousedown', handleMouseStart, false);
+      card.addEventListener('mousemove', handleMouseMove, false);
+      card.addEventListener('mouseup', handleMouseEnd, false);
+
+      // Double-tap on image for theme bonus
+      photo.addEventListener('click', () => {
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          toggleThemeBonus();
+        }
+        lastTapTime = now;
+      });
+    }
+
+    function handleTouchStart(e) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      isDragging = true;
+    }
+
+    function handleTouchMove(e) {
+      if (!isDragging) return;
+      touchCurrentX = e.touches[0].clientX;
+      updateCardDrag(touchCurrentX - touchStartX);
+    }
+
+    function handleTouchEnd(e) {
+      isDragging = false;
+      const distance = touchCurrentX - touchStartX;
+      handleSwipeEnd(distance);
+    }
+
+    function handleMouseStart(e) {
+      touchStartX = e.clientX;
+      touchStartY = e.clientY;
+      isDragging = true;
+    }
+
+    function handleMouseMove(e) {
+      if (!isDragging) return;
+      touchCurrentX = e.clientX;
+      updateCardDrag(touchCurrentX - touchStartX);
+    }
+
+    function handleMouseEnd(e) {
+      isDragging = false;
+      const distance = touchCurrentX - touchStartX;
+      handleSwipeEnd(distance);
+    }
+
+    function updateCardDrag(distance) {
+      const card = document.getElementById('swipe-card');
+      const feedback = document.getElementById('swipe-feedback');
+      const maxDistance = window.innerWidth / 2;
+
+      // Apply drag transformation
+      const rotation = (distance / maxDistance) * 15;
+      const opacity = Math.abs(distance) / maxDistance;
+
+      card.style.transform = `translateX(${distance}px) rotate(${rotation}deg)`;
+
+      // Update feedback text
+      if (distance > 50) {
+        feedback.textContent = '✓ Approve';
+        feedback.style.backgroundColor = 'rgba(34, 197, 94, 0.7)';
+        feedback.style.opacity = Math.min(opacity, 0.8);
+      } else if (distance < -50) {
+        feedback.textContent = '✗ Deny';
+        feedback.style.backgroundColor = 'rgba(239, 68, 68, 0.7)';
+        feedback.style.opacity = Math.min(opacity, 0.8);
+      } else {
+        feedback.style.opacity = 0;
+      }
+    }
+
+    function handleSwipeEnd(distance) {
+      const card = document.getElementById('swipe-card');
+      const threshold = 100;
+
+      if (distance > threshold) {
+        // Approve
+        card.classList.add('animate-slide-right');
+        setTimeout(() => {
+          approveCurrentSubmission();
+        }, 300);
+      } else if (distance < -threshold) {
+        // Deny
+        card.classList.add('animate-slide-left');
+        setTimeout(() => {
+          denyCurrentSubmission();
+        }, 300);
+      } else {
+        // Reset
+        card.style.transform = '';
+        document.getElementById('swipe-feedback').style.opacity = 0;
+      }
+    }
+
+    function toggleThemeBonus() {
+      hasThemeBonus = !hasThemeBonus;
+      const badge = document.getElementById('bonus-badge');
+      const breakdown = document.getElementById('points-breakdown');
+
+      if (hasThemeBonus) {
+        badge.classList.remove('hidden');
+        breakdown.textContent = `Base: ${BASE_POINTS} + Bonus: ${THEME_BONUS_POINTS}`;
+      } else {
+        badge.classList.add('hidden');
+        breakdown.textContent = '';
+      }
+
+      updatePointsDisplay();
+    }
+
+    function updatePointsDisplay() {
+      const total = BASE_POINTS + (hasThemeBonus ? THEME_BONUS_POINTS : 0);
+      document.getElementById('card-points-display').textContent = total;
+    }
 
     function loadAdminQueue() {
       google.script.run.withSuccessHandler(populateAdminQueue).getAdminQueue();
     }
 
     function populateAdminQueue(response) {
-      const container = document.getElementById('submission-queue');
       const status = document.getElementById('queue-status');
 
       if (!response || response.status === 'error') {
         status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response ? response.message : 'An unexpected error occurred.'}</p>`;
-        container.innerHTML = '';
+        showEmptyState();
         return;
       }
 
-      const queue = response.queue || [];
-      status.textContent = queue.length === 0 ? 'No pending submissions' : `${queue.length} pending submission(s)`;
+      currentQueue = response.queue || [];
+      currentIndex = 0;
+      status.textContent = currentQueue.length === 0 ? 'No pending submissions' : `${currentQueue.length} pending submission(s)`;
 
-      if (queue.length === 0) {
-        container.innerHTML = '<p class="text-center text-gray-500 py-8">All submissions have been reviewed!</p>';
-        return;
+      if (currentQueue.length === 0) {
+        showEmptyState();
+      } else {
+        displayCurrentCard();
       }
-
-      container.innerHTML = '';
-      queue.forEach(submission => {
-        const card = document.createElement('div');
-        card.className = 'p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-pointer hover:shadow-md transition-shadow';
-        card.innerHTML = `
-          <div class="flex gap-4">
-            <img id="img-${submission.submissionId}" src="" alt="Loading..." class="w-20 h-20 rounded-lg object-cover bg-gray-200">
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">${submission.eventName}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">${submission.email}</p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(submission.timestamp).toLocaleDateString()}</p>
-              <div class="flex gap-2 mt-2">
-                ${submission.dressedForTheme ? '<span class="text-xs bg-primary/20 text-primary dark:text-blue-300 px-2 py-1 rounded">Dressed for theme</span>' : ''}
-              </div>
-            </div>
-          </div>
-        `;
-        card.addEventListener('click', () => showSubmissionModal(submission));
-        container.appendChild(card);
-
-        // Load image via backend function
-        if (submission.photoId) {
-          loadSubmissionImage(submission.submissionId, submission.photoId);
-        }
-      });
     }
 
-    function showSubmissionModal(submission) {
-      currentSubmission = submission;
-      document.getElementById('modal-student').textContent = submission.email;
-      document.getElementById('modal-event').textContent = submission.eventName;
-      document.getElementById('modal-theme').textContent = submission.dressedForTheme ? 'Yes' : 'No';
-      document.getElementById('modal-notes').textContent = submission.notes || '(none)';
-      document.getElementById('modal-points').value = '50';
-      document.getElementById('denial-reason').value = '';
+    function displayCurrentCard() {
+      if (currentIndex >= currentQueue.length) {
+        showEmptyState();
+        return;
+      }
 
-      // Load image via backend function
+      const submission = currentQueue[currentIndex];
+      hasThemeBonus = false;
+
+      // Reset card animation
+      const card = document.getElementById('swipe-card');
+      card.classList.remove('animate-slide-right', 'animate-slide-left');
+      card.style.transform = '';
+      card.classList.add('animate-fade-in');
+
+      // Load image
       if (submission.photoId) {
         google.script.run.withSuccessHandler((response) => {
           if (response.status === 'success') {
-            document.getElementById('modal-photo').src = response.dataUrl;
-          } else {
-            document.getElementById('modal-photo').alt = 'Image failed to load';
+            document.getElementById('card-photo').src = response.dataUrl;
           }
         }).serveImage(submission.photoId);
       }
 
-      document.getElementById('submission-modal').classList.remove('hidden');
+      // Update card content
+      document.getElementById('card-student').textContent = submission.email;
+      document.getElementById('card-event').textContent = submission.eventName;
+      document.getElementById('card-theme').textContent = submission.dressedForTheme ? 'Yes' : 'No';
+      document.getElementById('card-notes').textContent = submission.notes || '(none)';
+      document.getElementById('bonus-badge').classList.add('hidden');
+      document.getElementById('points-breakdown').textContent = '';
+      updatePointsDisplay();
     }
 
-    function loadSubmissionImage(submissionId, photoId) {
-      google.script.run.withSuccessHandler((response) => {
-        if (response.status === 'success') {
-          const imgElement = document.getElementById('img-' + submissionId);
-          if (imgElement) {
-            imgElement.src = response.dataUrl;
-          }
-        }
-      }).serveImage(photoId);
-    }
-
-    function closeSubmissionModal() {
-      document.getElementById('submission-modal').classList.add('hidden');
-      currentSubmission = null;
-    }
-
-    function approveSubmission() {
-      if (!currentSubmission) return;
-      const points = parseInt(document.getElementById('modal-points').value) || 50;
+    function approveCurrentSubmission() {
+      const submission = currentQueue[currentIndex];
+      const themeBonusPoints = hasThemeBonus ? THEME_BONUS_POINTS : 0;
 
       google.script.run.withSuccessHandler((response) => {
         if (response && response.status === 'success') {
-          closeSubmissionModal();
-          loadAdminQueue();
-          alert('Submission approved!');
+          currentIndex++;
+          displayCurrentCard();
         } else {
           alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
+          // Reset card for retry
+          document.getElementById('swipe-card').style.transform = '';
+          document.getElementById('swipe-card').classList.remove('animate-slide-right');
         }
-      }).approveSubmission(currentSubmission.submissionId, points, 0, 1);
+      }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
     }
 
-    function denySubmission() {
-      if (!currentSubmission) return;
-      const reason = document.getElementById('denial-reason').value || 'Photo does not meet requirements';
+    function denyCurrentSubmission() {
+      const submission = currentQueue[currentIndex];
 
       google.script.run.withSuccessHandler((response) => {
         if (response && response.status === 'success') {
-          closeSubmissionModal();
-          loadAdminQueue();
-          alert('Submission denied');
+          currentIndex++;
+          displayCurrentCard();
         } else {
           alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
+          // Reset card for retry
+          document.getElementById('swipe-card').style.transform = '';
+          document.getElementById('swipe-card').classList.remove('animate-slide-left');
         }
-      }).denySubmission(currentSubmission.submissionId, reason);
+      }).denySubmission(submission.submissionId, 'Denied via swipe');
+    }
+
+    function showEmptyState() {
+      document.getElementById('swipe-card').classList.add('hidden');
+      document.getElementById('empty-state').classList.remove('hidden');
     }
   </script>
 </div>
