@@ -99,7 +99,6 @@
 
       if (!response || response.status === 'error') {
         status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response ? response.message : 'An unexpected error occurred.'}</p>`;
-        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response.message}</p>`;
         container.innerHTML = '';
         return;
       }
@@ -163,7 +162,7 @@
         } else {
           alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
         }
-      }).approveSubmission(currentSubmission.submissionId, points);
+      }).approveSubmission(currentSubmission.submissionId, points, 0, 1);
     }
 
     function denySubmission() {
