@@ -40,7 +40,13 @@
       if (html5QrCode && html5QrCode.isScanning) {
         return;
       }
-      
+
+      // Clean up any existing camera elements to prevent duplicates
+      const readerDiv = document.getElementById('qr-reader');
+      if (readerDiv) {
+        readerDiv.innerHTML = '';
+      }
+
       html5QrCode = new Html5Qrcode("qr-reader");
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
@@ -161,12 +167,13 @@
       navigateToPage('submit&eventCode=' + eventCode);
     }
 
-    /** Show modal for manually entering an event code */
+    /** COMMENTED OUT: Show modal for manually entering an event code - users should scan QR codes instead
     function enterCodeManually() {
       stopScanner();
       document.getElementById('manual-code-modal').classList.remove('hidden');
       document.getElementById('manual-code-input').focus();
     }
+    */
 
     // --- EVENT LISTENERS ----------------------------------------------------
     
@@ -199,7 +206,7 @@
       // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
       
       if (pageKey === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('submit'));
+        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
         // Admin button
@@ -207,16 +214,8 @@
         if (APP_DATA.isAdmin) {
           adminButton.classList.remove('hidden');
           adminButton.addEventListener('click', () => {
-            // Show admin menu options
-            const choice = confirm(
-              'Admin Menu:\n\n' +
-              '1. Click OK for Admin Dashboard\n' +
-              '2. Click Cancel for QR Code\n\n' +
-              'You can also access:\n' +
-              '- QR Code: ?page=qr-code\n' +
-              '- Events: Create/edit in Config_Event_Codes sheet'
-            );
-            navigateToPage(choice ? 'admin' : 'qr-code');
+            // Show admin menu modal (replaces confirm() which breaks user activation)
+            document.getElementById('admin-menu-modal').classList.remove('hidden');
           });
         } else {
           adminButton.classList.add('hidden');
@@ -245,7 +244,8 @@
 
       if (pageKey === 'scanner') {
         document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
-        document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
+        // COMMENTED OUT: Manual entry button is hidden - users should scan QR codes
+        // document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
         startScanner(); // Auto-start scanner
       }
       
@@ -335,6 +335,19 @@
         } else {
           alert('Please enter a valid event code (at least 3 characters)');
         }
+      });
+
+      // Admin Menu Modal
+      document.getElementById('admin-menu-cancel').addEventListener('click', () => {
+        document.getElementById('admin-menu-modal').classList.add('hidden');
+      });
+      document.getElementById('admin-dashboard-btn').addEventListener('click', () => {
+        document.getElementById('admin-menu-modal').classList.add('hidden');
+        navigateToPage('admin');
+      });
+      document.getElementById('admin-qrcode-btn').addEventListener('click', () => {
+        document.getElementById('admin-menu-modal').classList.add('hidden');
+        navigateToPage('qr-code');
       });
     });
 
@@ -507,10 +520,8 @@
       if (response.status === "success") {
         // Show success message and reload
         alert(response.message);
-        // Use setTimeout to avoid sandboxing issues and allow user to see the alert
-        setTimeout(() => {
-          window.location.href = APP_DATA.appUrl + '?page=profile';
-        }, 100);
+        // Navigate immediately without setTimeout to preserve user activation
+        window.location.href = APP_DATA.appUrl + '?page=profile';
 
       } else if (response.status === "pending_conflict") {
         document.getElementById('loading-modal').classList.add('hidden');

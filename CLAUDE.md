@@ -92,6 +92,13 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 6. **Geolocation:** Uses browser Geolocation API. Requires HTTPS and user permission. Fallback behavior is defined.
 
+7. **Google Apps Script Navigation (IMPORTANT):** Navigation in Google Apps Script web apps requires user activation. This means you MUST navigate in direct response to user interactions (click handlers, form submissions) without breaking the activation chain. Common pitfalls:
+   - **DO NOT use `confirm()` dialogs before navigation** - Browser dialogs break the user activation chain, causing "Unsafe attempt to navigate" errors
+   - **DO NOT use `setTimeout()` before navigation** - Async delays break the activation chain
+   - **USE custom modals instead** - See Modals.html for the pattern (show modal on click, then navigate when button clicked within modal)
+   - **The Index.html `<base target="_top">` is required** for proper frame navigation
+   - If you see the error: "The frame attempting navigation of the top-level window is sandboxed with the 'allow-top-navigation-by-user-activation' flag, but has no user activation" - you've broken the user activation chain. Fix by removing async delays and browser dialogs between the user click and `navigateToPage()`.
+
 ## Key Known TODOs
 
 From in-code comments, these features need completion:

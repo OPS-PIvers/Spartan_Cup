@@ -2,80 +2,171 @@
   This file holds the content for the 'admin' page.
   It is dynamically injected into Index.html by Code.gs
 
-  Swipe-based review interface: double-tap image for theme bonus, swipe right to approve, left to deny.
+  Features:
+  - Swipe-based review interface for submission approval/denial
+  - Event management (CRUD) for Config_Event_Codes sheet
 -->
 <div class="page p-4 pb-24 flex flex-col h-screen">
-  <!-- Header -->
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary mb-4">
-    <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
-    <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400">Loading submissions...</p>
+  <!-- Tab Navigation -->
+  <div class="flex gap-2 mb-4">
+    <button id="tab-review-btn" class="flex-1 px-4 py-2 rounded-lg font-semibold bg-primary text-white transition-all active-tab">
+      Review Submissions
+    </button>
+    <button id="tab-events-btn" class="flex-1 px-4 py-2 rounded-lg font-semibold bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all">
+      Manage Events
+    </button>
   </div>
 
-  <!-- Main Card Container -->
-  <div id="card-container" class="flex-1 flex flex-col justify-center items-center px-4 relative">
-    <!-- Swipe Hints -->
-    <div class="absolute top-0 left-0 right-0 pt-2 flex justify-between text-xs font-semibold text-gray-400 dark:text-gray-500 px-4 pointer-events-none">
-      <span>← Deny</span>
-      <span>Approve →</span>
+  <!-- ===================================================================== -->
+  <!-- TAB 1: REVIEW SUBMISSIONS -->
+  <!-- ===================================================================== -->
+  <div id="tab-review" class="flex-1 flex flex-col">
+    <!-- Header -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary mb-4">
+      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
+      <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400">Loading submissions...</p>
     </div>
 
-    <!-- Card Stack Container -->
-    <div id="swipe-card" class="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden touch-none select-none relative" style="max-height: 70vh;">
-      <!-- Image Section with Double-Tap Indicator -->
-      <div class="relative bg-gray-200">
-        <img id="card-photo" src="" alt="Submission photo" class="w-full h-64 object-cover">
-        <div id="bonus-badge" class="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full hidden">
-          ✓ +25 bonus
-        </div>
-        <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-10 transition-opacity">
-          <span class="text-white text-sm font-semibold">Double-tap for bonus</span>
-        </div>
+    <!-- Main Card Container -->
+    <div id="card-container" class="flex-1 flex flex-col justify-center items-center px-4 relative">
+      <!-- Swipe Hints -->
+      <div class="absolute top-0 left-0 right-0 pt-2 flex justify-between text-xs font-semibold text-gray-400 dark:text-gray-500 px-4 pointer-events-none">
+        <span>← Deny</span>
+        <span>Approve →</span>
       </div>
 
-      <!-- Card Content -->
-      <div class="p-6 space-y-4">
-        <div class="space-y-2">
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Student:</span>
-            <span id="card-student" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+      <!-- Card Stack Container -->
+      <div id="swipe-card" class="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden touch-none select-none relative" style="max-height: 70vh;">
+        <!-- Image Section with Double-Tap Indicator -->
+        <div class="relative bg-gray-200">
+          <img id="card-photo" src="" alt="Submission photo" class="w-full h-64 object-cover">
+          <div id="bonus-badge" class="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full hidden">
+            ✓ +25 bonus
           </div>
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Event:</span>
-            <span id="card-event" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Dressed for Theme:</span>
-            <span id="card-theme" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-sm text-gray-600 dark:text-gray-400">Notes:</span>
-            <span id="card-notes" class="text-sm text-[#111318] dark:text-white break-words"></span>
+          <div class="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-10 transition-opacity">
+            <span class="text-white text-sm font-semibold">Double-tap for bonus</span>
           </div>
         </div>
 
-        <!-- Points Display -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <div class="flex justify-between items-center">
-            <span class="text-sm font-semibold text-[#111318] dark:text-white">Points:</span>
-            <span id="card-points-display" class="text-lg font-bold text-primary">50</span>
+        <!-- Card Content -->
+        <div class="p-6 space-y-4">
+          <div class="space-y-2">
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600 dark:text-gray-400">Student:</span>
+              <span id="card-student" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600 dark:text-gray-400">Event:</span>
+              <span id="card-event" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600 dark:text-gray-400">Dressed for Theme:</span>
+              <span id="card-theme" class="text-sm font-semibold text-[#111318] dark:text-white"></span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600 dark:text-gray-400">Notes:</span>
+              <span id="card-notes" class="text-sm text-[#111318] dark:text-white break-words"></span>
+            </div>
           </div>
-          <div id="points-breakdown" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right"></div>
+
+          <!-- Points Display -->
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-semibold text-[#111318] dark:text-white">Points:</span>
+              <span id="card-points-display" class="text-lg font-bold text-primary">50</span>
+            </div>
+            <div id="points-breakdown" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right"></div>
+          </div>
+
+          <!-- Swipe Instructions -->
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+            <p>Swipe left to deny · Swipe right to approve</p>
+          </div>
         </div>
 
-        <!-- Swipe Instructions -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-          <p>Swipe left to deny · Swipe right to approve</p>
-        </div>
+        <!-- Swipe Feedback Overlay -->
+        <div id="swipe-feedback" class="absolute inset-0 pointer-events-none rounded-xl flex items-center justify-center font-bold text-white text-lg opacity-0 transition-opacity duration-200"></div>
       </div>
 
-      <!-- Swipe Feedback Overlay -->
-      <div id="swipe-feedback" class="absolute inset-0 pointer-events-none rounded-xl flex items-center justify-center font-bold text-white text-lg opacity-0 transition-opacity duration-200"></div>
+      <!-- Empty State -->
+      <div id="empty-state" class="text-center py-12 hidden">
+        <p class="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">All submissions reviewed!</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Great job keeping up with the queue.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- TAB 2: MANAGE EVENTS -->
+  <!-- ===================================================================== -->
+  <div id="tab-events" class="flex-1 flex flex-col hidden">
+    <!-- Event Form -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-primary mb-4">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">Add/Edit Event</h2>
+      <form id="event-form" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+        <!-- Event ID -->
+        <input id="event-id" type="text" placeholder="Event ID (e.g., GBB-01)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+        <!-- Event Name -->
+        <input id="event-name" type="text" placeholder="Event Name (e.g., vs. Edina)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+        <!-- Sport/Art -->
+        <input id="event-sport" type="text" placeholder="Sport/Art (e.g., Girls Basketball)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+
+        <!-- Date -->
+        <input id="event-date" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+        <!-- Location -->
+        <input id="event-location" type="text" placeholder="Location Name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+
+        <!-- Start Time -->
+        <input id="event-start" type="datetime-local" placeholder="Start Time" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+        <!-- Duration (hidden, always 2 hours) -->
+        <input id="event-duration" type="hidden" value="2">
+
+        <!-- Latitude and Longitude -->
+        <div class="grid grid-cols-2 gap-2">
+          <input id="event-lat" type="number" placeholder="Latitude" step="0.0001" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+          <input id="event-lon" type="number" placeholder="Longitude" step="0.0001" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+        </div>
+        <button type="button" id="coord-helper-btn" class="w-full px-3 py-2 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600">
+          Get My Location
+        </button>
+
+        <!-- Home Game -->
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input id="event-home" type="checkbox" class="w-4 h-4">
+          <span class="text-sm text-[#111318] dark:text-white">Home Game</span>
+        </label>
+
+        <!-- Spotlight Game -->
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input id="event-spotlight" type="checkbox" class="w-4 h-4">
+          <span class="text-sm text-[#111318] dark:text-white">Spotlight Game</span>
+        </label>
+
+        <!-- Theme -->
+        <input id="event-theme" type="text" placeholder="Theme (e.g., White Out)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+
+        <!-- Submit/Cancel -->
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-opacity-90">
+            Save Event
+          </button>
+          <button type="button" id="event-cancel-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold">
+            Clear
+          </button>
+        </div>
+      </form>
     </div>
 
-    <!-- Empty State -->
-    <div id="empty-state" class="text-center py-12 hidden">
-      <p class="text-xl font-bold text-gray-600 dark:text-gray-400 mb-2">All submissions reviewed!</p>
-      <p class="text-sm text-gray-500 dark:text-gray-400">Great job keeping up with the queue.</p>
+    <!-- Events List -->
+    <div class="flex-1 overflow-y-auto">
+      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">Active Events</h3>
+      <div id="events-list" class="space-y-2">
+        <div class="text-center py-6 text-gray-500">Loading events...</div>
+      </div>
     </div>
   </div>
 
@@ -109,10 +200,46 @@
     .animate-fade-in {
       animation: fade-in 0.3s ease-out;
     }
+    .active-tab {
+      background-color: #1b3b87;
+    }
   </style>
 
   <script>
-    // State management
+    // =====================================================================
+    // TAB MANAGEMENT
+    // =====================================================================
+    const reviewTab = document.getElementById('tab-review');
+    const eventsTab = document.getElementById('tab-events');
+    const reviewBtn = document.getElementById('tab-review-btn');
+    const eventsBtn = document.getElementById('tab-events-btn');
+
+    reviewBtn.addEventListener('click', () => {
+      reviewTab.classList.remove('hidden');
+      eventsTab.classList.add('hidden');
+      reviewBtn.classList.add('active-tab');
+      reviewBtn.style.backgroundColor = '#1b3b87';
+      reviewBtn.style.color = 'white';
+      eventsBtn.classList.remove('active-tab');
+      eventsBtn.style.backgroundColor = '';
+      eventsBtn.style.color = '';
+    });
+
+    eventsBtn.addEventListener('click', () => {
+      reviewTab.classList.add('hidden');
+      eventsTab.classList.remove('hidden');
+      eventsBtn.classList.add('active-tab');
+      eventsBtn.style.backgroundColor = '#1b3b87';
+      eventsBtn.style.color = 'white';
+      reviewBtn.classList.remove('active-tab');
+      reviewBtn.style.backgroundColor = '';
+      reviewBtn.style.color = '';
+      loadEventsList();
+    });
+
+    // =====================================================================
+    // SUBMISSION REVIEW LOGIC (existing code)
+    // =====================================================================
     let currentQueue = [];
     let currentIndex = 0;
     let hasThemeBonus = false;
@@ -354,6 +481,190 @@
     function showEmptyState() {
       document.getElementById('swipe-card').classList.add('hidden');
       document.getElementById('empty-state').classList.remove('hidden');
+    }
+
+    // =====================================================================
+    // EVENT MANAGEMENT LOGIC
+    // =====================================================================
+    let editingEventCode = null;
+
+    document.getElementById('event-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveEvent();
+    });
+
+    document.getElementById('event-cancel-btn').addEventListener('click', () => {
+      clearEventForm();
+    });
+
+    // Coordinate helper button
+    document.getElementById('coord-helper-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude.toFixed(6);
+            const lon = position.coords.longitude.toFixed(6);
+            document.getElementById('event-lat').value = lat;
+            document.getElementById('event-lon').value = lon;
+            alert('Location set! Latitude: ' + lat + ', Longitude: ' + lon);
+          },
+          (error) => {
+            alert('Could not get your location. Please enter coordinates manually.\n\nError: ' + error.message);
+          }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser. Please enter coordinates manually.');
+      }
+    });
+
+    function saveEvent() {
+      const eventId = document.getElementById('event-id').value.trim();
+      const eventName = document.getElementById('event-name').value.trim();
+      const sportArt = document.getElementById('event-sport').value.trim();
+      const date = document.getElementById('event-date').value;
+      const location = document.getElementById('event-location').value.trim();
+      const startTime = document.getElementById('event-start').value;
+      const lat = parseFloat(document.getElementById('event-lat').value) || 0;
+      const lon = parseFloat(document.getElementById('event-lon').value) || 0;
+      const isHomeGame = document.getElementById('event-home').checked;
+      const isSpotlightGame = document.getElementById('event-spotlight').checked;
+      const theme = document.getElementById('event-theme').value.trim();
+
+      if (!eventId) {
+        alert('Event ID is required (e.g., GBB-01)');
+        return;
+      }
+      if (!eventName) {
+        alert('Event name is required');
+        return;
+      }
+      if (!date) {
+        alert('Date is required');
+        return;
+      }
+
+      const eventData = {
+        eventId,
+        eventName,
+        sportArt,
+        date,
+        location,
+        startTime,
+        lat,
+        lon,
+        isHomeGame,
+        isSpotlightGame,
+        theme,
+        duration: 2  // Always 2 hours
+      };
+
+      if (editingEventCode) {
+        // Update existing event
+        google.script.run.withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            alert(response.message);
+            clearEventForm();
+            loadEventsList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).updateEvent(editingEventCode, eventData);
+      } else {
+        // Add new event
+        google.script.run.withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            alert(response.message);
+            clearEventForm();
+            loadEventsList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).addEvent(eventData);
+      }
+    }
+
+    function clearEventForm() {
+      document.getElementById('event-form').reset();
+      editingEventCode = null;
+      document.querySelector('#event-form button[type="submit"]').textContent = 'Save Event';
+    }
+
+    function loadEventsList() {
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          populateEventsList(response.events);
+        } else {
+          document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + response.message + '</p>';
+        }
+      }).getEventsList();
+    }
+
+    function populateEventsList(events) {
+      const list = document.getElementById('events-list');
+      list.innerHTML = '';
+
+      if (events.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-center py-6">No events yet. Create one to get started.</p>';
+        return;
+      }
+
+      events.forEach((event) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700';
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1">
+              <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${event.sportArt} • ${event.date}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
+              ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
+            </div>
+            <div class="flex gap-2">
+              <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="editEvent('${event.eventId.replace(/'/g, "\\'")}', '${event.eventName.replace(/'/g, "\\'")}', '${event.sportArt.replace(/'/g, "\\'")}', '${event.date}', '${event.location.replace(/'/g, "\\'")}', '${event.startTime}', '${event.theme.replace(/'/g, "\\'")}', ${event.isHomeGame}, ${event.isSpotlightGame}, ${event.lat}, ${event.lon})">
+                Edit
+              </button>
+              <button class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600" onclick="deleteEventConfirm('${event.eventId.replace(/'/g, "\\'")}', '${event.eventName.replace(/'/g, "\\'")}')">
+                Delete
+              </button>
+            </div>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function editEvent(eventId, eventName, sportArt, date, location, startTime, theme, isHomeGame, isSpotlightGame, lat, lon) {
+      document.getElementById('event-id').value = eventId;
+      document.getElementById('event-name').value = eventName;
+      document.getElementById('event-sport').value = sportArt;
+      document.getElementById('event-date').value = date;
+      document.getElementById('event-location').value = location;
+      document.getElementById('event-start').value = startTime;
+      document.getElementById('event-theme').value = theme;
+      document.getElementById('event-home').checked = isHomeGame;
+      document.getElementById('event-spotlight').checked = isSpotlightGame;
+      document.getElementById('event-lat').value = lat || '';
+      document.getElementById('event-lon').value = lon || '';
+      document.querySelector('#event-form button[type="submit"]').textContent = 'Update Event';
+      editingEventCode = eventId;
+
+      // Scroll to form
+      document.getElementById('event-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteEventConfirm(eventId, eventName) {
+      if (confirm(`Delete event "${eventName}" (${eventId})?`)) {
+        google.script.run.withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            alert(response.message);
+            loadEventsList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).deleteEvent(eventId);
+      }
     }
   </script>
 </div>

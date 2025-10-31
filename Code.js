@@ -380,7 +380,7 @@ function getProfileData() {
     }
 
     // Fetch event details for history display
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
@@ -388,7 +388,7 @@ function getProfileData() {
         name: eventData[i][2],
         date: eventData[i][3],
         sportArt: eventData[i][1],
-        theme: eventData[i][9]
+        theme: eventData[i][11]
       };
     }
 
@@ -523,12 +523,11 @@ function setupSpreadsheet() {
   
   const sheets = {
     'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified', 'Student_Settings'],
-    'Event_Schedule': ['Event_ID', 'Sport_Art', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme'],
+    'Events': ['Event_ID', 'Sport_Art', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
-    'Config_Admins': ['Admin_Email', 'Role'],
-    'Config_Event_Codes': ['Event_Code', 'Event_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours']
+    'Config_Admins': ['Admin_Email', 'Role']
   };
   
   Object.keys(sheets).forEach((sheetName, index) => {
@@ -543,7 +542,7 @@ function setupSpreadsheet() {
   });
 
   // Add sample data
-  ss.getSheetByName('Event_Schedule').appendRow(['GBB-01', 'Girls Basketball', 'vs. Edina', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, true, true, 'White Out']);
+  ss.getSheetByName('Events').appendRow(['GBB-01', 'Girls Basketball', 'vs. Edina', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out']);
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
 }
 
@@ -691,40 +690,8 @@ function createHtmlFiles() {
     }
 
     // --- QR SCANNER LOGIC ---------------------------------------------------
-    function startScanner() {
-      if (html5QrCode && html5QrCode.isScanning) return;
-      
-      html5QrCode = new Html5Qrcode("qr-reader");
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-      html5QrCode.start(
-        { facingMode: "environment" }, config,
-        (decodedText, decodedResult) => { // onScanSuccess
-          console.log(\`Scan result: \${decodedText}\`, decodedResult);
-          stopScanner();
-          
-          try {
-            const url = new URL(decodedText);
-            const eventId = url.searchParams.get('event');
-            if (eventId) {
-              navigateToPage('submit&event=' + eventId);
-            } else {
-              alert('Invalid QR Code. No event ID found.');
-            }
-          } catch (e) {
-            alert('Scanned code is not a valid event URL.');
-          }
-        },
-        (error) => { /* onScanFailure, optional */ }
-      );
-    }
-    
-    function stopScanner() {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.error("Failed to stop QR scanner:", err));
-        html5QrCode = null;
-      }
-    }
+    // NOTE: startScanner() and stopScanner() are defined in JavaScript.html
+    // Do not duplicate them here to avoid multiple camera initialization
 
     function enterCodeManually() {
       stopScanner();
@@ -1839,13 +1806,13 @@ function findVerifiedSubmission(email, eventId) {
 }
 
 /**
- * Fetches event details from the Event_Schedule sheet by event ID.
+ * Fetches event details from the Events sheet by event ID.
  * @param {string} eventId - The event ID to look up
  * @return {Object} Event details including name, date, location, theme, etc.
  */
 function getEventDetails(eventId) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Event_Schedule');
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Events');
     const data = sheet.getDataRange().getValues();
 
     // Trim whitespace from the input event ID for matching
@@ -1862,9 +1829,11 @@ function getEventDetails(eventId) {
           locationName: data[i][4],
           eventLat: data[i][5],
           eventLon: data[i][6],
-          isHomeGame: data[i][7] || false,
-          isSpotlightGame: data[i][8] || false,
-          theme: data[i][9] || 'None'
+          startTime: data[i][7],
+          durationHours: data[i][8],
+          isHomeGame: data[i][9] || false,
+          isSpotlightGame: data[i][10] || false,
+          theme: data[i][11] || 'None'
         };
       }
     }
@@ -1983,35 +1952,23 @@ function getEventsByDistance(userLat, userLon) {
 }
 
 /**
- * Finds the Event_ID from Event_Schedule that matches the given event code.
- * @param {string} eventCode - The event code to look up
+ * Finds the Event_ID from Events sheet that matches the given event code/ID.
+ * Event_ID is now the primary key (no separate Event_Code needed).
+ * @param {string} eventId - The event ID to look up (e.g., "GBB-01")
  * @return {string} Event_ID or null if not found
  */
-function findEventIdByCode(eventCode) {
+function findEventIdByCode(eventId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const codeSheet = ss.getSheetByName('Config_Event_Codes');
-    const scheduleSheet = ss.getSheetByName('Event_Schedule');
-    if (!codeSheet || !scheduleSheet) return null;
+    const eventsSheet = ss.getSheetByName('Events');
+    if (!eventsSheet) return null;
 
-    const codeData = codeSheet.getDataRange().getValues();
+    const eventsData = eventsSheet.getDataRange().getValues();
 
-    // Find the event name for this code
-    let eventName = null;
-    for (let i = 1; i < codeData.length; i++) {
-      if (String(codeData[i][0]).trim() === String(eventCode).trim()) {
-        eventName = codeData[i][1];
-        break;
-      }
-    }
-
-    if (!eventName) return null;
-
-    // Find matching event in Event_Schedule by name
-    const scheduleData = scheduleSheet.getDataRange().getValues();
-    for (let i = 1; i < scheduleData.length; i++) {
-      if (String(scheduleData[i][2]).trim() === String(eventName).trim()) {
-        return scheduleData[i][0]; // Return Event_ID
+    // Find matching event by Event_ID
+    for (let i = 1; i < eventsData.length; i++) {
+      if (String(eventsData[i][0]).trim() === String(eventId).trim()) {
+        return eventsData[i][0]; // Return Event_ID
       }
     }
 
@@ -2019,6 +1976,176 @@ function findEventIdByCode(eventCode) {
   } catch (e) {
     Logger.log('Error in findEventIdByCode: ' + e.message);
     return null;
+  }
+}
+
+/**
+ * Gets all events from Events sheet for admin management
+ * @return {Object} {status, events: [{eventId, name, sportArt, date, location, lat, lon, startTime, duration, isHomeGame, isSpotlight, theme}, ...]}
+ */
+function getEventsList() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Events');
+    if (!sheet) {
+      return { status: 'error', message: 'Events sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const events = [];
+
+    // Skip header row (row 0)
+    // Columns: Event_ID, Sport_Art, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0]) { // If Event_ID exists
+        events.push({
+          eventId: String(data[i][0]).trim(),
+          eventName: String(data[i][2] || '').trim(),
+          sportArt: String(data[i][1] || '').trim(),
+          date: String(data[i][3] || '').trim(),
+          location: String(data[i][4] || '').trim(),
+          lat: parseFloat(data[i][5]) || 0,
+          lon: parseFloat(data[i][6]) || 0,
+          startTime: String(data[i][7] || '').trim(),
+          duration: String(data[i][8] || '').trim(),
+          isHomeGame: data[i][9] || false,
+          isSpotlightGame: data[i][10] || false,
+          theme: String(data[i][11] || '').trim(),
+          rowIndex: i + 1 // 1-indexed for Apps Script
+        });
+      }
+    }
+
+    return { status: 'success', events };
+  } catch (e) {
+    Logger.log('Error in getEventsList: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Adds a new event to Events sheet
+ * @param {Object} eventData - {eventId, eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}
+ * @return {Object} {status, message}
+ */
+function addEvent(eventData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Events');
+    if (!sheet) {
+      return { status: 'error', message: 'Events sheet not found' };
+    }
+
+    // Validate required fields
+    if (!eventData.eventId) {
+      return { status: 'error', message: 'Event ID is required' };
+    }
+    if (!eventData.eventName) {
+      return { status: 'error', message: 'Event name is required' };
+    }
+
+    // Check for duplicate event ID
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === String(eventData.eventId).trim()) {
+        return { status: 'error', message: 'Event ID already exists' };
+      }
+    }
+
+    // Add new row: Event_ID, Sport_Art, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
+    sheet.appendRow([
+      eventData.eventId,
+      eventData.sportArt || '',
+      eventData.eventName,
+      eventData.date || '',
+      eventData.location || '',
+      eventData.lat || 0,
+      eventData.lon || 0,
+      eventData.startTime || '',
+      eventData.duration || 2,  // Default to 2 hours
+      eventData.isHomeGame || false,
+      eventData.isSpotlightGame || false,
+      eventData.theme || ''
+    ]);
+
+    return { status: 'success', message: 'Event added successfully' };
+  } catch (e) {
+    Logger.log('Error in addEvent: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Updates an existing event in Events sheet
+ * @param {string} eventId - Event ID to update
+ * @param {Object} eventData - {eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}
+ * @return {Object} {status, message}
+ */
+function updateEvent(eventId, eventData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Events');
+    if (!sheet) {
+      return { status: 'error', message: 'Events sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    // Find the row with this event ID
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === String(eventId).trim()) {
+        // Update columns 2-12 (Sport_Art through Theme)
+        sheet.getRange(i + 1, 2, 1, 11).setValues([[
+          eventData.sportArt || '',
+          eventData.eventName,
+          eventData.date || '',
+          eventData.location || '',
+          eventData.lat || 0,
+          eventData.lon || 0,
+          eventData.startTime || '',
+          eventData.duration || 2,  // Default to 2 hours
+          eventData.isHomeGame || false,
+          eventData.isSpotlightGame || false,
+          eventData.theme || ''
+        ]]);
+        return { status: 'success', message: 'Event updated successfully' };
+      }
+    }
+
+    return { status: 'error', message: 'Event ID not found' };
+  } catch (e) {
+    Logger.log('Error in updateEvent: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Deletes an event from Events sheet
+ * @param {string} eventId - Event ID to delete
+ * @return {Object} {status, message}
+ */
+function deleteEvent(eventId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Events');
+    if (!sheet) {
+      return { status: 'error', message: 'Events sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    // Find the row with this event ID
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === String(eventId).trim()) {
+        sheet.deleteRow(i + 1);
+        return { status: 'success', message: 'Event deleted successfully' };
+      }
+    }
+
+    return { status: 'error', message: 'Event ID not found' };
+  } catch (e) {
+    Logger.log('Error in deleteEvent: ' + e.message);
+    return { status: 'error', message: e.message };
   }
 }
 
@@ -2249,10 +2376,10 @@ function getAdminQueue() {
     Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
     // Get event details map
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     if (!eventSheet) {
-      Logger.log('Event_Schedule sheet not found');
-      return { status: "error", message: "Event_Schedule sheet not found." };
+      Logger.log('Events sheet not found');
+      return { status: "error", message: "Events sheet not found." };
     }
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
@@ -2380,7 +2507,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     calculateBadges(submissionInfo[2]);
 
     // Get event details map for notification
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
@@ -2392,8 +2519,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     }
 
     // Send notification to student
-    const eventInfo = eventMap[submissionInfo[3]] || { name: 'Event' };
-    notifySubmissionApproved(submissionInfo[2], eventInfo.name, pointsTotal);
+    const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
+    notifySubmissionApproved(submissionInfo[2], eventInfo.eventName, pointsTotal);
 
     return {
       status: "success",
@@ -2604,10 +2731,11 @@ function calculateBadges(email) {
 function getEventList(category) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
 
     const events = [];
+    // Columns: Event_ID, Sport_Art, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
     for (let i = 1; i < eventData.length; i++) {
       const event = {
         eventId: eventData[i][0],
@@ -2617,9 +2745,11 @@ function getEventList(category) {
         locationName: eventData[i][4],
         eventLat: eventData[i][5],
         eventLon: eventData[i][6],
-        isHomeGame: eventData[i][7] || false,
-        isSpotlightGame: eventData[i][8] || false,
-        theme: eventData[i][9] || 'None'
+        startTime: eventData[i][7],
+        durationHours: eventData[i][8],
+        isHomeGame: eventData[i][9] || false,
+        isSpotlightGame: eventData[i][10] || false,
+        theme: eventData[i][11] || 'None'
       };
 
       // Filter by category if provided
