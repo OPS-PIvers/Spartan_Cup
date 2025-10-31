@@ -9,10 +9,12 @@
       'prizes': 'Prizes & Awards',
       'fanfeed': 'Fan Feed',
       'scanner': 'Scan Event Code',
+      'event-select': 'Select Event',
       'submit': 'Submit Attendance',
       'settings': 'Settings',
       'all-badges': 'All Badges',
-      'admin': 'Admin Dashboard'
+      'admin': 'Admin Dashboard',
+      'qr-code': 'QR Code'
     };
 
     /**
@@ -85,6 +87,80 @@
       }
     }
 
+    /** Load and display events sorted by distance for selection */
+    function loadEventsByDistance() {
+      const loadingState = document.getElementById('loading-state');
+      const eventsList = document.getElementById('events-list');
+      const errorState = document.getElementById('error-state');
+      const noEventsState = document.getElementById('no-events-state');
+
+      // Get user location
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLon = position.coords.longitude;
+
+          // Fetch active events sorted by distance
+          google.script.run.withSuccessHandler((events) => {
+            loadingState.classList.add('hidden');
+
+            if (!events || events.length === 0) {
+              noEventsState.classList.remove('hidden');
+              return;
+            }
+
+            // Display events
+            eventsList.innerHTML = '';
+            events.forEach((event, index) => {
+              const isClosest = index === 0;
+              const card = document.createElement('div');
+              card.className = `event-card p-4 rounded-lg border cursor-pointer transition-all hover:shadow-lg ${
+                isClosest
+                  ? 'event-card-closest'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+              }`;
+              card.innerHTML = `
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h3 class="font-bold text-[#111318] dark:text-white">${event.eventName}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">📍 ${event.locationName}</p>
+                    <p class="text-sm text-primary dark:text-blue-300 font-semibold mt-2">Code: ${event.eventCode}</p>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-lg font-bold text-gray-700 dark:text-gray-300">${event.distance}m</div>
+                    ${isClosest ? '<div class="text-xs text-primary dark:text-blue-300 font-bold mt-1">Closest</div>' : ''}
+                  </div>
+                </div>
+              `;
+              card.addEventListener('click', () => selectEvent(event.eventCode));
+              eventsList.appendChild(card);
+            });
+
+            eventsList.classList.remove('hidden');
+          }).withFailureHandler((error) => {
+            console.error('Error loading events:', error);
+            loadingState.classList.add('hidden');
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = 'Error loading events: ' + error.message;
+            errorState.classList.remove('hidden');
+          }).getEventsByDistance(userLat, userLon);
+        },
+        (error) => {
+          // Location error
+          loadingState.classList.add('hidden');
+          const errorMessage = document.getElementById('error-message');
+          errorMessage.textContent = 'Unable to get your location. Please enable location access.';
+          errorState.classList.remove('hidden');
+          console.error('Geolocation error:', error);
+        }
+      );
+    }
+
+    /** Navigate to submit page with selected event code */
+    function selectEvent(eventCode) {
+      navigateToPage('submit&eventCode=' + eventCode);
+    }
+
     /** Show modal for manually entering an event code */
     function enterCodeManually() {
       stopScanner();
@@ -123,14 +199,25 @@
       // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
       
       if (pageKey === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
+        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('submit'));
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
         // Admin button
         const adminButton = document.getElementById('admin-button');
         if (APP_DATA.isAdmin) {
           adminButton.classList.remove('hidden');
-          adminButton.addEventListener('click', () => navigateToPage('admin'));
+          adminButton.addEventListener('click', () => {
+            // Show admin menu options
+            const choice = confirm(
+              'Admin Menu:\n\n' +
+              '1. Click OK for Admin Dashboard\n' +
+              '2. Click Cancel for QR Code\n\n' +
+              'You can also access:\n' +
+              '- QR Code: ?page=qr-code\n' +
+              '- Events: Create/edit in Config_Event_Codes sheet'
+            );
+            navigateToPage(choice ? 'admin' : 'qr-code');
+          });
         } else {
           adminButton.classList.add('hidden');
         }
@@ -152,6 +239,10 @@
         google.script.run.withSuccessHandler(populateProfile).getProfileData();
       }
       
+      if (pageKey === 'event-select') {
+        loadEventsByDistance(); // Load and display events sorted by distance
+      }
+
       if (pageKey === 'scanner') {
         document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
         document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
@@ -167,17 +258,40 @@
         document.getElementById('view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
       }
 
+      if (pageKey === 'qr-code') {
+        // QR code page - admin only, auto-initializes via script in the page
+        if (!APP_DATA.isAdmin) {
+          document.getElementById('page-title').innerText = 'Access Denied';
+          document.body.innerHTML = '<div class="p-4"><p class="text-red-500">Admin access required.</p></div>';
+        }
+      }
+
       if (pageKey === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
-        // Get event details from URL and fetch them
-        const urlParams = new URLSearchParams(window.location.search);
-        const eventId = urlParams.get('event');
-        if (eventId) {
-          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
-        } else {
-          document.getElementById('event-name').value = "Error: No Event ID";
-        }
+        // Auto-detect and select the closest active event based on user location
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userLat = position.coords.latitude;
+            const userLon = position.coords.longitude;
+
+            google.script.run.withSuccessHandler((events) => {
+              if (events && events.length > 0) {
+                // Auto-select the closest event (first in distance-sorted list)
+                const closestEvent = events[0];
+                document.getElementById('event-code-input').value = closestEvent.eventCode;
+                document.getElementById('event-name').value =
+                  `${closestEvent.eventName} - ${closestEvent.locationName}`;
+              } else {
+                document.getElementById('event-name').value = "No active events found";
+              }
+            }).getEventsByDistance(userLat, userLon);
+          },
+          (error) => {
+            document.getElementById('event-name').value = "Error: Enable location access";
+            console.error('Geolocation error:', error);
+          }
+        );
       }
 
       // Onboarding - Shows on first visit per session
@@ -328,6 +442,7 @@
       
       const formData = {
         eventId: new URLSearchParams(window.location.search).get('event'),
+        eventCode: document.getElementById('event-code-input')?.value || '',
         theme: document.getElementById('theme-check').checked,
         notes: document.getElementById('notes').value,
         location: null
@@ -390,16 +505,19 @@
 
     function handleSubmissionResponse(response) {
       if (response.status === "success") {
-        // Don't hide the loading modal - let it stay visible during navigation
+        // Show success message and reload
         alert(response.message);
-        navigateToPage('profile'); // This will show the loading spinner and navigate
+        // Use setTimeout to avoid sandboxing issues and allow user to see the alert
+        setTimeout(() => {
+          window.location.href = APP_DATA.appUrl + '?page=profile';
+        }, 100);
 
       } else if (response.status === "pending_conflict") {
         document.getElementById('loading-modal').classList.add('hidden');
         document.getElementById('modal-message').innerText = response.message;
         document.getElementById('confirm-modal').classList.remove('hidden');
         // pendingFormData and pendingPhotoBlob are already set
-        
+
       } else if (response.status === "error") {
         document.getElementById('loading-modal').classList.add('hidden');
         alert(response.message);

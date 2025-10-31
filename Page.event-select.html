@@ -1,0 +1,74 @@
+<!--
+  Event Selection Page - Shows active events sorted by distance from user
+  User gets location, sees nearby events, and selects one to submit attendance
+-->
+<div class="page p-4">
+  <div class="space-y-4">
+    <h2 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Select Your Event</h2>
+
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+      📍 Showing events by distance from your location
+    </p>
+
+    <!-- Loading state -->
+    <div id="loading-state" class="flex justify-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+
+    <!-- Events list -->
+    <div id="events-list" class="hidden space-y-3">
+      <!-- Event cards will be injected here -->
+    </div>
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden">
+      <div class="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+        <p id="error-message" class="text-sm text-red-700 dark:text-red-300">
+          Unable to load events. Please try again.
+        </p>
+      </div>
+    </div>
+
+    <!-- No events state -->
+    <div id="no-events-state" class="hidden">
+      <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
+        <p class="text-sm text-blue-700 dark:text-blue-300">
+          No active events right now. Check back later!
+        </p>
+      </div>
+    </div>
+
+    <!-- Tip -->
+    <div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-3 mt-6">
+      <p class="text-xs text-gray-600 dark:text-gray-300">
+        💡 Make sure location is enabled. You must be within 100 meters of the event to submit attendance.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .event-card-closest {
+    border: 2px solid var(--primary, #1b3b87);
+    background-color: rgba(27, 59, 135, 0.05);
+  }
+
+  .event-card-closest.dark {
+    background-color: rgba(27, 59, 135, 0.1);
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .event-card {
+    animation: slideInUp 0.3s ease-out;
+  }
+</style>

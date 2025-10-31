@@ -527,7 +527,8 @@ function setupSpreadsheet() {
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
-    'Config_Admins': ['Admin_Email', 'Role']
+    'Config_Admins': ['Admin_Email', 'Role'],
+    'Config_Event_Codes': ['Event_Code', 'Event_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours']
   };
   
   Object.keys(sheets).forEach((sheetName, index) => {
@@ -1882,6 +1883,224 @@ function getEventDetails(eventId) {
   }
 }
 
+/**
+ * Calculates distance between two coordinates using Haversine formula (in meters).
+ */
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Gets all currently active events (where current time is within Start_Time + Duration_Hours).
+ * @param {number} userLat - Optional: user's latitude for distance calculation
+ * @param {number} userLon - Optional: user's longitude for distance calculation
+ * @return {Array} Array of events, optionally sorted by distance from user
+ */
+function getActiveEvents(userLat = null, userLon = null) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Config_Event_Codes');
+    if (!sheet) return [];
+
+    const data = sheet.getDataRange().getValues();
+    const now = new Date();
+    const activeEvents = [];
+
+    for (let i = 1; i < data.length; i++) {
+      const eventCode = data[i][0];
+      const eventName = data[i][1];
+      const locationName = data[i][2];
+      const eventLat = data[i][3];
+      const eventLon = data[i][4];
+      const startTime = new Date(data[i][5]);
+      const durationHours = data[i][6];
+
+      // Check if current time is within the event window
+      const endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
+      if (now >= startTime && now <= endTime) {
+        const event = {
+          eventCode: eventCode,
+          eventName: eventName,
+          locationName: locationName,
+          eventLat: eventLat,
+          eventLon: eventLon,
+          startTime: startTime,
+          endTime: endTime,
+          durationHours: durationHours,
+          distance: null
+        };
+
+        // Calculate distance if user location provided
+        if (userLat !== null && userLon !== null) {
+          event.distance = calculateDistance(userLat, userLon, eventLat, eventLon);
+        }
+
+        activeEvents.push(event);
+      }
+    }
+
+    // Sort by distance if user location was provided
+    if (userLat !== null && userLon !== null) {
+      activeEvents.sort((a, b) => a.distance - b.distance);
+    }
+
+    return activeEvents;
+  } catch (e) {
+    Logger.log('Error in getActiveEvents: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Gets active events sorted by distance from user.
+ * Called from frontend with user's geolocation.
+ * @param {number} userLat - User's latitude
+ * @param {number} userLon - User's longitude
+ * @return {Array} Array of active events sorted by distance
+ */
+function getEventsByDistance(userLat, userLon) {
+  try {
+    const events = getActiveEvents(userLat, userLon);
+    return events.map(evt => ({
+      eventCode: evt.eventCode,
+      eventName: evt.eventName,
+      locationName: evt.locationName,
+      eventLat: evt.eventLat,
+      eventLon: evt.eventLon,
+      distance: Math.round(evt.distance)
+    }));
+  } catch (e) {
+    Logger.log('Error in getEventsByDistance: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Finds the Event_ID from Event_Schedule that matches the given event code.
+ * @param {string} eventCode - The event code to look up
+ * @return {string} Event_ID or null if not found
+ */
+function findEventIdByCode(eventCode) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const codeSheet = ss.getSheetByName('Config_Event_Codes');
+    const scheduleSheet = ss.getSheetByName('Event_Schedule');
+    if (!codeSheet || !scheduleSheet) return null;
+
+    const codeData = codeSheet.getDataRange().getValues();
+
+    // Find the event name for this code
+    let eventName = null;
+    for (let i = 1; i < codeData.length; i++) {
+      if (String(codeData[i][0]).trim() === String(eventCode).trim()) {
+        eventName = codeData[i][1];
+        break;
+      }
+    }
+
+    if (!eventName) return null;
+
+    // Find matching event in Event_Schedule by name
+    const scheduleData = scheduleSheet.getDataRange().getValues();
+    for (let i = 1; i < scheduleData.length; i++) {
+      if (String(scheduleData[i][2]).trim() === String(eventName).trim()) {
+        return scheduleData[i][0]; // Return Event_ID
+      }
+    }
+
+    return null;
+  } catch (e) {
+    Logger.log('Error in findEventIdByCode: ' + e.message);
+    return null;
+  }
+}
+
+/**
+ * Unified validation function for event submissions.
+ * Validates code, location, and time all at once.
+ * @param {string} eventCode - The event code submitted
+ * @param {Object} userLocation - { lat, lon, acc } from geolocation
+ * @param {number} timestamp - Submission timestamp (usually Date.now())
+ * @return {Object} { valid: boolean, eventCode: string, eventId: string, message: string }
+ */
+function validateEventSubmission(eventCode, userLocation, timestamp) {
+  try {
+    // Check location provided
+    if (!userLocation || userLocation.lat === null || userLocation.lon === null) {
+      return {
+        valid: false,
+        message: 'Location permission denied. Please enable location access.'
+      };
+    }
+
+    // Find the active event matching this code
+    const activeEvents = getActiveEvents();
+    let matchingEvent = null;
+
+    for (let evt of activeEvents) {
+      if (String(evt.eventCode).trim() === String(eventCode).trim()) {
+        matchingEvent = evt;
+        break;
+      }
+    }
+
+    if (!matchingEvent) {
+      return {
+        valid: false,
+        message: 'Invalid event code or event is not currently active.'
+      };
+    }
+
+    // Validate location is within 100m of event
+    const distance = calculateDistance(
+      userLocation.lat,
+      userLocation.lon,
+      matchingEvent.eventLat,
+      matchingEvent.eventLon
+    );
+
+    const GEOFENCE_RADIUS_METERS = 100;
+    if (distance > GEOFENCE_RADIUS_METERS) {
+      return {
+        valid: false,
+        message: `You are ${Math.round(distance)}m away from the event. You must be within ${GEOFENCE_RADIUS_METERS}m.`
+      };
+    }
+
+    // Validate time is within window
+    const submissionTime = new Date(timestamp);
+    if (submissionTime < matchingEvent.startTime || submissionTime > matchingEvent.endTime) {
+      return {
+        valid: false,
+        message: 'Submission is outside the event time window.'
+      };
+    }
+
+    // Find the Event_ID for this event
+    const eventId = findEventIdByCode(eventCode);
+
+    return {
+      valid: true,
+      eventCode: eventCode,
+      eventId: eventId,
+      message: 'Submission validated successfully.'
+    };
+  } catch (e) {
+    Logger.log('Error in validateEventSubmission: ' + e.message);
+    return {
+      valid: false,
+      message: 'Error validating submission. Please try again.'
+    };
+  }
+}
+
 /** Utility function to save the uploaded photo to Google Drive. */
 function savePhotoToDrive(photoBlob, eventId, email) {
   let parentFolder;
@@ -1915,28 +2134,38 @@ function savePhotoToDrive(photoBlob, eventId, email) {
 
 /**
  * STEP 1: Called when a user first hits "Submit".
+ * Takes eventCode (not eventId in URL) and validates everything at once.
  */
 function submitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventId = formObject.eventId;
+  const eventCode = formObject.eventCode;
 
   try {
+    // Unified validation: code + location + time
+    const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
+    if (!validation.valid) {
+      return { status: "error", message: validation.message };
+    }
+
+    const eventId = validation.eventId;
+
+    // Check for duplicate submissions
     if (findVerifiedSubmission(email, eventId)) {
       return { status: "error", message: "Your submission for this event has already been verified by an admin and cannot be changed." };
     }
     if (findPendingSubmission(email, eventId)) {
       return { status: "pending_conflict", message: "This will delete your current submission for this event. Do you want to proceed?" };
     }
-    
+
     const file = savePhotoToDrive(photoBlob, eventId, email);
-    
+
     const pendingSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending');
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),
       formObject.theme, formObject.notes
     ]);
-    
+
     return { status: "success", message: "Submission received! You can view it in your 'My History' page." };
 
   } catch (e) {
@@ -1950,11 +2179,18 @@ function submitEvent(formObject, photoBlob) {
  */
 function resubmitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventId = formObject.eventId;
+  const eventCode = formObject.eventCode;
 
   try {
+    // Unified validation: code + location + time
+    const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
+    if (!validation.valid) {
+      return { status: "error", message: validation.message };
+    }
+
+    const eventId = validation.eventId;
     const oldSubmission = findPendingSubmission(email, eventId);
-    
+
     if (oldSubmission) {
       try {
         DriveApp.getFileById(oldSubmission.photoId).setTrashed(true);
@@ -1965,14 +2201,14 @@ function resubmitEvent(formObject, photoBlob) {
     }
 
     const file = savePhotoToDrive(photoBlob, eventId, email);
-    
+
     const pendingSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending');
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),
       formObject.theme, formObject.notes
     ]);
-    
+
     return { status: "success", message: "Your previous submission has been replaced." };
 
   } catch (e) {

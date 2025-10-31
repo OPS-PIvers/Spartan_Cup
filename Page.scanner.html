@@ -15,6 +15,14 @@
       <main class="flex flex-1 flex-col items-center justify-center p-6 text-center">
         <h1 class="text-xl font-bold">Scan Event QR Code</h1>
         <p class="mt-2 text-light-gray">Position the QR code within the frame to check in.</p>
+
+        <!-- Current Event Code Display -->
+        <div class="mt-6 w-full max-w-sm rounded-2xl bg-primary/20 p-4 border border-primary/50">
+          <p class="text-sm text-light-gray mb-2">Today's Event Code</p>
+          <p id="current-event-code" class="text-2xl font-bold text-primary">Loading...</p>
+          <p id="current-event-name" class="text-xs text-light-gray mt-2">-</p>
+        </div>
+
         <div class="relative mt-8 flex aspect-square w-full max-w-[280px] items-center justify-center">
           <!-- REAL QR SCANNER ELEMENT -->
           <div id="qr-reader" class="w-full max-w-[280px] aspect-square rounded-2xl overflow-hidden"></div>
