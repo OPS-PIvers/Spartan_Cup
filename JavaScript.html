@@ -71,14 +71,26 @@
      */
     function testLocationAccess(onGranted, onDenied) {
       if (!navigator.geolocation) {
+        console.error('Geolocation not supported');
         onDenied('not_supported');
         return;
       }
+
+      // Detect iOS Safari iframe issue
+      const isInIframe = window.self !== window.top;
+      const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      console.log('Testing geolocation:', {
+        isInIframe: isInIframe,
+        isIOSSafari: isIOSSafari,
+        userAgent: navigator.userAgent
+      });
 
       // Try to get location with short timeout - just testing permission
       navigator.geolocation.getCurrentPosition(
         (position) => {
           // Success - permission is granted and working
+          console.log('Geolocation success:', position.coords);
           cacheLocation(position); // Cache it while we're at it
           onGranted({
             lat: position.coords.latitude,
@@ -88,8 +100,21 @@
         },
         (error) => {
           // Failed - determine why
+          console.error('Geolocation error:', {
+            code: error.code,
+            message: error.message,
+            PERMISSION_DENIED: error.PERMISSION_DENIED,
+            POSITION_UNAVAILABLE: error.POSITION_UNAVAILABLE,
+            TIMEOUT: error.TIMEOUT
+          });
+
           if (error.code === error.PERMISSION_DENIED) {
-            onDenied('denied');
+            // On iOS Safari in iframe, this might be a security restriction
+            if (isIOSSafari && isInIframe) {
+              onDenied('ios_iframe_blocked');
+            } else {
+              onDenied('denied');
+            }
           } else if (error.code === error.TIMEOUT) {
             onDenied('timeout');
           } else {
@@ -629,7 +654,30 @@
           statusDiv.className = 'mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800';
 
           let message = '';
-          if (errorType === 'denied') {
+          if (errorType === 'ios_iframe_blocked') {
+            message = `
+              <p class="text-sm text-red-900 dark:text-red-100">
+                <span class="font-semibold">❌ iOS Safari Not Supported</span>
+              </p>
+              <p class="text-xs text-red-800 dark:text-red-200 mt-2">
+                <strong>Safari blocks location in this app.</strong> This is an Apple security restriction that cannot be fixed, even with Settings enabled.
+              </p>
+              <div class="mt-3 p-3 bg-blue-50 dark:bg-blue-900/40 rounded-lg border-2 border-blue-500 dark:border-blue-400">
+                <p class="text-sm font-bold text-blue-900 dark:text-blue-100 mb-2">✅ REQUIRED: Use Chrome on iPhone</p>
+                <p class="text-xs text-blue-900 dark:text-blue-100 mb-2">
+                  <strong>1.</strong> Install "Chrome" from the App Store (free)<br>
+                  <strong>2.</strong> Open this link in Chrome<br>
+                  <strong>3.</strong> Location will work immediately
+                </p>
+                <p class="text-xs text-blue-700 dark:text-blue-200 italic">
+                  Chrome doesn't have Safari's iframe restrictions and works perfectly with this app.
+                </p>
+              </div>
+              <a href="https://apps.apple.com/us/app/google-chrome/id535886823" target="_blank" class="mt-3 w-full text-sm bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold block text-center">
+                📱 Download Chrome from App Store
+              </a>
+            `;
+          } else if (errorType === 'denied') {
             message = `
               <p class="text-sm text-red-900 dark:text-red-100">
                 <span class="font-semibold">❌ Location Permission Denied</span>
