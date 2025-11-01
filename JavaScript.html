@@ -1,7 +1,124 @@
 <script>
+    // --- LOCATION CACHING UTILITIES (Fixed Geolocation) ---------------------
+    const LOCATION_CACHE_KEY = 'spartan_cup_location_cache';
+    const LOCATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    /**
+     * Get cached location if it exists and hasn't expired
+     * @return {Object|null} Location object {lat, lon, acc, timestamp} or null
+     */
+    function getCachedLocation() {
+      try {
+        const cached = sessionStorage.getItem(LOCATION_CACHE_KEY);
+        if (!cached) return null;
+
+        const data = JSON.parse(cached);
+        const now = Date.now();
+
+        // Check if cache has expired
+        if (now - data.timestamp > LOCATION_CACHE_DURATION) {
+          sessionStorage.removeItem(LOCATION_CACHE_KEY);
+          return null;
+        }
+
+        return { lat: data.lat, lon: data.lon, acc: data.acc };
+      } catch (e) {
+        console.error('Error reading location cache:', e);
+        return null;
+      }
+    }
+
+    /**
+     * Cache the user's location for 5 minutes
+     * @param {Object} position - geolocation position object
+     */
+    function cacheLocation(position) {
+      try {
+        const data = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          acc: position.coords.accuracy,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error('Error caching location:', e);
+      }
+    }
+
+    /**
+     * Check current permission status (iOS may not support this)
+     * @return {Promise<string>} 'granted', 'denied', 'prompt', or 'unknown'
+     */
+    async function checkLocationPermission() {
+      try {
+        if (!navigator.permissions) {
+          return 'unknown'; // Permissions API not supported
+        }
+        const result = await navigator.permissions.query({ name: 'geolocation' });
+        return result.state;
+      } catch (e) {
+        console.error('Error checking permission:', e);
+        return 'unknown';
+      }
+    }
+
+    /**
+     * Request user location with caching and proper error handling
+     * @param {Function} onSuccess - Callback with location {lat, lon, acc}
+     * @param {Function} onError - Callback with error message
+     * @param {boolean} forceRefresh - Skip cache and request fresh location
+     */
+    function requestLocation(onSuccess, onError, forceRefresh = false) {
+      // Try to use cached location first (unless forced refresh)
+      if (!forceRefresh) {
+        const cached = getCachedLocation();
+        if (cached) {
+          console.log('Using cached location');
+          onSuccess(cached);
+          return;
+        }
+      }
+
+      if (!navigator.geolocation) {
+        onError('Geolocation is not supported by your browser');
+        return;
+      }
+
+      // Request fresh location
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          cacheLocation(position);
+          onSuccess({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            acc: position.coords.accuracy
+          });
+        },
+        (error) => {
+          let message = 'Unable to get your location.';
+
+          if (error.code === error.PERMISSION_DENIED) {
+            message = 'Location permission denied. Please enable location in Settings > Safari > Spartan Cup (iOS) or browser settings.';
+          } else if (error.code === error.TIMEOUT) {
+            message = 'Location request timed out. Please try again.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = 'Your location is unavailable. Please check GPS.';
+          }
+
+          onError(message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0 // Don't use browser cache; let our session cache handle it
+        }
+      );
+    }
+
     // --- STATE & PAGE ROUTING -----------------------------------------------
     let html5QrCode = null;
-    
+
     // Page titles map
     const TITLES = {
       'profile': 'My Profile',
@@ -99,14 +216,16 @@
       const eventsList = document.getElementById('events-list');
       const errorState = document.getElementById('error-state');
       const noEventsState = document.getElementById('no-events-state');
+      const loadButton = document.getElementById('load-events-button');
 
-      // Get user location
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude;
-          const userLon = position.coords.longitude;
+      // Show loading state and hide button
+      loadingState.classList.remove('hidden');
+      if (loadButton) loadButton.classList.add('hidden');
 
-          // Fetch active events sorted by distance
+      // Request user location (will use cache if available)
+      requestLocation(
+        (location) => {
+          // Success: Fetch active events sorted by distance
           google.script.run.withSuccessHandler((events) => {
             loadingState.classList.add('hidden');
 
@@ -149,15 +268,15 @@
             const errorMessage = document.getElementById('error-message');
             errorMessage.textContent = 'Error loading events: ' + error.message;
             errorState.classList.remove('hidden');
-          }).getEventsByDistance(userLat, userLon);
+          }).getEventsByDistance(location.lat, location.lon);
         },
-        (error) => {
-          // Location error
+        (errorMessage) => {
+          // Error: Show error message
           loadingState.classList.add('hidden');
-          const errorMessage = document.getElementById('error-message');
-          errorMessage.textContent = 'Unable to get your location. Please enable location access.';
+          const errorElement = document.getElementById('error-message');
+          errorElement.textContent = errorMessage;
           errorState.classList.remove('hidden');
-          console.error('Geolocation error:', error);
+          console.error('Geolocation error:', errorMessage);
         }
       );
     }
@@ -239,7 +358,14 @@
       }
       
       if (pageKey === 'event-select') {
-        loadEventsByDistance(); // Load and display events sorted by distance
+        // Don't auto-load events; wait for user to click the button
+        const loadButton = document.getElementById('load-events-button');
+        if (loadButton) {
+          loadButton.addEventListener('click', loadEventsByDistance);
+        } else {
+          // If button doesn't exist, try loading anyway (fallback)
+          loadEventsByDistance();
+        }
       }
 
       if (pageKey === 'scanner') {
@@ -269,29 +395,19 @@
       if (pageKey === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
-        // Auto-detect and select the closest active event based on user location
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLat = position.coords.latitude;
-            const userLon = position.coords.longitude;
+        // Try to auto-populate event from URL parameter, but don't request location yet
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventCode = urlParams.get('eventCode');
 
-            google.script.run.withSuccessHandler((events) => {
-              if (events && events.length > 0) {
-                // Auto-select the closest event (first in distance-sorted list)
-                const closestEvent = events[0];
-                document.getElementById('event-code-input').value = closestEvent.eventCode;
-                document.getElementById('event-name').value =
-                  `${closestEvent.eventName} - ${closestEvent.locationName}`;
-              } else {
-                document.getElementById('event-name').value = "No active events found";
-              }
-            }).getEventsByDistance(userLat, userLon);
-          },
-          (error) => {
-            document.getElementById('event-name').value = "Error: Enable location access";
-            console.error('Geolocation error:', error);
-          }
-        );
+        if (eventCode) {
+          // User came from event selection, populate the event code
+          document.getElementById('event-code-input').value = eventCode;
+          // Load the event details via backend
+          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventCode);
+        } else {
+          // No event selected; show a message to the user
+          document.getElementById('event-name').value = "Scan a QR code to select an event";
+        }
       }
 
       // Onboarding - Shows on first visit per session
@@ -445,14 +561,14 @@
     function handleFormSubmit(e) {
       e.preventDefault();
       document.getElementById('loading-modal').classList.remove('hidden');
-      
+
       const photoFile = document.getElementById('photo-input').files[0];
       if (!photoFile) {
         alert('Please select a photo!');
         document.getElementById('loading-modal').classList.add('hidden');
         return;
       }
-      
+
       const formData = {
         eventId: new URLSearchParams(window.location.search).get('event'),
         eventCode: document.getElementById('event-code-input')?.value || '',
@@ -461,12 +577,12 @@
         location: null
       };
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          formData.location = {
-            lat: position.coords.latitude, lon: position.coords.longitude, acc: position.coords.accuracy
-          };
-          
+      // Request location (will use cache if available within 5 minutes)
+      requestLocation(
+        (location) => {
+          // Success: Location obtained
+          formData.location = location;
+
           const reader = new FileReader();
           reader.onload = (e) => {
             const img = new Image();
@@ -507,12 +623,12 @@
           };
           reader.readAsDataURL(photoFile);
         },
-        (error) => {
-          console.error('Geolocation error:', error);
-          alert(`Error: Location services are required. ${error.message}`);
+        (errorMessage) => {
+          // Error: Location not available
+          console.error('Geolocation error:', errorMessage);
           document.getElementById('loading-modal').classList.add('hidden');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          alert(`Location Required: ${errorMessage}\n\nPlease enable location in your browser settings and try again.`);
+        }
       );
     }
 

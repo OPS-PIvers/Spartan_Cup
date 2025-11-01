@@ -1,8 +1,19 @@
-<!-- 
+<!--
   This file holds the content for the 'submit' page.
   It is dynamically injected into Index.html by Code.gs
 -->
 <div class="page p-4">
+  <!-- Location Permission Status Alert -->
+  <div id="location-notice" class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+    <p class="text-sm text-blue-900 dark:text-blue-100">
+      <span class="font-semibold">📍 Location Required:</span> Location will be requested when you submit. You must enable location access in your browser settings.
+    </p>
+    <p class="text-xs text-blue-800 dark:text-blue-200 mt-2">
+      <strong>iOS Safari:</strong> Settings → Safari → Spartan Cup → Location<br>
+      <strong>Chrome:</strong> Click the location icon in the address bar
+    </p>
+  </div>
+
   <form id="submission-form" class="space-y-4">
     <div>
       <label class="font-bold text-[#111318] dark:text-white">Event</label>
