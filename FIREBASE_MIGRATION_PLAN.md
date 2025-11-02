@@ -1,2143 +1,1090 @@
-# Spartan Cup: Firebase + Sheets/Drive Migration Plan
+# Spartan Cup: iOS Safari Geolocation Fix - Web App Wrapper Approach
 
 **Status:** Planning & Preparation
-**Last Updated:** November 1, 2025
+**Last Updated:** November 2, 2025
 **Author:** Claude Code Analysis
-**Version:** 1.0 (Refined for iOS Safari Geolocation Fix)
+**Version:** 1.0
+**Alternative to:** Firebase Migration (FIREBASE_MIGRATION_PLAN.md)
 
 ---
 
 ## Executive Summary
 
-Spartan Cup is migrating from Google Apps Script to **Firebase Hosting + Cloud Functions** with Google Sheets/Drive as the persistent backend. The **primary objective** is solving the iOS Safari geolocation blocking issue, which prevents iOS users from attending events.
+Spartan Cup currently has a single critical issue: iOS Safari blocks geolocation requests in sandboxed iframes (which is what Google Apps Script web apps run in). This prevents iOS Safari users from attending events.
 
 ### The Problem
-iOS Safari blocks geolocation requests in sandboxed iframes (which is what Google Apps Script web apps run in). Users on iOS must currently use Chrome Mobile instead of Safari, creating friction and limiting adoption.
+iOS Safari considers iframes as a security boundary and blocks geolocation permission prompts in sandboxed environments. Google Apps Script runs in a sandboxed iframe, so iOS Safari never prompts for location permission.
 
 ### The Solution
-By hosting the frontend on Firebase Hosting (not in an iframe), iOS Safari will allow geolocation permissions naturally, eliminating the friction.
-
-### Why Firebase + Sheets/Drive (Not Pure Firebase)?
-- ✅ iOS geolocation problem solved
-- ✅ All data stays in Google Workspace (secure, compliant, editable)
-- ✅ Reduced development effort (~35 hours vs ~60+ hours for pure migration)
-- ✅ Familiar data layer (no schema changes needed)
-- ✅ Free-tier compatible (Spark plan covers your 10-200 user scale)
-- ✅ You keep direct Sheets editing as super admin
+Instead of a full 35-hour Firebase migration, we implement a **2-3 hour Web App Wrapper** that:
+1. Captures geolocation permission BEFORE loading the GAS app
+2. Passes location data to GAS via URL parameters
+3. Keeps all 41 functions unchanged in Google Apps Script
+4. Maintains all existing benefits (Sheets integration, admin tools, zero infrastructure)
 
 ### Key Metrics
 
 | Metric | Value |
 |--------|-------|
 | **Primary Blocker** | iOS Safari geolocation in iframe |
-| **Expected Scale** | 10-200 concurrent users (peak ~500) |
-| **API Quota Risk** | Low (well under free tier limits) |
-| **Infrastructure Cost** | $0/month (Spark plan) |
-| **Total Development Effort** | 30-35 hours |
-| **Timeline** | 3-6 weeks part-time, 2 weeks full-time |
-| **Downtime Required** | ~10 minutes (acceptable for your scale) |
-| **Breaking Changes** | None (user experience identical) |
-
----
-
-## Why iOS Safari Matters
-
-**Current Situation:**
-- Android Chrome users: ✅ Works perfectly
-- iOS Safari users: ❌ "Location is disabled" error (cannot be fixed in GAS)
-- iOS Chrome users: ✅ Works, but requires users to switch browsers
-
-**Root Cause:** iOS Safari considers iframes as a security boundary and blocks geolocation permission prompts in sandboxed environments. Google Apps Script runs in a sandboxed iframe, so iOS Safari never prompts for location permission.
-
-**After Migration:**
-- iOS Safari: ✅ Works perfectly (direct hosting, not in iframe)
-- All other browsers: ✅ Continue working as before
-- User experience: Seamless location-based attendance verification
+| **Total Development Effort** | 2-3 hours (vs 35 hours for Firebase) |
+| **Risk Level** | Very Low (minimal code changes) |
+| **Infrastructure Cost** | $0/month (Firebase Hosting free tier) |
+| **Downtime Required** | None (can deploy and test separately) |
+| **Breaking Changes** | None (backwards compatible) |
+| **GAS Code Changes** | Minimal (~20 lines) |
+| **Rollback Time** | Instant (change URL back) |
 
 ---
 
 ## Architecture Overview
 
-### Current Architecture (Google Apps Script)
+### Current Architecture (Problem)
 ```
 ┌─────────────────────────┐
 │   iOS Safari Client     │
 │   (Location blocked)    │
 └────────────┬────────────┘
              │
-             │ google.script.run
+             │ Loads GAS web app
              │ (sandboxed iframe)
              ▼
 ┌─────────────────────────────┐
 │   GAS Web App (Iframe)      │
 │   (iOS Safari blocks here)  │
+│   - All 41 functions        │
+│   - Sheets integration      │
+│   - Admin tools             │
 └────────────┬────────────────┘
              │
       ┌──────┴────────┐
       │               │
       ▼               ▼
   Sheets API     Drive API
-      │               │
-      ▼               ▼
-   Sheets         Drive
 ```
 
-### New Architecture (Firebase + Sheets/Drive)
+### New Architecture (Solution)
 ```
-┌──────────────────────────┐
-│   iOS Safari Client      │
-│   (Location enabled!)    │
-└────────────┬─────────────┘
+┌──────────────────────────────┐
+│   iOS Safari Client          │
+│   (Location permission OK!)  │
+└────────────┬─────────────────┘
              │
-             │ fetch()
-             │ (direct URL, not iframe)
-             ▼
-┌──────────────────────────┐
-│  Firebase Hosting        │
-│  (Static Frontend SPA)   │
-└────────────┬─────────────┘
-             │
-             │ Firebase SDK
-             │ callable functions
+             │ 1. Loads Firebase wrapper
+             │ 2. Gets location permission
              ▼
 ┌──────────────────────────────┐
-│  Cloud Functions (Node.js)   │
-│  (Your 41 backend functions) │
+│  Firebase Hosting            │
+│  (index.html - 50 lines)     │
+│  - Requests geolocation      │
+│  - Passes to GAS via URL     │
+└────────────┬─────────────────┘
+             │
+             │ 3. Redirects with location params
+             │    ?lat=X&lon=Y&acc=Z
+             ▼
+┌──────────────────────────────┐
+│  GAS Web App (UNCHANGED!)    │
+│  - Reads location from URL   │
+│  - All 41 functions intact   │
+│  - Sheets integration intact │
+│  - Admin tools unchanged     │
 └────────────┬─────────────────┘
              │
       ┌──────┴────────┐
       │               │
       ▼               ▼
-Sheets API      Drive API
-(via service    (via service
- account)        account)
-      │               │
-      ▼               ▼
-   Sheets         Drive
+  Sheets API     Drive API
 ```
 
 ### Data Flow
 ```
-1. User clicks "Check In"
+1. User visits: spartancup.web.app (Firebase Hosting)
    ↓
-2. Browser requests geolocation
-   ↓ (iOS Safari now ALLOWS this!)
+2. Wrapper requests geolocation (iOS Safari ALLOWS this!)
+   ↓
 3. User grants permission
    ↓
-4. Frontend calls: firebase.functions().httpsCallable('submitEvent')({eventId, location})
+4. Wrapper redirects: script.google.com/...?lat=44.97&lon=-93.62&acc=10
    ↓
-5. Cloud Function receives call
+5. GAS reads location from URL params
    ↓
-6. Function validates location (geofence check)
+6. User submits event (location already known)
    ↓
-7. Function saves to Sheets: Submissions_Pending tab
+7. GAS validates location and saves to Sheets
    ↓
-8. Function saves photo to Drive
-   ↓
-9. Frontend shows "Submission received"
-   ↓
-10. Super admin reviews in Sheets, approves/denies
+8. Everything else works exactly as before!
 ```
+
+---
+
+## Why This Approach is Superior
+
+### Comparison to Firebase Migration
+
+| Aspect | Web App Wrapper | Full Firebase Migration |
+|--------|----------------|------------------------|
+| **Development Time** | 2-3 hours | 30-35 hours |
+| **Risk Level** | Very Low | High (41 functions) |
+| **Code Changes** | ~50 lines | 5,000+ lines |
+| **GAS Benefits** | ✅ Kept 100% | ❌ Lost |
+| **Sheets Integration** | ✅ Native | ⚠️ Via API (quotas) |
+| **Admin Tools** | ✅ Unchanged | ⚠️ Rebuild needed |
+| **Service Account** | ❌ Not needed | ✅ Required |
+| **Credential Management** | ❌ None | ✅ Complex |
+| **Deployment** | `firebase deploy` | Multi-step process |
+| **Rollback** | Instant (URL change) | Difficult |
+| **Testing Needed** | Minimal | Extensive |
+| **Operational Complexity** | Very Low | High |
+| **Infrastructure to Monitor** | None | Firebase + Sheets |
+| **Fixes iOS Safari** | ✅ Yes | ✅ Yes |
+
+### What You Keep
+- ✅ All 41 GAS functions unchanged
+- ✅ Direct Sheets access (no API limits)
+- ✅ Built-in Google Workspace authentication
+- ✅ Spreadsheet as admin interface
+- ✅ Simple deployment (`clasp push`)
+- ✅ Zero operational cost
+- ✅ Zero infrastructure management
+- ✅ Existing admin tools and workflows
+
+### What You Gain
+- ✅ iOS Safari geolocation working
+- ✅ Professional custom domain (spartancup.yourschool.org)
+- ✅ Faster initial page load (static hosting)
+- ✅ Better control over app entry point
+- ✅ Ability to add splash screen, PWA features later
 
 ---
 
 ## Phase Breakdown
 
-### Phase 0: Audit & Planning (3 hours)
+### Phase 0: Preparation (30 minutes)
 **Status:** NOT STARTED
-**Duration:** 1 week (async work)
+**Duration:** 1 day
 **Owner:** [TO BE ASSIGNED]
 
-#### Task 0.1: Code Inventory & Function Audit (1 hour)
-**Objective:** Create a comprehensive list of all 41 functions with dependencies and complexity
-
-- [ ] Read Code.js in full
-- [ ] List all 41 functions with:
-  - Function name
-  - Purpose/description
-  - Parameters
-  - Return type
-  - Dependencies (which other functions it calls)
-  - Complexity level (simple/medium/complex)
-  - Sheets tabs used
-  - Drive operations
-- [ ] Note any time-based triggers or onEdit/onOpen handlers
-- [ ] Document error handling patterns
-
-**Deliverable:** `FUNCTION_AUDIT.md` with complete function inventory
-
-**Success Criteria:**
-- All 41 functions listed
-- Dependencies mapped
-- Complexity assessed
-- No functions missed
-
----
-
-#### Task 0.2: Spreadsheet Formula Audit (0.5 hours)
-**Objective:** Identify spreadsheet formulas that contain business logic
-
-**Current Knowledge:** Student display name creation uses formulas
-
-- [ ] Check Student_Profiles tab for formulas
-- [ ] Check Event_Schedule tab for formulas
-- [ ] Check Config_Badges tab for formulas
-- [ ] Check all other tabs for formulas
-- [ ] Document each formula's purpose
-- [ ] Plan conversion to Node.js logic
-
-**Deliverable:** List of all formulas and their logic
-
-**Success Criteria:**
-- All formulas identified
-- Logic understood
-- Conversion plan documented
-
----
-
-#### Task 0.3: Data Schema Documentation (0.5 hours)
-**Objective:** Document exact Sheets structure for reference during conversion
-
-- [ ] Document each Sheets tab:
-  - Tab name
-  - All column names
-  - Data types
-  - Which functions read it
-  - Which functions write it
-- [ ] Document Drive folder structure
-- [ ] Document file naming conventions
-
-**Deliverable:** `DATA_SCHEMA.md`
-
-**Success Criteria:**
-- All tabs documented
-- All columns listed with types
-- All drive operations documented
-
----
-
-#### Task 0.4: Create GCP/Firebase Projects (1 hour)
-**Objective:** Set up infrastructure
+#### Task 0.1: Create Firebase Project (15 minutes)
 
 **Steps:**
-1. Create new Google Cloud Project (or use existing)
-2. Link Firebase to GCP project
-3. Create service account with Sheets/Drive access
-4. Download service account key (secure location!)
-5. Enable required APIs:
-   - Google Sheets API
-   - Google Drive API
-6. Create Firebase project (console.firebase.google.com)
-7. Enable Hosting and Cloud Functions
-8. Note Project ID for .env configuration
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Click "Add project"
+3. Enter project name: `spartan-cup` (or your school name)
+4. Disable Google Analytics (not needed for static hosting)
+5. Click "Create project"
+6. Wait for project creation (~30 seconds)
 
-**Deliverable:** Service account JSON key, Firebase Project ID
+**Deliverable:** Firebase project created
 
 **Success Criteria:**
-- GCP project created
-- Firebase project created
-- Service account created and key downloaded
-- All APIs enabled
-- Can list Sheets via API (test)
+- Firebase project accessible in console
+- Project ID noted for later use
 
 ---
 
-### Phase 1: Local Development Setup (2-3 hours)
-**Status:** NOT STARTED
-**Duration:** 1-2 days
-**Owner:** [TO BE ASSIGNED]
-
-#### Task 1.1: Install Firebase CLI & Initialize Project (0.5 hours)
+#### Task 0.2: Install Firebase CLI (15 minutes)
 
 ```bash
 # Install Firebase CLI globally
 npm install -g firebase-tools
 
+# Verify installation
+firebase --version
+
 # Login to your Google account
 firebase login
 
-# Create new directory for Firebase project
-mkdir spartan-cup-firebase
-cd spartan-cup-firebase
-
-# Initialize Firebase project
-firebase init
-
-# Select these options:
-# - Hosting ✓
-# - Functions ✓
-# - JavaScript ✓
-# - ESLint? No (optional)
-# - Overwrite? No (when asked about existing files)
+# This will open a browser window for authentication
+# Select the Google account that owns the Firebase project
 ```
 
-**Deliverable:** Firebase project initialized locally
+**Deliverable:** Firebase CLI installed and authenticated
 
 **Success Criteria:**
-- firebase.json created
-- .firebaserc created
-- functions/ directory created
-
----
-
-#### Task 1.2: Install Dependencies (0.5 hours)
-
-```bash
-cd functions
-
-# Install required npm packages
-npm install googleapis google-auth-library firebase-admin firebase-functions
-
-# Optional but helpful
-npm install dotenv --save-dev
-```
-
-**Deliverable:** All dependencies installed
-
-**Success Criteria:**
-- node_modules/ populated
-- package.json updated with dependencies
-- No installation errors
-
----
-
-#### Task 1.3: Configure Service Account (0.5 hours)
-
-**Steps:**
-1. Place service account JSON key in `functions/` directory
-   - Name it `service-account-key.json`
-2. Create `functions/.env` file:
-   ```
-   SPREADSHEET_ID=your_spreadsheet_id_here
-   FIREBASE_PROJECT_ID=your_firebase_project_id
-   SERVICE_ACCOUNT_KEY_PATH=./service-account-key.json
-   ```
-3. Create `functions/.env.example`:
-   ```
-   SPREADSHEET_ID=
-   FIREBASE_PROJECT_ID=
-   SERVICE_ACCOUNT_KEY_PATH=
-   ```
-4. Create `functions/.gitignore`:
-   ```
-   node_modules/
-   service-account-key.json
-   .env
-   .runtimeconfig.json
-   ```
-
-**Deliverable:** Environment variables configured
-
-**Success Criteria:**
-- .env file created with correct values
-- service-account-key.json in place
-- .gitignore prevents credential leakage
-- .env.example created for team
-
----
-
-#### Task 1.4: Share Sheets & Drive with Service Account (0.5 hours)
-
-**Steps:**
-1. In GCP console, find service account email: `spartan-cup-functions@[PROJECT_ID].iam.gserviceaccount.com`
-2. Open your Spartan Cup Sheets
-3. Click Share, add service account email as **Editor**
-4. Open your Spartan Cup Drive folder
-5. Right-click → Share, add service account email as **Editor**
-6. Confirm sharing is complete
-
-**Note:** Sharing can take a few minutes to propagate
-
-**Deliverable:** Service account has Editor access to Sheets and Drive
-
-**Success Criteria:**
-- Service account email added to Sheets
-- Service account email added to Drive
-- Can read from Sheets (test below)
-- Can write to Drive (test below)
-
----
-
-#### Task 1.5: Create Directory Structure (0.5 hours)
-
-Create this folder structure:
-
-```
-functions/
-├── config.js              # Firebase & API initialization
-├── index.js               # Cloud Functions entry point
-├── controllers/
-│   ├── profile.js         # Profile, badges, leaderboard
-│   ├── submissions.js     # Event submissions, resubmissions
-│   ├── admin.js           # Admin queue, approvals, denials
-│   └── events.js          # Event details, lists
-├── utils/
-│   ├── sheets.js          # Sheets API wrapper functions
-│   ├── drive.js           # Drive API wrapper functions
-│   ├── auth.js            # Authentication checks
-│   ├── validation.js      # Data validation
-│   └── formulas.js        # Ported spreadsheet formulas
-├── tests/
-│   ├── utils.test.js      # Utility function tests
-│   └── functions.test.js  # Cloud function tests
-├── .env                   # Environment variables (gitignored)
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
-```
-
-**Deliverable:** Directory structure created
-
-**Success Criteria:**
-- All directories created
-- All files created (empty for now)
-- Structure matches above
-
----
-
-#### Task 1.6: Test Service Account Access (0.5 hours)
-
-Create `functions/test-access.js`:
-
-```javascript
-const {google} = require('googleapis');
-const fs = require('fs');
-require('dotenv').config();
-
-async function testAccess() {
-  try {
-    // Load service account key
-    const serviceAccountKey = JSON.parse(
-      fs.readFileSync('./service-account-key.json', 'utf8')
-    );
-
-    // Create sheets client
-    const auth = new google.auth.GoogleAuth({
-      credentials: serviceAccountKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets',
-               'https://www.googleapis.com/auth/drive']
-    });
-
-    const sheets = google.sheets({version: 'v4', auth});
-
-    // Try to read a cell from your Sheets
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: 'Student_Profiles!A1:A5'
-    });
-
-    console.log('✅ Successfully accessed Sheets!');
-    console.log('First few rows:', response.data.values);
-  } catch (error) {
-    console.error('❌ Error accessing Sheets:', error.message);
-  }
-}
-
-testAccess();
-```
-
-Run it:
-```bash
-node test-access.js
-```
-
-**Expected Output:**
-```
-✅ Successfully accessed Sheets!
-First few rows: [['User ID'], ['john@school.edu'], ...]
-```
-
-**Success Criteria:**
+- `firebase --version` shows version number
+- `firebase projects:list` shows your new project
 - No authentication errors
-- Can read data from Sheets
-- Service account permissions working
 
 ---
 
-### Phase 2: Helper Utilities & API Wrappers (3-4 hours)
-**Status:** NOT STARTED
-**Duration:** 2-3 days
-**Owner:** [TO BE ASSIGNED]
-
-These utilities will be used by all controller functions in Phase 3. Build and test each before moving forward.
-
----
-
-#### Task 2.1: Create config.js (0.5 hours)
-
-**File:** `functions/config.js`
-
-```javascript
-const {google} = require('googleapis');
-const fs = require('fs');
-require('dotenv').config();
-
-// Load service account key
-const serviceAccountKey = JSON.parse(
-  fs.readFileSync('./service-account-key.json', 'utf8')
-);
-
-// Create authenticated client
-const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccountKey,
-  scopes: [
-    'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive'
-  ]
-});
-
-// Export configured clients
-module.exports = {
-  auth,
-  sheets: google.sheets({version: 'v4', auth}),
-  drive: google.drive({version: 'v3', auth}),
-  spreadsheetId: process.env.SPREADSHEET_ID
-};
-```
-
-**Success Criteria:**
-- config.js loads without errors
-- auth client created
-- sheets and drive clients available
-
----
-
-#### Task 2.2: Create sheets.js Utility Wrapper (1 hour)
-
-**File:** `functions/utils/sheets.js`
-
-```javascript
-const {sheets, spreadsheetId} = require('../config');
-
-/**
- * Get all data from a specific sheet tab
- * @param {string} tabName - Sheet tab name (e.g., 'Student_Profiles')
- * @returns {Promise<Array>} Array of rows
- */
-async function getSheetData(tabName) {
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${tabName}!A:Z` // Adjust range as needed
-    });
-    return response.data.values || [];
-  } catch (error) {
-    console.error(`Error reading ${tabName}:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Append a row to a sheet
- * @param {string} tabName - Sheet tab name
- * @param {Array} row - Data to append
- * @returns {Promise}
- */
-async function appendToSheet(tabName, row) {
-  try {
-    const response = await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${tabName}!A:Z`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [row]
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error(`Error appending to ${tabName}:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Update a specific cell range
- * @param {string} range - A1 notation (e.g., 'Sheet!A1:B2')
- * @param {Array<Array>} values - 2D array of values
- * @returns {Promise}
- */
-async function updateSheet(range, values) {
-  try {
-    const response = await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {values}
-    });
-    return response.data;
-  } catch (error) {
-    console.error(`Error updating ${range}:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Find a row in a sheet by column value
- * @param {string} tabName - Sheet tab name
- * @param {number} columnIndex - 0-based column index
- * @param {string} searchValue - Value to find
- * @returns {Promise<Object>} Row object with index and data
- */
-async function findInSheet(tabName, columnIndex, searchValue) {
-  try {
-    const data = await getSheetData(tabName);
-    for (let i = 0; i < data.length; i++) {
-      if (data[i][columnIndex] === searchValue) {
-        return {index: i, data: data[i]};
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error finding ${searchValue} in ${tabName}:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Get the column index by header name
- * @param {string} tabName - Sheet tab name
- * @param {string} columnName - Header name to find
- * @returns {Promise<number>} 0-based column index
- */
-async function getColumnIndex(tabName, columnName) {
-  try {
-    const data = await getSheetData(tabName);
-    if (data.length === 0) throw new Error(`Sheet ${tabName} is empty`);
-
-    const headers = data[0];
-    const index = headers.indexOf(columnName);
-    if (index === -1) throw new Error(`Column "${columnName}" not found in ${tabName}`);
-
-    return index;
-  } catch (error) {
-    console.error(`Error getting column index:`, error.message);
-    throw error;
-  }
-}
-
-module.exports = {
-  getSheetData,
-  appendToSheet,
-  updateSheet,
-  findInSheet,
-  getColumnIndex
-};
-```
-
-**Success Criteria:**
-- All functions export correctly
-- No syntax errors
-- Functions can be imported and called
-
----
-
-#### Task 2.3: Create drive.js Utility Wrapper (0.5 hours)
-
-**File:** `functions/utils/drive.js`
-
-```javascript
-const {drive, auth} = require('../config');
-
-/**
- * Upload a file to Google Drive
- * @param {string} fileName - Name for the file
- * @param {Buffer} fileData - File content (base64 or buffer)
- * @param {string} folderName - Target folder name (will search for it)
- * @returns {Promise<string>} File ID of uploaded file
- */
-async function uploadFile(fileName, fileData, folderName) {
-  try {
-    // Find folder by name
-    const folderSearch = await drive.files.list({
-      auth,
-      q: `name="${folderName}" and mimeType="application/vnd.google-apps.folder" and trashed=false`,
-      spaces: 'drive',
-      pageSize: 1
-    });
-
-    if (folderSearch.data.files.length === 0) {
-      throw new Error(`Folder "${folderName}" not found`);
-    }
-
-    const folderId = folderSearch.data.files[0].id;
-
-    // Upload file to folder
-    const fileMetadata = {
-      name: fileName,
-      parents: [folderId]
-    };
-
-    const response = await drive.files.create({
-      auth,
-      resource: fileMetadata,
-      media: {
-        mimeType: 'image/jpeg',
-        body: fileData
-      }
-    });
-
-    return response.data.id;
-  } catch (error) {
-    console.error(`Error uploading file:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Delete a file from Drive
- * @param {string} fileId - File ID to delete
- * @returns {Promise}
- */
-async function deleteFile(fileId) {
-  try {
-    await drive.files.delete({
-      auth,
-      fileId
-    });
-  } catch (error) {
-    console.error(`Error deleting file:`, error.message);
-    throw error;
-  }
-}
-
-/**
- * Get file download URL
- * @param {string} fileId - File ID
- * @returns {string} Download URL
- */
-function getFileUrl(fileId) {
-  return `https://drive.google.com/uc?export=download&id=${fileId}`;
-}
-
-module.exports = {
-  uploadFile,
-  deleteFile,
-  getFileUrl
-};
-```
-
-**Success Criteria:**
-- All functions export
-- No syntax errors
-
----
-
-#### Task 2.4: Create auth.js Utility (0.5 hours)
-
-**File:** `functions/utils/auth.js`
-
-```javascript
-const {getSheetData, getColumnIndex} = require('./sheets');
-
-/**
- * Get list of admin emails from Config_Admins tab
- * @returns {Promise<Array<string>>} Array of admin emails
- */
-async function getAdminEmails() {
-  try {
-    const data = await getSheetData('Config_Admins');
-    // Assuming first column is email
-    return data.slice(1).map(row => row[0]).filter(email => email);
-  } catch (error) {
-    console.error('Error getting admin emails:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Check if an email is an admin
- * @param {string} email - Email to check
- * @returns {Promise<boolean>}
- */
-async function isAdmin(email) {
-  try {
-    const admins = await getAdminEmails();
-    return admins.includes(email);
-  } catch (error) {
-    console.error('Error checking admin status:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Get current user email from Firebase context
- * @param {Object} context - Firebase context from callable function
- * @returns {string} User email or null
- */
-function getCurrentUserEmail(context) {
-  if (!context.auth) {
-    throw new Error('User not authenticated');
-  }
-  return context.auth.token.email;
-}
-
-module.exports = {
-  getAdminEmails,
-  isAdmin,
-  getCurrentUserEmail
-};
-```
-
-**Success Criteria:**
-- Functions export
-- Admin email list can be read
-
----
-
-#### Task 2.5: Create validation.js Utility (0.5 hours)
-
-**File:** `functions/utils/validation.js`
-
-```javascript
-/**
- * Validate photo file
- * @param {Buffer|string} photoData - Photo data (base64 or buffer)
- * @returns {boolean} True if valid
- */
-function validatePhotoData(photoData) {
-  // Check if it's valid base64 or buffer
-  if (!photoData) return false;
-  if (typeof photoData === 'string') {
-    // Check if valid base64
-    return /^[A-Za-z0-9+/=]+$/.test(photoData);
-  }
-  return Buffer.isBuffer(photoData);
-}
-
-/**
- * Validate geolocation coordinates
- * @param {number} lat - Latitude
- * @param {number} lon - Longitude
- * @returns {boolean} True if valid
- */
-function validateCoordinates(lat, lon) {
-  return typeof lat === 'number' && typeof lon === 'number' &&
-         lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
-}
-
-/**
- * Check if coordinates are within geofence
- * @param {number} userLat - User latitude
- * @param {number} userLon - User longitude
- * @param {number} eventLat - Event latitude
- * @param {number} eventLon - Event longitude
- * @param {number} radiusMeters - Geofence radius in meters
- * @returns {boolean}
- */
-function isWithinGeofence(userLat, userLon, eventLat, eventLon, radiusMeters) {
-  // Haversine formula for distance
-  const R = 6371000; // Earth radius in meters
-  const φ1 = userLat * Math.PI / 180;
-  const φ2 = eventLat * Math.PI / 180;
-  const Δφ = (eventLat - userLat) * Math.PI / 180;
-  const Δλ = (eventLon - userLon) * Math.PI / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-
-  return distance <= radiusMeters;
-}
-
-module.exports = {
-  validatePhotoData,
-  validateCoordinates,
-  isWithinGeofence
-};
-```
-
-**Success Criteria:**
-- All validation functions work
-- Can test with sample data
-
----
-
-#### Task 2.6: Create formulas.js (Port Spreadsheet Formulas) (0.5 hours)
-
-**File:** `functions/utils/formulas.js`
-
-Based on Task 0.2 audit, port spreadsheet formulas here. For example:
-
-```javascript
-/**
- * Create student display name (replaces spreadsheet formula)
- * Based on spreadsheet: =CONCATENATE(FirstName," ",LastName)
- * @param {string} firstName
- * @param {string} lastName
- * @returns {string}
- */
-function createDisplayName(firstName, lastName) {
-  if (!firstName || !lastName) return '';
-  return `${firstName} ${lastName}`;
-}
-
-// Add all other formulas here as Node.js functions
-
-module.exports = {
-  createDisplayName
-  // Export other formula functions
-};
-```
-
-**Success Criteria:**
-- All formulas from audit ported to Node.js
-- Functions tested against original spreadsheet results
-- Output matches exactly
-
----
-
-#### Task 2.7: Test All Utilities (0.5 hours)
-
-Create `functions/test-utils.js`:
-
-```javascript
-const sheets = require('./utils/sheets');
-const drive = require('./utils/drive');
-const auth = require('./utils/auth');
-const validation = require('./utils/validation');
-const formulas = require('./utils/formulas');
-
-async function testAll() {
-  console.log('Testing utilities...\n');
-
-  try {
-    // Test Sheets
-    console.log('Testing sheets utility...');
-    const data = await sheets.getSheetData('Student_Profiles');
-    console.log(`✅ Read ${data.length} rows from Student_Profiles`);
-
-    // Test Auth
-    console.log('\nTesting auth utility...');
-    const admins = await auth.getAdminEmails();
-    console.log(`✅ Found ${admins.length} admins`);
-
-    // Test Validation
-    console.log('\nTesting validation utility...');
-    const coordsValid = validation.validateCoordinates(44.8, -93.3);
-    console.log(`✅ Coordinates validation: ${coordsValid}`);
-
-    // Test Formulas
-    console.log('\nTesting formulas utility...');
-    const displayName = formulas.createDisplayName('John', 'Doe');
-    console.log(`✅ Display name: ${displayName}`);
-
-    console.log('\n✅ All utilities working!');
-  } catch (error) {
-    console.error('❌ Error:', error.message);
-  }
-}
-
-testAll();
-```
-
-Run with:
-```bash
-node test-utils.js
-```
-
-**Success Criteria:**
-- All utilities test successfully
-- No errors in logs
-- Can proceed to Phase 3
-
----
-
-### Phase 3: Backend Function Conversion (15-18 hours)
-**Status:** NOT STARTED
-**Duration:** 1-2 weeks
-**Owner:** [TO BE ASSIGNED]
-
-This phase converts your 41 GAS functions to Node.js Cloud Functions. Break this into tiers by complexity.
-
-**Important:** Refer to the `FUNCTION_AUDIT.md` created in Phase 0 for dependency mapping.
-
----
-
-#### Tier 1: Simple Read Functions (3-4 hours)
-
-These functions only read from Sheets, no writes or complex logic.
-
-##### Task 3.1: Convert `getProfileData()` (1 hour)
-
-**Location:** `functions/controllers/profile.js`
-
-```javascript
-const functions = require('firebase-functions');
-const {getSheetData, findInSheet, getColumnIndex} = require('../utils/sheets');
-const {getCurrentUserEmail, isAdmin} = require('../utils/auth');
-const {createDisplayName} = require('../utils/formulas');
-
-/**
- * Get student profile data
- */
-exports.getProfileData = functions.https.onCall(async (data, context) => {
-  try {
-    // Verify user is authenticated
-    const userEmail = getCurrentUserEmail(context);
-
-    // Get student record from Sheets
-    const studentData = await findInSheet('Student_Profiles', 0, userEmail);
-    if (!studentData) {
-      throw new Error('Student profile not found');
-    }
-
-    // Extract columns (adjust indices based on your Sheets structure)
-    const row = studentData.data;
-    const profile = {
-      email: row[0],
-      firstName: row[1],
-      lastName: row[2],
-      displayName: createDisplayName(row[1], row[2]),
-      points: parseInt(row[3]) || 0,
-      grade: row[4],
-      badges: row[5] ? row[5].split(',') : [],
-      photoUrl: row[6] || null,
-      joinDate: row[7]
-    };
-
-    return profile;
-  } catch (error) {
-    console.error('Error in getProfileData:', error.message);
-    throw new functions.https.HttpsError('internal', error.message);
-  }
-});
-```
-
-**Unit Test:** `functions/tests/profile.test.js` (excerpt)
-
-```javascript
-// Mock data for testing
-const mockProfileData = [
-  ['john@school.edu', 'John', 'Doe', '250', '10', 'Badge1,Badge2', null, '2024-09-01']
-];
-
-test('getProfileData returns correct profile', async () => {
-  // This would use Firebase emulator or Jest mocks
-  // Just verify the function doesn't crash
-  expect(profile.displayName).toBe('John Doe');
-  expect(profile.points).toBe(250);
-});
-```
-
-**Success Criteria:**
-- Function converts without errors
-- Handles missing student profile gracefully
-- Returns correct data structure
-- Unit test passes
-
----
-
-##### Task 3.2: Convert `getEventList()` (0.5 hours)
-
-**Location:** `functions/controllers/events.js`
-
-```javascript
-const functions = require('firebase-functions');
-const {getSheetData} = require('../utils/sheets');
-
-/**
- * Get list of active events
- */
-exports.getEventList = functions.https.onCall(async (data, context) => {
-  try {
-    const events = await getSheetData('Event_Schedule');
-    // Skip header row and filter by status
-    return events.slice(1).map(row => ({
-      eventId: row[0],
-      name: row[1],
-      date: row[2],
-      location: row[3],
-      latitude: parseFloat(row[4]),
-      longitude: parseFloat(row[5]),
-      geofenceRadius: parseFloat(row[6]) || 100,
-      status: row[7],
-      qrCode: row[8]
-    })).filter(event => event.status === 'ACTIVE');
-  } catch (error) {
-    console.error('Error in getEventList:', error.message);
-    throw new functions.https.HttpsError('internal', error.message);
-  }
-});
-```
-
-**Success Criteria:**
-- Returns list of active events
-- Correctly parses coordinates
-- Handles empty event list
-
----
-
-##### Task 3.3 & 3.4: Other Simple Read Functions (1 hour)
-
-Convert remaining simple read functions:
-- `getBadgeData()`
-- `getAdminEmails()`
-- `getUserDisplayName()`
-
-(Follow same pattern as above)
-
----
-
-#### Tier 2: Complex Read Functions (3-4 hours)
-
-These read from multiple tabs and perform calculations.
-
-##### Task 3.5: Convert `getAdminQueue()` (1 hour)
-
-**Location:** `functions/controllers/admin.js`
-
-```javascript
-const functions = require('firebase-functions');
-const {getSheetData, getColumnIndex} = require('../utils/sheets');
-const {isAdmin, getCurrentUserEmail} = require('../utils/auth');
-
-/**
- * Get pending submissions for admin review
- */
-exports.getAdminQueue = functions.https.onCall(async (data, context) => {
-  try {
-    // Check if user is admin
-    const userEmail = getCurrentUserEmail(context);
-    const adminStatus = await isAdmin(userEmail);
-    if (!adminStatus) {
-      throw new Error('User is not an admin');
-    }
-
-    // Get pending submissions
-    const pending = await getSheetData('Submissions_Pending');
-
-    return pending.slice(1).map(row => ({
-      submissionId: row[0],
-      studentEmail: row[1],
-      eventId: row[2],
-      photoUrl: row[3],
-      timestamp: row[4],
-      location: row[5],
-      status: row[6]
-    }));
-  } catch (error) {
-    console.error('Error in getAdminQueue:', error.message);
-    throw new functions.https.HttpsError('permission-denied', error.message);
-  }
-});
-```
-
-**Success Criteria:**
-- Verifies admin status
-- Returns only pending submissions
-- Rejects non-admins
-
----
-
-##### Task 3.6 & 3.7: Other Complex Read Functions (2 hours)
-
-Convert:
-- `getFanFeed()`
-- `getEventsList()`
-- `getLeaderboard()`
-
-(Follow same pattern)
-
----
-
-#### Tier 3: Write Functions (3-4 hours)
-
-These create or modify data.
-
-##### Task 3.8: Convert `submitEvent()` (2 hours)
-
-**Location:** `functions/controllers/submissions.js`
-
-```javascript
-const functions = require('firebase-functions');
-const {appendToSheet, findInSheet} = require('../utils/sheets');
-const {uploadFile} = require('../utils/drive');
-const {getCurrentUserEmail} = require('../utils/auth');
-const {validatePhotoData, validateCoordinates, isWithinGeofence} = require('../utils/validation');
-
-/**
- * Submit event attendance with photo
- */
-exports.submitEvent = functions.https.onCall(async (data, context) => {
-  try {
-    // Validate input
-    if (!data.eventId || !data.photoData || !data.latitude || !data.longitude) {
-      throw new Error('Missing required fields');
-    }
-
-    // Verify authentication
-    const userEmail = getCurrentUserEmail(context);
-
-    // Validate photo
-    if (!validatePhotoData(data.photoData)) {
-      throw new Error('Invalid photo data');
-    }
-
-    // Validate coordinates
-    if (!validateCoordinates(data.latitude, data.longitude)) {
-      throw new Error('Invalid coordinates');
-    }
-
-    // Get event details to check geofence
-    const eventData = await findInSheet('Event_Schedule', 0, data.eventId);
-    if (!eventData) {
-      throw new Error('Event not found');
-    }
-
-    const event = eventData.data;
-    const eventLat = parseFloat(event[4]);
-    const eventLon = parseFloat(event[5]);
-    const geofenceRadius = parseFloat(event[6]) || 100;
-
-    // Check geofence
-    if (!isWithinGeofence(data.latitude, data.longitude, eventLat, eventLon, geofenceRadius)) {
-      throw new Error('Location is outside geofence. Are you at the event?');
-    }
-
-    // Upload photo to Drive
-    const buffer = Buffer.from(data.photoData, 'base64');
-    const fileName = `submission_${userEmail}_${Date.now()}.jpg`;
-    const photoUrl = await uploadFile(fileName, buffer, 'Spartan_Cup_Submissions');
-
-    // Create submission record
-    const timestamp = new Date().toISOString();
-    const submissionRow = [
-      `${Date.now()}`, // Submission ID
-      userEmail,
-      data.eventId,
-      photoUrl,
-      timestamp,
-      `${data.latitude},${data.longitude}`,
-      'PENDING'
-    ];
-
-    // Append to Submissions_Pending
-    await appendToSheet('Submissions_Pending', submissionRow);
-
-    return {
-      success: true,
-      message: 'Submission received! An admin will review shortly.',
-      submissionId: submissionRow[0]
-    };
-  } catch (error) {
-    console.error('Error in submitEvent:', error.message);
-    throw new functions.https.HttpsError('failed-precondition', error.message);
-  }
-});
-```
-
-**Success Criteria:**
-- Validates all inputs
-- Checks geofence before accepting
-- Uploads photo successfully
-- Creates pending submission
-- Returns submission ID
-
----
-
-##### Task 3.9 & 3.10: Other Write Functions (2 hours)
-
-Convert:
-- `approveSubmission()` - Updates points, moves to Verified tab, triggers badge calculation
-- `denySubmission()` - Rejects, moves to archive
-- `saveUserSettings()`
-- `updateEvent()` (for admin)
-
-(Follow same pattern)
-
----
-
-#### Tier 4: Calculation Functions (2-3 hours)
-
-Complex logic for points, badges, streaks.
-
-##### Task 3.11: Convert `calculateBadges()` (1 hour)
-
-Port the badge calculation logic from Code.js to Node.js:
-
-```javascript
-const functions = require('firebase-functions');
-const {getSheetData, updateSheet, findInSheet} = require('../utils/sheets');
-
-/**
- * Calculate earned badges for a student
- */
-exports.calculateBadges = functions.https.onCall(async (data, context) => {
-  try {
-    const {studentEmail} = data;
-
-    // Get student record
-    const student = await findInSheet('Student_Profiles', 0, studentEmail);
-    if (!student) throw new Error('Student not found');
-
-    // Get badge definitions
-    const badgeConfig = await getSheetData('Config_Badges');
-
-    // Get student's submissions
-    const verified = await getSheetData('Submissions_Verified');
-    const studentSubmissions = verified.slice(1).filter(row => row[1] === studentEmail);
-
-    // Calculate points from submissions
-    let totalPoints = 0;
-    studentSubmissions.forEach(row => {
-      totalPoints += parseInt(row[5]) || 0; // Assuming column 5 is points
-    });
-
-    // Determine which badges are earned based on point thresholds
-    const earnedBadges = badgeConfig.slice(1)
-      .filter(badge => totalPoints >= parseInt(badge[2])) // badge[2] is point threshold
-      .map(badge => badge[0]); // badge[0] is badge ID
-
-    // Update student record with badges
-    const studentRow = student.index + 2; // +2 because of 1-based row numbers and header
-    await updateSheet(`Student_Profiles!F${studentRow}`, [[earnedBadges.join(',')]]);
-
-    return {
-      badges: earnedBadges,
-      totalPoints
-    };
-  } catch (error) {
-    console.error('Error in calculateBadges:', error.message);
-    throw new functions.https.HttpsError('internal', error.message);
-  }
-});
-```
-
-**Success Criteria:**
-- Reads badge thresholds
-- Calculates earned badges correctly
-- Updates Sheets with new badges
-
----
-
-##### Task 3.12 & 3.13: Other Calculation Functions (1-2 hours)
-
-Convert:
-- `calculateStreakBonus()`
-- `calculateComplexBonuses()`
-- Any other point/streak logic
-
----
-
-#### Tier 5: Remaining Helper Functions (1-2 hours)
-
-Convert any remaining functions not covered above:
-- Event code generation
-- Notification functions (email/in-app)
-- Image serving (use Drive file URLs)
-- Settings management
-
----
-
-#### Task 3.14: Quality Assurance (2-3 hours)
-
-Once all functions converted:
-
-- [ ] Review all 41 functions are converted
-- [ ] Check error handling on all functions
-- [ ] Verify all dependencies met
-- [ ] Test functions locally with `firebase emulators:start`
-- [ ] Create unit tests for each function (at least success path)
-- [ ] Integration tests for multi-function workflows
-- [ ] Compare output with GAS version side-by-side
-
-**Success Criteria:**
-- All 41 functions converted
-- All functions have error handling
-- All unit tests pass
-- Integration tests pass
-- Output matches GAS behavior
-
----
-
-### Phase 4: Frontend Migration (3-4 hours)
-**Status:** NOT STARTED
-**Duration:** 2-3 days
-**Owner:** [TO BE ASSIGNED]
-
-Convert all `google.script.run` calls to Firebase callable functions.
-
-#### Task 4.1: Set Up Firebase SDK in Index.html (0.5 hours)
-
-Add to the `<head>` section of Index.html:
-
-```html
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-functions-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-
-<script>
-  // Initialize Firebase with your project config
-  // Get this from Firebase Console → Project Settings
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    projectId: "YOUR_PROJECT_ID",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    functionsRegion: "us-central1"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  window.fbFunctions = firebase.functions();
-</script>
-```
-
-**Steps:**
-1. Go to Firebase Console
-2. Select your project
-3. Click Settings (gear icon) → Project settings
-4. Copy the config object
-5. Paste into Index.html above
-
-**Success Criteria:**
-- Firebase SDK loads without errors
-- `window.fbFunctions` available in console
-
----
-
-#### Task 4.2: Replace google.script.run Calls (1.5-2 hours)
-
-**Before (GAS):**
-```javascript
-google.script.run.withSuccessHandler((result) => {
-  populateProfile(result);
-}).withFailureHandler((error) => {
-  console.error('Error:', error.message);
-}).getProfileData();
-```
-
-**After (Firebase):**
-```javascript
-const getProfileData = firebase.functions().httpsCallable('getProfileData');
-
-getProfileData({})
-  .then((result) => {
-    populateProfile(result.data);
-  })
-  .catch((error) => {
-    console.error('Error:', error.message);
-  });
-```
-
-**Find all google.script.run calls:**
-
-```bash
-grep -n "google.script.run" JavaScript.html
-```
-
-Replace each one systematically. Example replacements:
-
-```javascript
-// Replace all of these patterns in JavaScript.html:
-
-// Pattern 1: Simple callback
-// BEFORE:
-google.script.run.withSuccessHandler(callback).functionName();
-// AFTER:
-firebase.functions().httpsCallable('functionName')({})
-  .then(result => callback(result.data))
-  .catch(error => console.error(error));
-
-// Pattern 2: With parameters
-// BEFORE:
-google.script.run.withSuccessHandler(callback).functionName(param1, param2);
-// AFTER:
-firebase.functions().httpsCallable('functionName')({param1, param2})
-  .then(result => callback(result.data))
-  .catch(error => console.error(error));
-
-// Pattern 3: With failure handler
-// BEFORE:
-google.script.run
-  .withSuccessHandler(onSuccess)
-  .withFailureHandler(onFailure)
-  .functionName();
-// AFTER:
-firebase.functions().httpsCallable('functionName')({})
-  .then(result => onSuccess(result.data))
-  .catch(error => onFailure({message: error.message}));
-```
-
-**Create helper function in JavaScript.html to simplify calls:**
-
-```javascript
-// Add this helper at the top of JavaScript.html
-async function callFunction(functionName, data = {}) {
-  try {
-    const result = await firebase.functions().httpsCallable(functionName)(data);
-    return result.data;
-  } catch (error) {
-    console.error(`Error calling ${functionName}:`, error.message);
-    throw error;
-  }
-}
-
-// Now calls are simpler:
-// BEFORE: google.script.run.withSuccessHandler(callback).getProfileData();
-// AFTER: callFunction('getProfileData').then(callback);
-```
-
-**Success Criteria:**
-- All google.script.run calls replaced
-- No references to google.script.run remain
-- All functions called with correct parameters
-- Error handling in place
-
----
-
-#### Task 4.3: Update Error Messages (0.5 hours)
-
-Google Apps Script errors vs Firebase errors have different formats.
-
-**Create error handler:**
-
-```javascript
-function handleFunctionError(error) {
-  console.error('Function error:', error);
-
-  let userMessage = 'Something went wrong. Please try again.';
-
-  if (error.code === 'failed-precondition') {
-    // Location-based error (geofence)
-    userMessage = error.message; // "Location is outside geofence..."
-  } else if (error.code === 'permission-denied') {
-    // Authentication error
-    userMessage = 'You do not have permission for this action.';
-  } else if (error.code === 'internal') {
-    userMessage = 'Server error. Please contact support.';
-  }
-
-  // Show error to user (modal or toast)
-  showError(userMessage);
-}
-```
-
-Update all `.catch()` handlers to use this function.
-
-**Success Criteria:**
-- Error messages are user-friendly
-- Different error types handled appropriately
-- No exposing internal error details
-
----
-
-#### Task 4.4: Test Frontend (1 hour)
-
-**Test Checklist:**
-- [ ] Page loads without console errors
-- [ ] Profile page displays correctly
-- [ ] Event list loads
-- [ ] QR scanning works
-- [ ] Photo capture works
-- [ ] Submit button triggers function call
-- [ ] Admin page loads (if admin user)
-- [ ] Admin approve/deny works
-- [ ] Error handling triggers on failure
-- [ ] Mobile responsive on iOS Safari
-
-**Manual Testing:**
-1. Deploy functions: `firebase deploy --only functions`
-2. Deploy frontend: `firebase deploy --only hosting`
-3. Test on real iOS Safari device (THIS IS CRITICAL)
-4. Verify geolocation permission prompt appears
-5. Verify submission goes through
-
-**Success Criteria:**
-- All pages functional
-- All buttons responsive
-- Error messages appear correctly
-- iOS Safari geolocation works ✅
-
----
-
-### Phase 5: Testing & QA (4-5 hours)
-**Status:** NOT STARTED
-**Duration:** 1 week
-**Owner:** [TO BE ASSIGNED]
-
-#### Task 5.1: Unit Tests (1.5 hours)
-
-Create tests for each controller module:
-
-**Example: `functions/tests/profile.test.js`**
-
-```javascript
-const test = require('firebase-functions-test')();
-const myFunctions = require('../index');
-
-describe('Profile Functions', () => {
-  it('getProfileData returns correct structure', async () => {
-    const wrapped = test.wrap(myFunctions.getProfileData);
-    const context = {auth: {token: {email: 'test@school.edu'}}};
-
-    const result = await wrapped({}, context);
-
-    expect(result).toHaveProperty('email');
-    expect(result).toHaveProperty('displayName');
-    expect(result).toHaveProperty('points');
-    expect(result).toHaveProperty('badges');
-  });
-
-  it('calculateBadges returns array', async () => {
-    const wrapped = test.wrap(myFunctions.calculateBadges);
-    const context = {auth: {token: {email: 'test@school.edu'}}};
-
-    const result = await wrapped({studentEmail: 'test@school.edu'}, context);
-
-    expect(Array.isArray(result.badges)).toBe(true);
-    expect(typeof result.totalPoints).toBe('number');
-  });
-});
-```
-
-Run tests:
-```bash
-cd functions
-npm test
-```
-
-**Success Criteria:**
-- Unit tests written for all 41 functions
-- Tests cover success and failure cases
-- 80%+ code coverage
-- All tests passing
-
----
-
-#### Task 5.2: Integration Tests (1.5 hours)
-
-Test functions that call each other:
-
-**Example:** submitEvent → calculateBadges workflow
-
-```javascript
-describe('Submission Workflow', () => {
-  it('submitEvent creates record and triggers badge calculation', async () => {
-    // 1. Submit event
-    // 2. Verify record in Sheets
-    // 3. Approve submission
-    // 4. Verify badges calculated
-    // 5. Verify student points updated
-  });
-});
-```
-
-**Success Criteria:**
-- Workflow tests for all major flows
-- Data consistency verified
-- Error cases tested
-
----
-
-#### Task 5.3: End-to-End Tests on Staging (1 hour)
-
-**Test Plan:**
-1. Load app in browser (staging URL)
-2. Log in as student
-3. Submit event (complete flow with photo)
-4. Verify submission appears in admin queue
-5. Log in as admin
-6. Approve submission
-7. Verify points updated in student profile
-8. Test on iOS Safari specifically
-
-**Success Criteria:**
-- Complete workflows function
-- Data flows correctly through all systems
-- iOS Safari geolocation works ✅
-
----
-
-#### Task 5.4: Performance Testing (0.5 hours)
-
-**Check:**
-- Page load time (target: < 2 sec)
-- Function execution time (target: < 1 sec)
-- API quota usage (should be well under limits)
-- Concurrent user handling (test with multiple tabs)
-
-**Tools:**
-- Firebase Console → Functions → Performance
-- Chrome DevTools → Network/Performance tabs
-- Google Sheets API quota dashboard
-
-**Success Criteria:**
-- Load times acceptable
-- No API quota exceeded
-- Handles concurrent requests
-
----
-
-### Phase 6: Staging Deployment & QA (3-4 hours)
-**Status:** NOT STARTED
-**Duration:** 1-2 days
-**Owner:** [TO BE ASSIGNED]
-
-#### Task 6.1: Deploy to Staging (0.5 hours)
-
-**Prerequisites:**
-- All tests passing
-- No console errors locally
-
-**Deploy commands:**
-
-```bash
-# Deploy Cloud Functions to staging
-firebase deploy --only functions --project YOUR_PROJECT_ID-staging
-
-# Deploy Frontend to staging
-firebase deploy --only hosting --project YOUR_PROJECT-staging
-
-# Verify deployment
-firebase functions:list --project YOUR_PROJECT_ID-staging
-firebase hosting:list --project YOUR_PROJECT_ID-staging
-```
-
-**Staging URL:** `https://YOUR_PROJECT_ID.web.app` (from Firebase Hosting)
-
-**Success Criteria:**
-- Functions deployed without errors
-- Frontend accessible at staging URL
-- No errors in Functions logs
-
----
-
-#### Task 6.2: QA Testing on Staging (2 hours)
-
-**Manual QA Checklist:**
-
-**Core Functionality:**
-- [ ] Login works
-- [ ] Profile page loads
-- [ ] Event list shows
-- [ ] QR code scanner page loads
-- [ ] Photo capture/upload works
-- [ ] Submit button sends data
-- [ ] Submission appears in admin queue
-- [ ] Admin can approve submission
-- [ ] Admin can deny submission
-- [ ] Points update correctly
-- [ ] Badges appear correctly
-- [ ] Leaderboard displays
-- [ ] User settings save
-
-**Mobile Testing (CRITICAL):**
-- [ ] Test on iOS Safari - Verify geolocation permission prompt appears ✅
-- [ ] Test on iOS Chrome
-- [ ] Test on Android Chrome
-- [ ] Test on Android Firefox
-- [ ] Portrait orientation works
-- [ ] Landscape orientation works
-- [ ] Touch interactions responsive
-
-**Edge Cases:**
-- [ ] Network timeout (submit while offline)
-- [ ] Very large photo
-- [ ] Photo upload fails → retry
-- [ ] Invalid location (outside geofence)
-- [ ] Duplicate submission attempt
-- [ ] Admin approval twice (should reject)
-
-**Data Integrity:**
-- [ ] Data saves to Sheets correctly
-- [ ] Photos save to Drive correctly
-- [ ] No data loss on errors
-- [ ] Correct Sheets tabs updated
-
-**Success Criteria:**
-- All QA tests passing
-- No crashes or errors
-- iOS Safari geolocation working ✅
-
----
-
-#### Task 6.3: Security Testing (1 hour)
-
-- [ ] Verify only authenticated users access
-- [ ] Verify users can only see their own data
-- [ ] Verify only admins access admin functions
-- [ ] Verify no data leaks in error messages
-- [ ] Verify API key restrictions (Firebase console)
-- [ ] Check for console.log() statements with sensitive data
-
-**Firebase Security Rules (add to firebase.json):**
-
-```json
-{
-  "rules": {
-    "users": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
-      }
-    }
-  }
-}
-```
-
-**Success Criteria:**
-- No security vulnerabilities found
-- Data access controlled properly
-- No sensitive data in logs
-
----
-
-#### Task 6.4: Performance Monitoring (0.5 hours)
-
-**Baseline Measurements:**
-- Average function execution time: _____ ms
-- P95 function execution time: _____ ms
-- API calls per submission: _____
-- API quota usage (% of free tier): ____%
-
-**Record these** as baseline for comparison after production deployment.
-
-**Success Criteria:**
-- Performance acceptable
-- Quota usage well under limits
-
----
-
-### Phase 7: Cutover Planning (2-3 hours)
-**Status:** NOT STARTED
-**Duration:** 1-2 weeks before go-live
-**Owner:** [TO BE ASSIGNED]
-
-#### Task 7.1: Create Cutover Plan (1 hour)
-
-**Cutover Window:** Saturday afternoon (low-usage time, ~15 minutes)
-
-**Cutover Procedure:**
-
-```
-T-24 hours:
-  - Final QA on production data in staging
-  - Team briefing on cutover plan
-
-T-12 hours:
-  - Email notification to all users
-  - Remind admin staff
-
-T-0:00 (Cutover Start):
-  - Announce maintenance window in app (if possible)
-  - Backup current Sheets
-  - Backup current Drive
-
-T-0:05:
-  - Disable GAS web app (or hide nav link)
-  - Stop accepting new submissions
-
-T-0:10:
-  - Deploy Cloud Functions to production
-  - Deploy Frontend to Firebase Hosting
-  - Update navigation links to new Firebase URL
-
-T-0:12:
-  - Test critical workflows:
-    - Profile page load
-    - Submit event
-    - Admin queue
-    - Admin approval
-
-T-0:15:
-  - Re-enable submissions
-  - Cutover complete
-  - Monitor errors closely
-
-T+30 min:
-  - Send "all systems normal" notification
-  - Celebrate! 🎉
-```
-
-**Rollback Procedure (if critical issues found within 1 hour):**
-
-1. Alert stakeholders
-2. Disable Firebase Hosting
-3. Re-enable GAS web app
-4. Update nav links back to GAS
-5. Post-mortem on issue
-6. Fix and redeploy
-
-**Success Criteria:**
-- Plan documented
-- All stakeholders aware
-- Rollback procedures tested
-
----
-
-#### Task 7.2: Communication Plan (1 hour)
-
-**Email to All Users (48 hours before):**
-
-```
-Subject: Spartan Cup Maintenance - Saturday 2-3pm
-
-We're upgrading Spartan Cup to improve your experience!
-
-What's changing:
-✅ iOS Safari now works (no more Chrome requirement!)
-✅ Faster performance
-✅ Same features you know
-
-What's NOT changing:
-- Your data is safe
-- Same leaderboards and badges
-- Same admin approval process
-
-Timeline:
-- Maintenance: Saturday 2:00-2:15pm
-- Downtime: ~10 minutes
-- Apps may be slow during upgrade (normal)
-
-Questions? Contact: [ADMIN EMAIL]
-
-Thank you,
-IT Team
-```
-
-**Email to Admin Staff (24 hours before):**
-
-```
-Subject: Spartan Cup Maintenance - Admin Briefing
-
-On Saturday 2-3pm, we're upgrading Spartan Cup.
-
-For admins:
-- Admin dashboard remains the same
-- Approval process unchanged
-- Sheets still updated with new submissions
-
-During maintenance:
-- You may see brief "not available" message
-- Nothing to do on your end
-
-If issues:
-- Contact [ADMIN EMAIL]
-- We have rollback plan ready
-
-Thank you,
-IT Team
-```
-
-**Success Criteria:**
-- Users notified
-- Expectations set
-- Support plan in place
-
----
-
-#### Task 7.3: Data Backup (0.5 hours)
-
-**Before cutover:**
-
-1. Backup Sheets:
-   - File → Download as → Excel
-   - Save to Drive backup folder
-   - Label: `Spartan_Cup_Backup_[DATE]`
-
-2. Backup Drive:
-   - Download all submission photos to local storage
-   - Label folders with date
-
-3. Store backups:
-   - Keep for 30 days
-   - Have access to quickly restore if needed
-
-**Success Criteria:**
-- Sheets backed up
-- Drive backed up
-- Backups stored safely
-
----
-
-### Phase 8: Production Deployment (0.5 hours)
+### Phase 1: Create Wrapper Application (1 hour)
 **Status:** NOT STARTED
 **Duration:** 1 day
 **Owner:** [TO BE ASSIGNED]
 
-#### Task 8.1: Pre-Flight Checks (0.25 hours)
-
-**Before deploying:**
+#### Task 1.1: Initialize Firebase Hosting (10 minutes)
 
 ```bash
-# Verify all functions compile
-firebase functions:list --project spartan-cup-prod
+# Create new directory for wrapper
+mkdir spartan-cup-wrapper
+cd spartan-cup-wrapper
 
-# Check no errors in logs
-firebase functions:log --limit 50 --project spartan-cup-prod
+# Initialize Firebase Hosting
+firebase init hosting
 
-# Verify API quotas not exceeded
-# (Check in Firebase Console → Cloud Functions → Quotas)
-
-# Check Sheets/Drive sharing still in place
-# (Verify service account is Editor on both)
-
-# Run final smoke tests locally
-npm test
+# Select options:
+# - Use existing project: spartan-cup
+# - Public directory: public
+# - Configure as single-page app: No
+# - Set up automatic builds: No
+# - Overwrite index.html: Yes
 ```
 
-**Pre-Deployment Checklist:**
-- [ ] All functions deployed
-- [ ] Firebase Hosting ready
-- [ ] Environment variables correct
-- [ ] Service account verified
-- [ ] Error logging enabled
-- [ ] Monitoring alerts configured
-- [ ] Support team briefed
-- [ ] Rollback plan reviewed
-- [ ] Data backed up
-
----
-
-#### Task 8.2: Execute Cutover (0.25 hours)
-
-**Follow cutover plan from Task 7.1:**
-
-```bash
-# At T-0:10, deploy to production:
-
-# Deploy functions
-firebase deploy --only functions --project spartan-cup-prod
-
-# Deploy hosting
-firebase deploy --only hosting --project spartan-cup-prod
-
-# At T-0:12, run smoke tests:
-# 1. Load main page in browser
-# 2. Log in
-# 3. View profile
-# 4. Submit test event (use test geofence)
-# 5. Check admin queue
-# 6. Approve test submission
-
-# Monitor logs for errors
-firebase functions:log --limit 100 --follow --project spartan-cup-prod
-```
+**Deliverable:** Firebase Hosting initialized
 
 **Success Criteria:**
-- All systems deployed
-- Smoke tests pass
-- No errors in logs
-- Users report access works
+- `firebase.json` created
+- `.firebaserc` created
+- `public/` directory created
+- No errors during initialization
 
 ---
 
-### Phase 9: Post-Launch Monitoring (2-3 hours ongoing)
+#### Task 1.2: Create Wrapper HTML (30 minutes)
+
+Create `public/index.html`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spartan Cup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1b3b87 0%, #b5121b 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 400px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 900;
+    }
+    
+    .logo {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    #status {
+      font-size: 1rem;
+      margin-top: 1rem;
+      line-height: 1.6;
+    }
+    
+    .error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 2px solid #ef4444;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    
+    button {
+      background: white;
+      color: #1b3b87;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: transform 0.2s;
+    }
+    
+    button:hover {
+      transform: scale(1.05);
+    }
+    
+    button:active {
+      transform: scale(0.95);
+    }
+    
+    .instructions {
+      font-size: 0.875rem;
+      margin-top: 15px;
+      opacity: 0.9;
+      line-height: 1.6;
+    }
+    
+    .instructions strong {
+      display: block;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">🏆</div>
+    <h1>Spartan Cup</h1>
+    <div class="spinner" id="spinner"></div>
+    <p id="status">Requesting location permission...</p>
+    <div id="error-container"></div>
+  </div>
+
+  <script>
+    // IMPORTANT: Replace this with your actual Google Apps Script web app URL
+    const GAS_APP_URL = 'YOUR_GAS_WEB_APP_URL_HERE';
+    
+    // Configuration
+    const GEOLOCATION_CONFIG = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+    
+    // Check if browser supports geolocation
+    if (!navigator.geolocation) {
+      showError(
+        'Geolocation Not Supported',
+        'Your browser does not support location services. Please use a modern browser like Chrome, Safari, or Firefox.',
+        false
+      );
+    } else {
+      // Request location permission
+      navigator.geolocation.getCurrentPosition(
+        handleLocationSuccess,
+        handleLocationError,
+        GEOLOCATION_CONFIG
+      );
+    }
+    
+    function handleLocationSuccess(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const acc = position.coords.accuracy;
+      
+      document.getElementById('status').textContent = '✓ Location obtained! Loading app...';
+      
+      // Build URL with location parameters
+      const separator = GAS_APP_URL.includes('?') ? '&' : '?';
+      const targetUrl = `${GAS_APP_URL}${separator}lat=${lat}&lon=${lon}&acc=${acc}`;
+      
+      // Small delay so user sees success message
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 500);
+    }
+    
+    function handleLocationError(error) {
+      let errorMessage = '';
+      let instructions = '';
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Location Permission Denied';
+          instructions = `
+            Please enable location permissions:
+            <strong>iOS Safari:</strong> Settings → Safari → Location Services → While Using → Allow
+            <strong>Android Chrome:</strong> Tap the lock icon in address bar → Permissions → Location → Allow
+            <strong>Desktop:</strong> Click the location icon in the address bar and select "Allow"
+          `;
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Location Unavailable';
+          instructions = 'Your device cannot determine your location. Please check that Location Services are enabled in your device settings.';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'Location Request Timeout';
+          instructions = 'The request took too long. Please try again, preferably near a window or outdoors.';
+          break;
+        default:
+          errorMessage = 'Unknown Error';
+          instructions = 'An unknown error occurred. Please try again.';
+      }
+      
+      showError(errorMessage, instructions, true);
+    }
+    
+    function showError(title, message, showRetry) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('status').textContent = '';
+      
+      const errorHtml = `
+        <div class="error">
+          <h2>⚠️ ${title}</h2>
+          <p class="instructions">${message}</p>
+          ${showRetry ? '<button onclick="location.reload()">Retry</button>' : ''}
+        </div>
+      `;
+      
+      document.getElementById('error-container').innerHTML = errorHtml;
+    }
+  </script>
+</body>
+</html>
+```
+
+**Deliverable:** Wrapper HTML created with geolocation handling
+
+**Success Criteria:**
+- File created in `public/index.html`
+- No syntax errors
+- Opens in browser and shows UI
+
+---
+
+#### Task 1.3: Test Wrapper Locally (10 minutes)
+
+```bash
+# Start local Firebase hosting server
+firebase serve
+
+# This will start a server at http://localhost:5000
+# Open in browser and test geolocation prompt
+```
+
+**Testing Checklist:**
+- [ ] Page loads without errors
+- [ ] Geolocation permission prompt appears
+- [ ] Granting permission shows success message
+- [ ] Denying permission shows error message with instructions
+- [ ] Retry button works after denying permission
+- [ ] UI looks good on mobile and desktop
+
+**Success Criteria:**
+- Geolocation prompt appears immediately on page load
+- Both success and error paths work correctly
+- No console errors
+
+---
+
+#### Task 1.4: Update GAS_APP_URL (10 minutes)
+
+In `public/index.html`, replace this line:
+```javascript
+const GAS_APP_URL = 'YOUR_GAS_WEB_APP_URL_HERE';
+```
+
+With your actual Google Apps Script web app URL:
+```javascript
+const GAS_APP_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+```
+
+**How to find your GAS web app URL:**
+1. Open your Google Apps Script project
+2. Click "Deploy" → "Manage deployments"
+3. Copy the "Web app" URL
+4. Paste into the wrapper code
+
+**Success Criteria:**
+- GAS_APP_URL points to your deployed web app
+- No placeholder text remains
+
+---
+
+### Phase 2: Modify GAS to Accept Location (45 minutes)
 **Status:** NOT STARTED
-**Duration:** 1-2 weeks after launch
+**Duration:** 1 day
 **Owner:** [TO BE ASSIGNED]
 
-#### Task 9.1: Daily Monitoring (1 hour daily for 3 days)
+#### Task 2.1: Update doGet() Function (15 minutes)
 
-**Daily Checks:**
+**File:** `Code.js`
 
-```bash
-# Check error logs
-firebase functions:log --project spartan-cup-prod
+Find the `doGet(e)` function and modify it to accept location parameters:
 
-# Check quota usage
-# (Firebase Console → Cloud Functions → Quotas)
+```javascript
+/**
+ * Main entry point for the web app. Acts as a router to serve the SPA.
+ */
+function doGet(e) {
+  const page = e.parameter.page || 'profile'; // Default to profile page
 
-# Check response times
-# (Firebase Console → Cloud Functions → Metrics)
+  // Pass data to the HTML template
+  const template = HtmlService.createTemplateFromFile('Index');
+  template.page = page; // Tell the template which page to load
 
-# Look for patterns:
-# - Error rate normal?
-# - No timeout errors?
-# - API quota healthy?
+  const user = Session.getActiveUser();
+  template.userEmail = user.getEmail();
+  template.userName = getUserDisplayName();
+  template.userPhoto = getUserProfilePhoto(user.getEmail());
+  template.isAdmin = getAdminEmails().includes(user.getEmail().toLowerCase());
+  template.userSettings = JSON.stringify(getUserSettings());
+
+  // NEW: Accept location from URL parameters (from Firebase wrapper)
+  template.userLat = e.parameter.lat || null;
+  template.userLon = e.parameter.lon || null;
+  template.userAcc = e.parameter.acc || null;
+
+  return template.evaluate()
+    .setTitle('The Spartan Cup')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
 ```
 
-**What to Look For:**
-- Unexpected errors
-- High error rate (> 1%)
-- Timeout errors
-- Quota warnings
+**Success Criteria:**
+- Three new template variables added
+- No syntax errors
+- Function compiles in Apps Script editor
 
-**Action if Issues Found:**
-1. Document issue
-2. Check logs for root cause
-3. Fix code or configuration
-4. Deploy fix
-5. Verify resolution
+---
+
+#### Task 2.2: Update Index.html to Pass Location (10 minutes)
+
+**File:** `Index.html`
+
+Find the `APP_DATA` object and add location parameters:
+
+```html
+<script>
+  // Pass server-side data (from doGet) to client-side JS
+  const APP_DATA = {
+    page: "<?= page ?>",
+    userEmail: "<?= userEmail ?>",
+    userName: "<?= userName ?>",
+    userPhoto: "<?= userPhoto ?>",
+    isAdmin: <?= isAdmin ?>,
+    appUrl: "<?= getWebAppUrl() ?>",
+    userSettings: <?!= userSettings ?>,
+    // NEW: Location from URL parameters (from Firebase wrapper)
+    userLat: <?= userLat ? userLat : 'null' ?>,
+    userLon: <?= userLon ? userLon : 'null' ?>,
+    userAcc: <?= userAcc ? userAcc : 'null' ?>
+  };
+</script>
+```
 
 **Success Criteria:**
-- No critical errors for 24 hours
-- Error rate < 0.1%
-- All workflows function
+- Three new fields added to APP_DATA
+- Conditional rendering handles null values
+- No syntax errors
 
 ---
 
-#### Task 9.2: Performance Monitoring (1 hour for first week)
+#### Task 2.3: Update requestLocation() in JavaScript.html (20 minutes)
 
-**Compare to baselines from Phase 6:**
+**File:** `JavaScript.html`
 
-| Metric | Phase 6 | Now | Status |
-|--------|---------|-----|--------|
-| Avg function time | ___ms | ___ms | ✓ |
-| P95 function time | ___ms | ___ms | ✓ |
-| API quota usage | ___% | ___% | ✓ |
-| Error rate | ___% | ___% | ✓ |
+Find the `requestLocation()` function and modify it to use passed location first:
 
-**Actions if degradation found:**
-- Identify slow function
-- Add caching if needed
-- Optimize query
-- Redeploy
+```javascript
+/**
+ * Request user location with caching and proper error handling
+ * NOW checks if location was passed from Firebase wrapper first
+ * @param {Function} onSuccess - Callback with location {lat, lon, acc}
+ * @param {Function} onError - Callback with error message
+ * @param {boolean} forceRefresh - Skip cache and request fresh location
+ */
+function requestLocation(onSuccess, onError, forceRefresh = false) {
+  // PRIORITY 1: Check if location was passed from Firebase wrapper
+  if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
+    console.log('Using location from Firebase wrapper');
+    onSuccess({
+      lat: parseFloat(APP_DATA.userLat),
+      lon: parseFloat(APP_DATA.userLon),
+      acc: parseFloat(APP_DATA.userAcc)
+    });
+    return;
+  }
+
+  // PRIORITY 2: Try to use cached location (unless forced refresh)
+  if (!forceRefresh) {
+    const cached = getCachedLocation();
+    if (cached) {
+      console.log('Using cached location');
+      onSuccess(cached);
+      return;
+    }
+  }
+
+  // PRIORITY 3: Request fresh location from browser
+  if (!navigator.geolocation) {
+    onError('Geolocation is not supported by your browser');
+    return;
+  }
+
+  console.log('Requesting fresh location from browser');
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      cacheLocation(position);
+      onSuccess({
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        acc: position.coords.accuracy
+      });
+    },
+    (error) => {
+      let message = 'Unable to get your location.';
+
+      if (error.code === error.PERMISSION_DENIED) {
+        message = 'Location permission denied. Please enable location in Settings > Safari > Location Services (iOS) or browser settings.';
+      } else if (error.code === error.TIMEOUT) {
+        message = 'Location request timed out. Please try again.';
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        message = 'Your location is unavailable. Please check GPS.';
+      }
+
+      onError(message);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+}
+```
+
+**Key Changes:**
+- PRIORITY 1: Check for location from URL parameters first (from wrapper)
+- PRIORITY 2: Fall back to cached location
+- PRIORITY 3: Fall back to browser geolocation API
+- Added console.log for debugging which source was used
+
+**Success Criteria:**
+- Function uses location from wrapper when available
+- Falls back to existing behavior if no location passed
+- No syntax errors
+- Console logs show which location source is used
 
 ---
 
-#### Task 9.3: Gather User Feedback (ongoing)
+#### Task 2.4: Deploy GAS Changes (5 minutes)
 
-**Survey users:** "How is the new Spartan Cup?"
+```bash
+# In your Spartan_Cup directory
+clasp push
 
-- What did you like?
-- What needs improvement?
-- Any issues you experienced?
+# If prompted to overwrite, confirm
+# Verify no errors in push
+```
 
-Document feedback and plan improvements for next phase.
+**Success Criteria:**
+- All files pushed successfully
+- No errors in Apps Script editor
+- Can open the web app without errors
+
+---
+
+### Phase 3: Deploy and Test (30 minutes)
+**Status:** NOT STARTED
+**Duration:** 1 day
+**Owner:** [TO BE ASSIGNED]
+
+#### Task 3.1: Deploy Firebase Hosting (5 minutes)
+
+```bash
+# In spartan-cup-wrapper directory
+firebase deploy --only hosting
+
+# Note the Hosting URL that's displayed
+# Should be: https://spartan-cup.web.app
+```
+
+**Deliverable:** Wrapper deployed to Firebase Hosting
+
+**Success Criteria:**
+- Deployment completes without errors
+- Firebase Hosting URL noted
+- Can access the wrapper URL in browser
+
+---
+
+#### Task 3.2: Test Complete Flow (15 minutes)
+
+**Desktop Testing:**
+1. Open Firebase Hosting URL in Chrome
+2. Grant location permission when prompted
+3. Verify redirect to GAS app
+4. Check browser console: should see "Using location from Firebase wrapper"
+5. Navigate to submit page
+6. Verify location status shows "✅ Location Enabled"
+7. Try submitting an event (even if not at an event)
+8. Check that location validation works
+
+**Mobile Testing (CRITICAL - iOS Safari):**
+1. Open Firebase Hosting URL on iPhone in Safari
+2. Grant location permission when prompted ✅ **This should work now!**
+3. Verify redirect to GAS app
+4. Navigate to submit page
+5. Verify location status shows "✅ Location Enabled"
+6. Try full submission flow
+
+**Testing Checklist:**
+- [ ] Desktop Chrome: Location permission prompt appears
+- [ ] Desktop Chrome: Redirects to GAS after granting permission
+- [ ] Desktop Chrome: Location passed correctly to GAS
+- [ ] Desktop Safari: Same as Chrome
+- [ ] iOS Safari: Location permission prompt appears ✅ **MAIN GOAL**
+- [ ] iOS Safari: No "Location blocked" errors ✅ **MAIN GOAL**
+- [ ] iOS Safari: Full submission flow works ✅ **MAIN GOAL**
+- [ ] Android Chrome: Works as before
+- [ ] Location denial shows proper error message
+- [ ] Retry button works after denying permission
+- [ ] Console logs show correct location source
+
+**Success Criteria:**
+- iOS Safari prompts for location permission ✅
+- iOS Safari users can submit events ✅
+- All other browsers continue to work
+- No console errors
+- Location validation works correctly
+
+---
+
+#### Task 3.3: Performance Testing (10 minutes)
+
+**Measure:**
+1. Time from wrapper load to GAS app load
+2. Extra network requests (should be just 1 redirect)
+3. User experience impact
+
+**Expected Results:**
+- Wrapper load: < 1 second
+- Redirect to GAS: < 1 second
+- Total added latency: < 2 seconds
+- Acceptable user experience
+
+**If latency is too high:**
+- Consider removing the 500ms delay in wrapper
+- Optimize wrapper HTML (minify, inline all CSS/JS)
+
+**Success Criteria:**
+- Total redirect flow < 3 seconds
+- No noticeable performance degradation
+- User experience acceptable
+
+---
+
+### Phase 4: Update User-Facing URLs (15 minutes)
+**Status:** NOT STARTED
+**Duration:** 1 day
+**Owner:** [TO BE ASSIGNED]
+
+#### Task 4.1: Update QR Code (5 minutes)
+
+**File:** `Page.qr-code.html`
+
+Update the QR code generation to use Firebase Hosting URL:
+
+```javascript
+function initQRCode() {
+  // OLD: Direct GAS URL
+  // const qrUrl = APP_DATA.appUrl + '?page=submit';
+  
+  // NEW: Firebase wrapper URL
+  const qrUrl = 'https://spartan-cup.web.app'; // Replace with your actual Firebase URL
+  
+  document.getElementById('qr-url').textContent = qrUrl;
+  
+  const qrcodeElement = document.getElementById('qrcode');
+  qrcodeElement.innerHTML = '';
+  
+  new QRCode(qrcodeElement, {
+    text: qrUrl,
+    width: 300,
+    height: 300,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+```
+
+**Success Criteria:**
+- QR code now points to Firebase Hosting URL
+- Scanning QR code triggers location permission
+- After permission, redirects to GAS app
+
+---
+
+#### Task 4.2: Update Navigation Links (5 minutes)
+
+Consider updating any places where you share the app URL:
+- Email announcements
+- School website
+- Social media
+- Printed materials
+
+**New user-facing URL:** `https://spartan-cup.web.app`
+
+**Admin can still access GAS directly if needed** for debugging: Keep the original GAS URL bookmarked
+
+**Success Criteria:**
+- All public-facing materials reference Firebase URL
+- Admin still has access to direct GAS URL
+- Documentation updated with new URL
+
+---
+
+#### Task 4.3: Add Custom Domain (Optional - 10 minutes)
+
+If you want a custom domain like `spartancup.oronohighschool.org`:
+
+```bash
+# In Firebase Console
+# 1. Go to Hosting section
+# 2. Click "Add custom domain"
+# 3. Enter: spartancup.oronohighschool.org
+# 4. Follow DNS verification instructions
+# 5. Add provided TXT record to your domain DNS
+# 6. Wait for verification (can take up to 24 hours)
+```
+
+**Success Criteria:**
+- Custom domain points to Firebase Hosting
+- SSL certificate auto-issued by Firebase
+- Both spartancup.oronohighschool.org and spartan-cup.web.app work
+
+---
+
+### Phase 5: Monitoring and Validation (Ongoing)
+**Status:** NOT STARTED
+**Duration:** 1-2 weeks after deployment
+**Owner:** [TO BE ASSIGNED]
+
+#### Task 5.1: Monitor iOS Safari Success Rate (Daily for 1 week)
+
+**Metrics to track:**
+1. Number of iOS Safari users accessing the app
+2. Location permission grant rate
+3. Submission success rate from iOS Safari
+4. User complaints about location issues
+
+**How to track:**
+- Add simple analytics to wrapper (optional)
+- Monitor submissions in Sheets for iOS Safari user agents
+- Ask users directly for feedback
+
+**Success Criteria:**
+- > 90% of iOS Safari users grant location permission
+- > 95% of location grants lead to successful submissions
+- No user complaints about iOS Safari location issues
+
+---
+
+#### Task 5.2: Verify No Regressions (1 hour)
+
+Test that existing functionality wasn't broken:
+
+**Checklist:**
+- [ ] Desktop Chrome still works
+- [ ] Android Chrome still works
+- [ ] Admin dashboard works
+- [ ] Submission approval works
+- [ ] Points calculations correct
+- [ ] Badges awarded correctly
+- [ ] Leaderboard updates
+- [ ] Settings save correctly
+- [ ] Event management works
+- [ ] QR code generation works
+
+**Success Criteria:**
+- All existing features work identically
+- No regressions introduced
+- Admin workflow unchanged
+
+---
+
+#### Task 5.3: Gather User Feedback (1 week)
+
+After 1 week of deployment, gather feedback:
+
+**Survey questions:**
+1. Were you able to submit event attendance on iOS Safari? (Yes/No)
+2. Did you experience any issues with location permission? (Yes/No/Details)
+3. How was the overall experience? (1-5 stars)
+4. Any other feedback?
+
+**Success Criteria:**
+- > 80% of iOS Safari users report success
+- < 10% report issues with location
+- Average rating > 4/5 stars
+
+---
+
+## Rollback Plan
+
+### If iOS Safari Still Doesn't Work
+
+**Diagnosis steps:**
+1. Check browser console for errors
+2. Verify location is being passed in URL params
+3. Test on multiple iOS devices/versions
+4. Check if issue is geolocation API or URL param handling
+
+**Option A: Adjust wrapper approach**
+- Try storing location in sessionStorage
+- Use postMessage API to pass location
+- Add more detailed error logging
+
+**Option B: Hybrid approach (see Alternative Solutions)
+
+**Option C: Accept limitation**
+- Require iOS users to use Chrome app
+- Provide clear instructions in app
+
+### Instant Rollback
+
+If you need to roll back immediately:
+
+```bash
+# Option 1: Change QR code to point directly to GAS URL
+# Edit Page.qr-code.html and regenerate QR codes
+
+# Option 2: Update Firebase wrapper to redirect immediately
+# Remove geolocation code, just redirect to GAS
+
+# Option 3: Decommission Firebase wrapper entirely
+# Share original GAS URL with users
+```
+
+**Success Criteria:**
+- Can roll back in < 5 minutes
+- No data loss
+- Users can still access app via original GAS URL
+
+---
+
+## Alternative Solutions
+
+### If Web App Wrapper Doesn't Solve iOS Safari
+
+#### Alternative 1: Hybrid Approach (5-10 hours)
+
+Only migrate the submission flow to Firebase, keep everything else in GAS:
+
+```
+Profile Page → GAS (unchanged)
+History Page → GAS (unchanged)
+Admin Dashboard → GAS (unchanged)
+Settings Page → GAS (unchanged)
+
+Submit Page → Firebase Cloud Function
+  ↓
+  Calls GAS via Apps Script API to save submission
+```
+
+**Pros:**
+- Fixes iOS Safari geolocation
+- Keeps most of GAS benefits
+- Only ~3 functions to migrate
+
+**Cons:**
+- More complex than wrapper
+- Need service account for one function
+- Two systems to maintain
+
+**Effort:** 5-10 hours
+
+---
+
+#### Alternative 2: Custom Location Picker (3-4 hours)
+
+If geolocation API fails, add a map interface:
+
+1. Show interactive map on submit page
+2. User manually selects their location on map
+3. Validate against event geofence
+4. More work for users but guaranteed to work
+
+**Pros:**
+- Works on all browsers
+- No geolocation API needed
+- Visual confirmation of location
+
+**Cons:**
+- Users have to tap location on map
+- Easier to fake location
+- Requires map API (Google Maps)
+
+**Effort:** 3-4 hours
+
+---
+
+#### Alternative 3: Accept Limitation (1 hour)
+
+Simply require iOS Safari users to use Chrome:
+
+1. Detect iOS Safari at app load
+2. Show banner: "For best experience, please use Chrome"
+3. Provide link to Chrome in App Store
+4. Update onboarding to mention this requirement
+
+**Pros:**
+- Zero development time
+- No code changes needed
+- Chrome works perfectly already
+
+**Cons:**
+- User friction
+- May reduce iOS adoption
+- Not ideal UX
+
+**Effort:** 1 hour (just UI changes)
 
 ---
 
 ## Success Criteria Summary
 
-### Functional ✅
-- [ ] iOS Safari geolocation works (PRIMARY GOAL)
-- [ ] All 41 functions converted and working
-- [ ] All workflows identical to GAS version
-- [ ] No data loss or corruption
-- [ ] Error handling comprehensive
-- [ ] Mobile responsive
+### Primary Objective ✅
+- [ ] iOS Safari users can grant location permission
+- [ ] iOS Safari users can submit event attendance
+- [ ] Location validation works correctly from wrapper
 
-### Performance ✅
-- [ ] Page load < 2 seconds
-- [ ] Function execution < 1 second average
-- [ ] No API quota exceeded
-- [ ] Handles 10-200 concurrent users
+### Secondary Objectives ✅
+- [ ] No regressions in existing functionality
+- [ ] Performance impact < 2 seconds added latency
+- [ ] All browsers continue to work
+- [ ] Admin workflow unchanged
+- [ ] Deployment successful with zero downtime
 
-### Data Integrity ✅
-- [ ] All submissions saved to correct Sheets tab
-- [ ] Photos saved to Drive with metadata
-- [ ] Points calculated correctly
-- [ ] Badges awarded correctly
-- [ ] Admin approvals update data correctly
+### Quality Metrics ✅
+- [ ] > 90% iOS Safari location permission grant rate
+- [ ] > 95% submission success rate
+- [ ] < 5% user complaints about location
+- [ ] Zero breaking changes to GAS code
 
-### Security ✅
-- [ ] Only authenticated users access
-- [ ] Users can only see own data
-- [ ] Only admins access admin functions
-- [ ] No data leaks in logs
-- [ ] Service account credentials secure
-
-### User Experience ✅
-- [ ] No breaking changes
-- [ ] Same workflows as before
-- [ ] Better performance than GAS
-- [ ] Mobile works great
-- [ ] Clear error messages
+### Long-term Success ✅
+- [ ] Solution stable after 1 month
+- [ ] No additional maintenance burden
+- [ ] Can still easily update GAS code
+- [ ] Firebase Hosting costs remain $0/month
 
 ---
 
@@ -2145,237 +1092,235 @@ Document feedback and plan improvements for next phase.
 
 ### High Risk
 
-**Risk 1: iOS Safari Still Doesn't Work**
-- **Probability:** Very low (Firebase Hosting should solve iframe issue)
-- **Impact:** Critical (defeats entire migration purpose)
+**Risk 1: iOS Safari Wrapper Doesn't Work**
+- **Probability:** Very Low (wrapper is outside iframe, should work)
+- **Impact:** Critical (back to square one)
 - **Mitigation:**
-  - [ ] Test extensively on actual iOS Safari devices early
-  - [ ] Have geolocation fallback (PIN code?) if needed
-  - [ ] Contact Firebase support if issues
-
-**Risk 2: Function Logic Errors After Conversion**
-- **Probability:** Medium (converting 41 functions is complex)
-- **Impact:** High (users see wrong data/points)
-- **Mitigation:**
-  - [ ] Thorough code review before cutover
-  - [ ] Side-by-side comparison of GAS vs Node.js output
-  - [ ] Unit tests for all functions
-  - [ ] Staged rollout (test with subset first)
+  - [ ] Test on multiple iOS devices/versions early
+  - [ ] Have Alternative 1 (Hybrid Approach) ready as backup
+  - [ ] Can fall back to Alternative 3 (require Chrome) immediately
 
 ### Medium Risk
 
-**Risk 3: Data Integrity Issues During Cutover**
-- **Probability:** Low (cutover is brief)
-- **Impact:** Medium (submissions lost during window)
+**Risk 2: URL Parameter Size Limits**
+- **Probability:** Very Low (lat/lon are small strings)
+- **Impact:** Medium (location not passed correctly)
 - **Mitigation:**
-  - [ ] Schedule cutover during low-usage time
-  - [ ] Disable submissions 5 min before cutover
-  - [ ] Brief window (10-15 min acceptable)
-
-**Risk 4: Service Account Key Compromise**
-- **Probability:** Very low (your personal account)
-- **Impact:** High (API access exposed)
-- **Mitigation:**
-  - [ ] Don't commit key to Git (use .gitignore)
-  - [ ] Store key securely (Firebase Functions env vars)
-  - [ ] Plan key rotation strategy
+  - [ ] Test with various location coordinates
+  - [ ] URL encode parameters properly
+  - [ ] Monitor for truncation issues
 
 ### Low Risk
 
-**Risk 5: Performance Degradation**
-- **Probability:** Low (Firebase Hosting is fast)
-- **Impact:** Low (acceptable slowdown)
+**Risk 3: User Confusion with Redirect**
+- **Probability:** Low (redirect is fast and seamless)
+- **Impact:** Low (minor UX issue)
 - **Mitigation:**
-  - [ ] Performance baseline established
-  - [ ] Monitor after launch
-  - [ ] Optimize if needed
+  - [ ] Add loading animation in wrapper
+  - [ ] Keep delay short (500ms or less)
+  - [ ] Test user experience with real users
+
+**Risk 4: Firebase Hosting Downtime**
+- **Probability:** Very Low (Firebase has 99.95% uptime SLA)
+- **Impact:** Low (can use direct GAS URL as backup)
+- **Mitigation:**
+  - [ ] Keep direct GAS URL documented
+  - [ ] Can quickly revert QR codes to GAS URL
+  - [ ] Monitor Firebase status page
 
 ---
 
-## Technology Stack Reference
+## Cost Analysis
 
-### Frontend (No Changes)
-- HTML5 / CSS3
-- Vanilla JavaScript
-- Tailwind CSS (CDN)
-- html5-qrcode library
-- **New:** Firebase SDK
+### One-Time Costs
+- **Development Time:** 2-3 hours @ $0/hour (DIY) = $0
+- **Firebase Setup:** $0 (free tier)
+- **Custom Domain (optional):** $0-15/year
 
-### Backend (Complete Change)
-- **Old:** Google Apps Script (GAS)
-- **New:** Node.js 16+ running on Cloud Functions
-- **Libraries:**
-  - firebase-functions
-  - firebase-admin
-  - googleapis
-  - google-auth-library
+### Ongoing Costs
+- **Firebase Hosting:** $0/month (well within free tier)
+  - Free tier: 10 GB storage, 360 MB/day bandwidth
+  - Your app: < 1 MB, ~200 users/day = ~200 MB/day
+- **Firebase Functions:** $0/month (not using)
+- **GAS Execution:** $0/month (already using)
+- **Maintenance:** ~15 min/month
 
-### Infrastructure
-- **Hosting:** Firebase Hosting (replaces GAS web app)
-- **Compute:** Cloud Functions (replaces GAS execution)
-- **Database:** Google Sheets API (via service account)
-- **Storage:** Google Drive API (via service account)
-- **Authentication:** Firebase Auth (Google OAuth)
+### Total Monthly Cost: $0
 
-### Deployment
-- **Tool:** Firebase CLI
-- **CI/CD:** Manual `firebase deploy` commands
-  - Future: Could add GitHub Actions automation
+### Comparison to Firebase Migration
+- **Firebase Migration Cost:** 35 hours development time
+- **Wrapper Approach Cost:** 2-3 hours development time
+- **Savings:** 32 hours (~$3,200 if outsourced at $100/hr)
 
 ---
 
-## Team & Responsibilities
+## Documentation Updates Needed
 
-### Roles Needed
+After successful deployment, update:
 
-| Role | Name | Hours | Responsibilities |
-|------|------|-------|------------------|
-| **Backend Developer** | [TO ASSIGN] | 20 hrs | Phases 2-3: Function conversion, utilities, Cloud Functions |
-| **Frontend Developer** | [TO ASSIGN] | 5 hrs | Phase 4: Firebase SDK integration, API call updates |
-| **QA Tester** | [TO ASSIGN] | 4 hrs | Phases 5-6: Testing, iOS Safari verification |
-| **Project Owner** | [YOU] | 3 hrs | Oversight, data backup, Sheets editing |
-| **DevOps/Setup** | [YOU] | 2 hrs | GCP/Firebase setup, credentials management |
+1. **README.md**
+   - Update project URL to Firebase Hosting URL
+   - Add note about wrapper approach
+   - Document why wrapper is needed
 
-**Total Team Hours:** ~34 hours
+2. **CLAUDE.md**
+   - Add section about Firebase wrapper
+   - Document URL parameter handling
+   - Update deployment instructions
 
----
+3. **User Documentation**
+   - Update any guides with new URL
+   - Remove iOS Safari warnings (if they exist)
+   - Add note that location permission is required
 
-## Timeline Options
-
-### Option A: Full-Time (2 weeks)
-```
-Week 1:
-- Days 1-2: Phases 0-1 (planning, setup)
-- Days 3-5: Phases 2-3 (utilities, functions)
-
-Week 2:
-- Days 1-2: Phase 3 (finish functions)
-- Days 3-4: Phase 4 (frontend)
-- Days 5: Phase 5-6 (testing, staging)
-
-Week 3:
-- Days 1-2: Phase 7-8 (cutover, deployment)
-- Days 3+: Phase 9 (monitoring)
-```
-
-### Option B: Part-Time (4-6 weeks)
-```
-Week 1: Phases 0-1 (5 hrs)
-Week 2-3: Phase 2-3 part 1 (10 hrs)
-Week 4: Phase 3 part 2 (8 hrs)
-Week 5: Phase 4 (5 hrs)
-Week 6: Phase 5-6 (3 hrs)
-Week 7: Phase 7-8 (2 hrs)
-Week 8+: Phase 9 (ongoing)
-```
+4. **Admin Documentation**
+   - Note that direct GAS URL still works for admin
+   - Document rollback procedure
+   - Add troubleshooting section
 
 ---
 
-## Key Files to Create
+## Implementation Checklist
 
-### Code Files
-- [ ] `functions/config.js` - Firebase & API initialization
-- [ ] `functions/index.js` - Cloud Functions entry point
-- [ ] `functions/utils/sheets.js` - Sheets API wrapper
-- [ ] `functions/utils/drive.js` - Drive API wrapper
-- [ ] `functions/utils/auth.js` - Authentication utilities
-- [ ] `functions/utils/validation.js` - Data validation
-- [ ] `functions/utils/formulas.js` - Ported spreadsheet formulas
-- [ ] `functions/controllers/profile.js` - Profile functions
-- [ ] `functions/controllers/submissions.js` - Submission functions
-- [ ] `functions/controllers/admin.js` - Admin functions
-- [ ] `functions/controllers/events.js` - Event functions
+### Pre-Implementation
+- [ ] Review and approve this plan
+- [ ] Assign team member to implement
+- [ ] Schedule implementation time
+- [ ] Backup current GAS code
+- [ ] Test current GAS code works
 
-### Configuration Files
-- [ ] `.firebaserc` - Firebase project mapping
-- [ ] `firebase.json` - Firebase configuration
-- [ ] `functions/.env` - Environment variables (gitignored)
-- [ ] `functions/.env.example` - Env variable template
-- [ ] `functions/.gitignore` - Git ignore rules
+### Implementation (2-3 hours)
+- [ ] Phase 0: Create Firebase project (30 min)
+- [ ] Phase 1: Create wrapper (1 hour)
+- [ ] Phase 2: Modify GAS (45 min)
+- [ ] Phase 3: Deploy and test (30 min)
+- [ ] Phase 4: Update URLs (15 min)
 
-### Documentation Files
-- [ ] `FUNCTION_AUDIT.md` - List of all 41 functions
-- [ ] `DATA_SCHEMA.md` - Sheets structure documentation
-- [ ] `FIREBASE_MIGRATION_PLAN.md` - This document
-- [ ] `API_DOCUMENTATION.md` - Cloud Functions API docs
-- [ ] `DEPLOYMENT_GUIDE.md` - How to deploy
-- [ ] `TROUBLESHOOTING.md` - Common issues and fixes
-
-### Test Files
-- [ ] `functions/tests/utils.test.js` - Utility tests
-- [ ] `functions/tests/functions.test.js` - Function tests
-- [ ] `functions/test-access.js` - API access verification
+### Post-Implementation
+- [ ] Test on all browsers
+- [ ] Test on iOS Safari (CRITICAL)
+- [ ] Update QR codes
+- [ ] Update documentation
+- [ ] Notify users of new URL
+- [ ] Monitor for 1 week
+- [ ] Gather user feedback
+- [ ] Mark as COMPLETE
 
 ---
 
-## Known Limitations & Future Improvements
+## Decision Point: Go/No-Go
 
-### Current Implementation (Phase 1)
-- Basic Firebase Hosting (no custom domain initially)
-- Manual deployment via CLI (no CI/CD)
-- Simple email/in-app notifications only
-- No offline support
-- No caching layer (could add later)
+**Review this checklist before starting implementation:**
 
-### Future Improvements (Phase 2+)
-- [ ] Custom domain (spartan-cup.oronohighschool.org)
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Push notifications (Firebase Cloud Messaging)
-- [ ] Offline support (Service Workers)
-- [ ] Caching layer (Firebase Realtime DB)
-- [ ] Real-time leaderboard updates
-- [ ] More sophisticated badge system
-- [ ] Fan feed with images
+### Technical Readiness
+- [ ] Firebase account created
+- [ ] Firebase CLI installed
+- [ ] GAS web app currently working
+- [ ] Have access to deploy GAS code
+- [ ] Have iOS Safari device for testing
+
+### Resource Readiness
+- [ ] Developer assigned (2-3 hours)
+- [ ] Time scheduled for implementation
+- [ ] Testing window available
+- [ ] Admin available to review
+
+### Risk Acceptance
+- [ ] Understand rollback procedure
+- [ ] Comfortable with minimal GAS code changes
+- [ ] Accept 2-second redirect delay
+- [ ] Have backup plan if wrapper doesn't work
+
+### Success Criteria Defined
+- [ ] Know how to measure iOS Safari success
+- [ ] Have test users ready
+- [ ] Feedback mechanism in place
+- [ ] Timeline for evaluation set (1 week)
+
+**GO DECISION:** All above checkboxes must be checked before proceeding.
 
 ---
 
-## Go/No-Go Decision Criteria
+## Support and Troubleshooting
 
-**Before starting Phase 0:**
-- [ ] Executive approval for timeline
-- [ ] Team members assigned
-- [ ] Budget approved ($0/month ongoing)
-- [ ] Stakeholders briefed
+### Common Issues
 
-**Before Phase 1 (Infrastructure):**
-- [ ] GCP/Firebase projects created
-- [ ] Service account ready
+**Issue 1: Wrapper shows "permission denied" on iOS Safari**
+- **Cause:** User denied permission
+- **Solution:** Show clear instructions to enable location in Settings
+- **Prevention:** Make initial prompt very clear about why location is needed
 
-**Before Phase 2 (Utilities):**
-- [ ] Code repository initialized
-- [ ] Team can access codebase
-- [ ] Firebase CLI working locally
+**Issue 2: Redirect loop between wrapper and GAS**
+- **Cause:** GAS redirecting back to wrapper
+- **Solution:** Check that GAS reads location from URL params correctly
+- **Prevention:** Test thoroughly in Phase 3
 
-**Before Phase 3 (Function Conversion):**
-- [ ] All utilities tested and working
-- [ ] Code audit completed (all 41 functions listed)
-- [ ] Function dependency mapping documented
+**Issue 3: Location not being passed to GAS**
+- **Cause:** URL encoding issue or parameter names mismatch
+- **Solution:** Check browser console for URL being generated
+- **Prevention:** Verify parameter names match exactly (lat, lon, acc)
 
-**Before Phase 4 (Frontend):**
-- [ ] All 41 functions converted and unit tested
-- [ ] No console errors in Cloud Functions logs
+**Issue 4: Firebase Hosting not deploying**
+- **Cause:** Authentication or permissions issue
+- **Solution:** Run `firebase login` again and verify project access
+- **Prevention:** Test `firebase projects:list` before deploying
 
-**Before Phase 5 (Testing):**
-- [ ] All frontend calls migrated to Firebase
-- [ ] No google.script.run references remain
+### Getting Help
 
-**Before Phase 6 (Staging):**
-- [ ] All unit tests passing
-- [ ] All integration tests passing
-- [ ] Code reviewed
+**Firebase Support:**
+- Documentation: https://firebase.google.com/docs/hosting
+- Stack Overflow: [firebase-hosting] tag
+- Firebase Console: Support tab
 
-**Before Phase 7 (Cutover Planning):**
-- [ ] QA testing complete and passing
-- [ ] No blocking bugs found
-- [ ] Performance acceptable
+**Google Apps Script Support:**
+- Documentation: https://developers.google.com/apps-script
+- Stack Overflow: [google-apps-script] tag
 
-**Before Phase 8 (Production):**
-- [ ] Cutover plan reviewed and approved
-- [ ] All stakeholders briefed
-- [ ] Rollback plan tested
-- [ ] Data backed up
+**This Project:**
+- Review CLAUDE.md for project details
+- Check Code.js comments for function documentation
+- Review existing working implementations
 
-**GO DECISION:** All above checkboxes must be checked before proceeding to next phase.
+---
+
+## Conclusion
+
+This Web App Wrapper approach solves the iOS Safari geolocation issue with:
+- ✅ 2-3 hours of work (vs 35 hours for Firebase migration)
+- ✅ Minimal code changes (~50 lines)
+- ✅ Zero risk to existing functionality
+- ✅ Instant rollback capability
+- ✅ All GAS benefits retained
+- ✅ Professional custom domain option
+- ✅ Zero ongoing costs
+
+The wrapper acts as a lightweight "gate" that:
+1. Captures location permission BEFORE entering the GAS iframe
+2. Passes location to GAS via URL parameters
+3. Preserves all existing functionality
+4. Adds < 2 seconds of latency
+
+**If this wrapper approach doesn't solve iOS Safari, you have three alternatives:**
+1. Hybrid approach (5-10 hours)
+2. Custom location picker (3-4 hours)
+3. Accept limitation and require Chrome (1 hour)
+
+**But we expect the wrapper to solve the issue completely**, making iOS Safari users first-class citizens in Spartan Cup.
+
+---
+
+## Next Steps
+
+1. **Review this plan** with stakeholders
+2. **Assign developer** to implement (2-3 hours)
+3. **Schedule implementation** (can be done in one sitting)
+4. **Begin with Phase 0** (Firebase setup)
+5. **Test thoroughly** especially on iOS Safari
+6. **Deploy to production** (zero downtime)
+7. **Monitor for 1 week** and gather feedback
+8. **Mark as COMPLETE** or pivot to Alternative if needed
+
+**Ready to begin? Start with Phase 0: Preparation.**
 
 ---
 
@@ -2383,22 +1328,13 @@ Week 8+: Phase 9 (ongoing)
 
 | Version | Date | Author | Notes |
 |---------|------|--------|-------|
-| 1.0 | 2025-11-01 | Claude Code | Initial plan, refined for your scale & context |
-| TBD | TBD | [You] | Updates as work progresses |
+| 1.0 | 2025-11-02 | Claude Code | Initial plan, Web App Wrapper approach |
+| | | | |
 
 ---
 
-## Questions or Clarifications?
+**Questions? Refer back to the comparison section showing why this approach is superior to full Firebase migration.**
 
-This plan was designed specifically for your Spartan Cup app context:
-- Scale: 10-200 users (max ~500)
-- Primary blocker: iOS Safari geolocation in GAS iframe
-- Your role: Service account owner, super admin
-- Duration: 3-6 weeks part-time, 2 weeks full-time
-- Cost: $0/month (Spark plan)
+**Need help? Check the Support and Troubleshooting section.**
 
-If anything needs clarification, refer back to Phase 0 (Audit & Planning) to update assumptions.
-
----
-
-**Ready to begin Phase 0? Start by assigning the Backend Developer role and creating the FUNCTION_AUDIT.md document.**
+**Ready to implement? Start with Phase 0, Task 0.1: Create Firebase Project.**
