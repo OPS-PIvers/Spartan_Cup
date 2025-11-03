@@ -2345,35 +2345,58 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
   }
 }
 
-/** Utility function to save the uploaded photo to Google Drive. */
+/**
+ * Utility function to save the uploaded photo to Google Drive with optimizations.
+ * Handles base64-encoded image data from client with compression already applied.
+ * @param {string} photoBlob - Base64-encoded photo data (data:image/jpeg;base64,...)
+ * @param {string} eventId - The event ID for file organization
+ * @param {string} email - User email for file naming
+ * @return {Object} {id, url} - File ID and shareable URL
+ */
 function savePhotoToDrive(photoBlob, eventId, email) {
-  let parentFolder;
-  const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
-  if (parentFolders.hasNext()) {
-    parentFolder = parentFolders.next();
-  } else {
-    parentFolder = DriveApp.createFolder('The Spartan Cup');
+  try {
+    let parentFolder;
+    const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+    if (parentFolders.hasNext()) {
+      parentFolder = parentFolders.next();
+    } else {
+      parentFolder = DriveApp.createFolder('The Spartan Cup');
+    }
+
+    let submissionFolder;
+    const submissionFolders = parentFolder.getFoldersByName('Submissions_Winter_25-26');
+    if (submissionFolders.hasNext()) {
+      submissionFolder = submissionFolders.next();
+    } else {
+      submissionFolder = parentFolder.createFolder('Submissions_Winter_25-26');
+    }
+
+    // Parse base64 data URL
+    const contentType = photoBlob.split(';')[0].replace('data:', '');
+    const base64Data = photoBlob.split(',')[1];
+    const bytes = Utilities.base64Decode(base64Data);
+
+    // Verify reasonable file size (max 5MB to prevent quota issues)
+    const fileSizeMB = bytes.length / (1024 * 1024);
+    if (fileSizeMB > 5) {
+      throw new Error(`Photo too large (${fileSizeMB.toFixed(1)}MB). Max 5MB allowed.`);
+    }
+
+    const blob = Utilities.newBlob(bytes, contentType, `SUB_${eventId}_${email}_${new Date().getTime()}.jpg`);
+    const file = submissionFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
+
+    // Use Google Drive export URL format for embedding in web pages
+    const fileId = file.getId();
+    const exportUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+    Logger.log(`Photo saved: ${fileSizeMB.toFixed(1)}MB for event ${eventId} by ${email}`);
+
+    return { id: fileId, url: exportUrl };
+  } catch (e) {
+    Logger.log('Error saving photo to Drive: ' + e.message);
+    throw e;
   }
-
-  let submissionFolder;
-  const submissionFolders = parentFolder.getFoldersByName('Submissions_Winter_25-26');
-  if (submissionFolders.hasNext()) {
-    submissionFolder = submissionFolders.next();
-  } else {
-    submissionFolder = parentFolder.createFolder('Submissions_Winter_25-26');
-  }
-
-  const contentType = photoBlob.split(';')[0].replace('data:', '');
-  const bytes = Utilities.base64Decode(photoBlob.split(',')[1]);
-  const blob = Utilities.newBlob(bytes, contentType, `SUB_${eventId}_${email}_${new Date().getTime()}.jpg`);
-  const file = submissionFolder.createFile(blob);
-  file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
-
-  // Use Google Drive export URL format for embedding in web pages
-  const fileId = file.getId();
-  const exportUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-
-  return { id: fileId, url: exportUrl };
 }
 
 /**
