@@ -20,10 +20,19 @@ const CAMPUS_GEOFENCE = [
 
 /**
  * Reads admin emails from the Config_Admins sheet.
+ * Results are cached for 6 hours to reduce Sheets API calls.
  * @return {string[]} Array of admin email addresses
  */
 function getAdminEmails() {
   try {
+    // Check cache first (reduces repeated Sheets API calls)
+    const cache = CacheService.getScriptCache();
+    const cachedEmails = cache.get('admin_emails');
+    if (cachedEmails) {
+      return JSON.parse(cachedEmails);
+    }
+
+    // Cache miss: read from Sheets
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const adminSheet = ss.getSheetByName('Config_Admins');
     const adminData = adminSheet.getDataRange().getValues();
@@ -33,6 +42,10 @@ function getAdminEmails() {
         adminEmails.push(adminData[i][0].toLowerCase());
       }
     }
+
+    // Cache for 6 hours (21600 seconds)
+    cache.put('admin_emails', JSON.stringify(adminEmails), 21600);
+
     return adminEmails;
   } catch (e) {
     Logger.log('Error reading admin emails: ' + e.message);
@@ -42,15 +55,15 @@ function getAdminEmails() {
 
 /**
  * Gets the current user's display name from the Student_Profiles sheet.
+ * Uses cached data if available to avoid redundant Sheets API calls.
  * @return {string} User's display name, or empty string if not found
  */
 function getUserDisplayName() {
   const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Try to use cached student data first
+    const studentData = getStudentProfilesData();
 
     // Find user and get display name from column B (index 1)
     for (let i = 1; i < studentData.length; i++) {
@@ -63,6 +76,104 @@ function getUserDisplayName() {
   }
 
   return ''; // Default to empty if not found
+}
+
+/**
+ * Gets all student profile data from cache or Sheets.
+ * Caches for 10 minutes to reduce redundant API calls within same session.
+ * @return {Array} 2D array of student profile data
+ */
+function getStudentProfilesData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'student_profiles_data';
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+
+  // Cache miss: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const studentSheet = ss.getSheetByName('Student_Profiles');
+  const studentData = studentSheet.getDataRange().getValues();
+
+  // Cache for 10 minutes (600 seconds) for request batching
+  cache.put(cacheKey, JSON.stringify(studentData), 600);
+
+  return studentData;
+}
+
+/**
+ * Gets badge definitions as a map, cached for 24 hours.
+ * Badge data is static, so longer cache is appropriate.
+ * @return {Object} Map of badge ID to badge object
+ */
+function getBadgeMapCache() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'badge_map_cache';
+  let cachedMap = cache.get(cacheKey);
+
+  if (cachedMap) {
+    return JSON.parse(cachedMap);
+  }
+
+  // Cache miss: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const badgesSheet = ss.getSheetByName('Config_Badges');
+  const badgesData = badgesSheet.getDataRange().getValues();
+  const badgeMap = {};
+
+  for (let i = 1; i < badgesData.length; i++) {
+    badgeMap[badgesData[i][0]] = {
+      id: badgesData[i][0],
+      name: badgesData[i][1],
+      category: badgesData[i][2],
+      triggerType: badgesData[i][3],
+      triggerValue: badgesData[i][4],
+      description: badgesData[i][5],
+      imageUrl: badgesData[i][6]
+    };
+  }
+
+  // Cache for 24 hours (86400 seconds) - badge definitions don't change often
+  cache.put(cacheKey, JSON.stringify(badgeMap), 86400);
+
+  return badgeMap;
+}
+
+/**
+ * Gets event details as a map, cached for 1 hour.
+ * Events change less frequently than student data, 1-hour cache is appropriate.
+ * @return {Object} Map of event ID to event object
+ */
+function getEventMapCache() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'event_map_cache';
+  let cachedMap = cache.get(cacheKey);
+
+  if (cachedMap) {
+    return JSON.parse(cachedMap);
+  }
+
+  // Cache miss: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const eventSheet = ss.getSheetByName('Events');
+  const eventData = eventSheet.getDataRange().getValues();
+  const eventMap = {};
+
+  for (let i = 1; i < eventData.length; i++) {
+    eventMap[eventData[i][0]] = {
+      name: eventData[i][2],
+      date: eventData[i][3],
+      sportArt: eventData[i][1],
+      theme: eventData[i][11]
+    };
+  }
+
+  // Cache for 1 hour (3600 seconds) - events are relatively static
+  cache.put(cacheKey, JSON.stringify(eventMap), 3600);
+
+  return eventMap;
 }
 
 // --- 1. WEB APP ROUTER (doGet) ----------------------------------------------
@@ -254,8 +365,8 @@ function getProfileData() {
 
   try {
     // --- FETCH USER PROFILE DATA ---
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached Student_Profiles data instead of reading directly
+    const studentData = getStudentProfilesData();
 
     let userProfile = null;
     for (let i = 1; i < studentData.length; i++) {
@@ -339,21 +450,8 @@ function getProfileData() {
     }));
 
     // --- FETCH BADGES ---
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
-    const badgeMap = {};
-
-    for (let i = 1; i < badgesData.length; i++) {
-      badgeMap[badgesData[i][0]] = {
-        id: badgesData[i][0],
-        name: badgesData[i][1],
-        category: badgesData[i][2],
-        triggerType: badgesData[i][3],
-        triggerValue: badgesData[i][4],
-        description: badgesData[i][5],
-        imageUrl: badgesData[i][6]
-      };
-    }
+    // Use cached badge data (static, doesn't change frequently)
+    const badgeMap = getBadgeMapCache();
 
     // Map earned badge IDs to full badge objects
     const earnedBadges = userProfile.badgesEarned.map(badgeId => {
@@ -385,18 +483,8 @@ function getProfileData() {
       }
     }
 
-    // Fetch event details for history display
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        name: eventData[i][2],
-        date: eventData[i][3],
-        sportArt: eventData[i][1],
-        theme: eventData[i][11]
-      };
-    }
+    // Fetch event details for history display (cached)
+    const eventMap = getEventMapCache();
 
     // Build history with event names
     const history = userSubmissions.map(submission => {
@@ -1880,41 +1968,64 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
  */
 function getActiveEvents(userLat = null, userLon = null) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Config_Event_Codes');
-    if (!sheet) return [];
+    // Check cache first for event data (reduced Sheets API calls)
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'active_events_data';
+    let eventData = cache.get(cacheKey);
 
-    const data = sheet.getDataRange().getValues();
+    if (!eventData) {
+      // Cache miss: read from Sheets
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName('Config_Event_Codes');
+      if (!sheet) return [];
+
+      const data = sheet.getDataRange().getValues();
+
+      // Transform and cache the event data
+      eventData = [];
+      for (let i = 1; i < data.length; i++) {
+        eventData.push({
+          eventCode: data[i][0],
+          eventName: data[i][1],
+          locationName: data[i][2],
+          eventLat: data[i][3],
+          eventLon: data[i][4],
+          startTime: data[i][5],
+          durationHours: data[i][6]
+        });
+      }
+
+      // Cache for 1 hour (3600 seconds) since event times change
+      cache.put(cacheKey, JSON.stringify(eventData), 3600);
+    } else {
+      eventData = JSON.parse(eventData);
+    }
+
     const now = new Date();
     const activeEvents = [];
 
-    for (let i = 1; i < data.length; i++) {
-      const eventCode = data[i][0];
-      const eventName = data[i][1];
-      const locationName = data[i][2];
-      const eventLat = data[i][3];
-      const eventLon = data[i][4];
-      const startTime = new Date(data[i][5]);
-      const durationHours = data[i][6];
+    for (let i = 0; i < eventData.length; i++) {
+      const item = eventData[i];
+      const startTime = new Date(item.startTime);
+      const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
       // Check if current time is within the event window
-      const endTime = new Date(startTime.getTime() + durationHours * 60 * 60 * 1000);
       if (now >= startTime && now <= endTime) {
         const event = {
-          eventCode: eventCode,
-          eventName: eventName,
-          locationName: locationName,
-          eventLat: eventLat,
-          eventLon: eventLon,
+          eventCode: item.eventCode,
+          eventName: item.eventName,
+          locationName: item.locationName,
+          eventLat: item.eventLat,
+          eventLon: item.eventLon,
           startTime: startTime,
           endTime: endTime,
-          durationHours: durationHours,
+          durationHours: item.durationHours,
           distance: null
         };
 
         // Calculate distance if user location provided
         if (userLat !== null && userLon !== null) {
-          event.distance = calculateDistance(userLat, userLon, eventLat, eventLon);
+          event.distance = calculateDistance(userLat, userLon, item.eventLat, item.eventLon);
         }
 
         activeEvents.push(event);
@@ -2357,9 +2468,15 @@ function resubmitEvent(formObject, photoBlob) {
  * Only accessible to users in the Config_Admins sheet.
  * @return {Array} Array of pending submissions with student and event details
  */
-function getAdminQueue() {
+/**
+ * Gets paginated admin queue of pending submissions.
+ * @param {number} page - Page number (1-indexed)
+ * @param {number} itemsPerPage - Items per page (default: 20)
+ * @return {Object} Paginated queue with metadata
+ */
+function getAdminQueue(page = 1, itemsPerPage = 20) {
   const email = Session.getActiveUser().getEmail();
-  Logger.log('getAdminQueue called by: ' + email);
+  Logger.log('getAdminQueue called by: ' + email + ', page: ' + page);
 
   // Check if user is admin
   const adminEmails = getAdminEmails();
@@ -2381,28 +2498,15 @@ function getAdminQueue() {
     const pendingData = pendingSheet.getDataRange().getValues();
     Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
-    // Get event details map
-    const eventSheet = ss.getSheetByName('Events');
-    if (!eventSheet) {
-      Logger.log('Events sheet not found');
-      return { status: "error", message: "Events sheet not found." };
-    }
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1],
-        date: eventData[i][3]
-      };
-    }
-    Logger.log('Event map created');
+    // Get event details map (cached)
+    const eventMap = getEventMapCache();
+    Logger.log('Event map retrieved from cache');
 
-    // Build queue
-    const queue = [];
+    // Build full queue
+    const fullQueue = [];
     for (let i = 1; i < pendingData.length; i++) {
       const eventInfo = eventMap[pendingData[i][3]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
-      queue.push({
+      fullQueue.push({
         submissionId: pendingData[i][0],
         email: pendingData[i][2],
         eventId: pendingData[i][3],
@@ -2416,11 +2520,25 @@ function getAdminQueue() {
         timestamp: pendingData[i][1].toISOString()
       });
     }
-    Logger.log('Queue built: ' + queue.length + ' items');
+    Logger.log('Full queue built: ' + fullQueue.length + ' items');
+
+    // Paginate results
+    const totalPages = Math.ceil(fullQueue.length / itemsPerPage);
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedQueue = fullQueue.slice(startIndex, endIndex);
 
     return {
       status: "success",
-      queue: queue
+      queue: paginatedQueue,
+      pagination: {
+        page: page,
+        itemsPerPage: itemsPerPage,
+        totalItems: fullQueue.length,
+        totalPages: totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
     };
 
   } catch (e) {

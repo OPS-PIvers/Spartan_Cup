@@ -591,9 +591,10 @@
     // --- HELPER FUNCTIONS ---
     function updateLeaderboardDisplay(leaderboard) {
       const lbContainer = document.getElementById('leaderboard-container');
-      lbContainer.innerHTML = ''; // Clear
+      // Build HTML as a single string instead of repeated += operations
+      let html = '';
       leaderboard.forEach(item => {
-        lbContainer.innerHTML += `
+        html += `
           <div class="flex items-center gap-3 rounded-lg p-3 ${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
             <span class="font-bold text-lg ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">${item.rank}</span>
             <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
@@ -601,6 +602,7 @@
             <span class="font-bold ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">${item.points} PTS</span>
           </div>`;
       });
+      lbContainer.innerHTML = html; // Single insert operation
     }
 
     // --- DATA POPULATION ---
@@ -616,9 +618,10 @@
       document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
 
       const badgeContainer = document.getElementById('badge-container');
-      badgeContainer.innerHTML = ''; // Clear
+      // Build HTML as a single string instead of repeated += operations
+      let badgeHtml = '';
       data.badges.forEach(badge => {
-        badgeContainer.innerHTML += `
+        badgeHtml += `
           <div class="flex flex-col items-center gap-1 shrink-0">
             <div class="flex items-center justify-center w-14 h-14 rounded-full ${badge.color} text-white shadow-md">
               <span class="material-symbols-outlined text-3xl">${badge.icon}</span>
@@ -626,7 +629,8 @@
             <span class="text-xs font-medium text-gray-600 dark:text-gray-300">${badge.name}</span>
           </div>`;
       });
-      badgeContainer.innerHTML += document.getElementById('view-all-badges-template').innerHTML; // Add back the 'View All'
+      badgeHtml += document.getElementById('view-all-badges-template').innerHTML; // Add back the 'View All'
+      badgeContainer.innerHTML = badgeHtml; // Single insert operation
       badgeContainer.querySelector('#view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
 
       // Populate leaderboard (season by default)
@@ -636,10 +640,11 @@
     function populateHistory(data) {
       document.getElementById('history-points').innerText = data.seasonPoints;
       const historyContainer = document.getElementById('history-container');
-      historyContainer.innerHTML = ''; // Clear
+      // Build HTML as a single string instead of repeated += operations
+      let historyHtml = '';
       data.history.forEach(item => {
         let statusColor = item.status === 'Approved' ? 'text-green-600' : (item.status === 'Pending' ? 'text-gray-500' : 'text-red-600');
-        historyContainer.innerHTML += `
+        historyHtml += `
           <div class="flex items-center gap-4 rounded-xl bg-white dark:bg-gray-800/50 p-4 shadow-sm ${item.status !== 'Approved' ? 'opacity-60' : ''}">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/20">
               <span class="material-symbols-outlined text-3xl ${item.color}">${item.icon}</span>
@@ -655,6 +660,7 @@
             </div>
           </div>`;
       });
+      historyContainer.innerHTML = historyHtml; // Single insert operation
     }
 
     /**
