@@ -78,9 +78,19 @@
             <div id="points-breakdown" class="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right"></div>
           </div>
 
-          <!-- Swipe Instructions -->
-          <div class="border-t border-gray-200 dark:border-gray-700 pt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-            <p>Swipe left to deny · Swipe right to approve</p>
+          <!-- Action Buttons -->
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4 flex gap-3">
+            <button id="btn-deny" class="flex-1 px-4 py-3 rounded-lg bg-secondary hover:bg-opacity-90 text-white font-bold transition-all active:scale-95 flex items-center justify-center gap-2">
+              <span>✗</span> Deny
+            </button>
+            <button id="btn-approve" class="flex-1 px-4 py-3 rounded-lg bg-primary hover:bg-opacity-90 text-white font-bold transition-all active:scale-95 flex items-center justify-center gap-2">
+              <span>✓</span> Approve
+            </button>
+          </div>
+
+          <!-- Swipe Instructions (Optional) -->
+          <div class="pt-2 text-center text-xs text-gray-400 dark:text-gray-500">
+            <p>Or swipe left/right</p>
           </div>
         </div>
 
@@ -238,7 +248,7 @@
     });
 
     // =====================================================================
-    // SUBMISSION REVIEW LOGIC (existing code)
+    // SUBMISSION REVIEW LOGIC (OPTIMIZED FOR SNAPPY UX)
     // =====================================================================
     let currentQueue = [];
     let currentIndex = 0;
@@ -246,12 +256,17 @@
     const THEME_BONUS_POINTS = 25;
     const BASE_POINTS = 50;
 
+    // Image cache for preloading
+    const imageCache = {};
+    const PRELOAD_AHEAD = 3;  // Preload 3 cards ahead
+
     // Touch/Mouse tracking
     let touchStartX = 0;
     let touchStartY = 0;
     let touchCurrentX = 0;
     let isDragging = false;
     let lastTapTime = 0;
+    let isProcessing = false;  // Prevent multiple simultaneous swipes
 
     document.addEventListener('DOMContentLoaded', () => {
       loadAdminQueue();
@@ -280,6 +295,58 @@
         }
         lastTapTime = now;
       });
+
+      // Button click handlers
+      document.getElementById('btn-approve').addEventListener('click', () => {
+        if (!isProcessing) {
+          isProcessing = true;
+          approveCurrentSubmission(true);  // optimistic mode
+          setTimeout(() => {
+            isProcessing = false;
+          }, 200);
+        }
+      });
+
+      document.getElementById('btn-deny').addEventListener('click', () => {
+        if (!isProcessing) {
+          isProcessing = true;
+          denyCurrentSubmission(true);  // optimistic mode
+          setTimeout(() => {
+            isProcessing = false;
+          }, 200);
+        }
+      });
+    }
+
+    // Toast notification system
+    function showToast(message, type = 'error', duration = 3000) {
+      const toast = document.createElement('div');
+      toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity ${
+        type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+      }`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // Preload images for next N cards
+    function preloadNextImages() {
+      for (let i = currentIndex + 1; i < Math.min(currentIndex + PRELOAD_AHEAD, currentQueue.length); i++) {
+        const submission = currentQueue[i];
+        if (submission.photoId && !imageCache[submission.photoId]) {
+          // Capture photoId in closure to avoid reference issues
+          const photoId = submission.photoId;
+          google.script.run.withSuccessHandler((response) => {
+            if (response.status === 'success') {
+              imageCache[photoId] = response.dataUrl;
+            }
+          }).serveImage(photoId);
+        }
+      }
     }
 
     function handleTouchStart(e) {
@@ -345,24 +412,30 @@
 
     function handleSwipeEnd(distance) {
       const card = document.getElementById('swipe-card');
+      const feedback = document.getElementById('swipe-feedback');
       const threshold = 100;
 
+      // Prevent multiple simultaneous swipes
+      if (isProcessing) return;
+
       if (distance > threshold) {
-        // Approve
+        // APPROVE: Swipe right
+        isProcessing = true;
         card.classList.add('animate-slide-right');
-        setTimeout(() => {
-          approveCurrentSubmission();
-        }, 300);
+
+        // Fire approval action (optimistic - shows next card immediately)
+        approveCurrentSubmission(true);
       } else if (distance < -threshold) {
-        // Deny
+        // DENY: Swipe left
+        isProcessing = true;
         card.classList.add('animate-slide-left');
-        setTimeout(() => {
-          denyCurrentSubmission();
-        }, 300);
+
+        // Fire denial action (optimistic - shows next card immediately)
+        denyCurrentSubmission(true);
       } else {
-        // Reset
+        // Small swipe - reset card position and feedback
         card.style.transform = '';
-        document.getElementById('swipe-feedback').style.opacity = 0;
+        feedback.style.opacity = '0';
       }
     }
 
@@ -420,19 +493,29 @@
       const submission = currentQueue[currentIndex];
       hasThemeBonus = false;
 
-      // Reset card animation
+      // Reset card animation and feedback overlay
       const card = document.getElementById('swipe-card');
+      const feedback = document.getElementById('swipe-feedback');
       card.classList.remove('animate-slide-right', 'animate-slide-left');
       card.style.transform = '';
       card.classList.add('animate-fade-in');
+      feedback.style.opacity = '0';
+      feedback.textContent = '';
 
-      // Load image
+      // Load image from cache (pre-loaded) or fetch if needed
       if (submission.photoId) {
-        google.script.run.withSuccessHandler((response) => {
-          if (response.status === 'success') {
-            document.getElementById('card-photo').src = response.dataUrl;
-          }
-        }).serveImage(submission.photoId);
+        if (imageCache[submission.photoId]) {
+          // Use cached image (instant)
+          document.getElementById('card-photo').src = imageCache[submission.photoId];
+        } else {
+          // Fallback: load image (shouldn't happen with preloading)
+          google.script.run.withSuccessHandler((response) => {
+            if (response.status === 'success') {
+              imageCache[submission.photoId] = response.dataUrl;
+              document.getElementById('card-photo').src = response.dataUrl;
+            }
+          }).serveImage(submission.photoId);
+        }
       }
 
       // Update card content
@@ -443,39 +526,86 @@
       document.getElementById('bonus-badge').classList.add('hidden');
       document.getElementById('points-breakdown').textContent = '';
       updatePointsDisplay();
+
+      // Preload next images in background
+      preloadNextImages();
     }
 
-    function approveCurrentSubmission() {
+    function approveCurrentSubmission(optimistic = false) {
       const submission = currentQueue[currentIndex];
       const themeBonusPoints = hasThemeBonus ? THEME_BONUS_POINTS : 0;
 
-      google.script.run.withSuccessHandler((response) => {
-        if (response && response.status === 'success') {
-          currentIndex++;
-          displayCurrentCard();
-        } else {
-          alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
+      if (optimistic) {
+        // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously
+        currentIndex++;
+        displayCurrentCard();
+        isProcessing = false;  // Allow next swipe/click
+
+        // Fire backend approval in background (don't wait for response)
+        google.script.run.withSuccessHandler((response) => {
+          if (!response || response.status !== 'success') {
+            showToast('⚠ Approval failed - check the backend logs', 'error', 4000);
+          }
+        }).withFailureHandler((error) => {
+          showToast('❌ Network error: ' + error, 'error', 4000);
+        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
+      } else {
+        // FALLBACK MODE: Wait for backend (used for manual button clicks)
+        google.script.run.withSuccessHandler((response) => {
+          if (response && response.status === 'success') {
+            currentIndex++;
+            displayCurrentCard();
+          } else {
+            showToast('Error: ' + (response ? response.message : 'An unexpected error occurred.'), 'error');
+            // Reset card for retry
+            document.getElementById('swipe-card').style.transform = '';
+            document.getElementById('swipe-card').classList.remove('animate-slide-right');
+          }
+        }).withFailureHandler((error) => {
+          showToast('Error: ' + error, 'error');
           // Reset card for retry
           document.getElementById('swipe-card').style.transform = '';
           document.getElementById('swipe-card').classList.remove('animate-slide-right');
-        }
-      }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
+        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
+      }
     }
 
-    function denyCurrentSubmission() {
+    function denyCurrentSubmission(optimistic = false) {
       const submission = currentQueue[currentIndex];
 
-      google.script.run.withSuccessHandler((response) => {
-        if (response && response.status === 'success') {
-          currentIndex++;
-          displayCurrentCard();
-        } else {
-          alert('Error: ' + (response ? response.message : 'An unexpected error occurred.'));
+      if (optimistic) {
+        // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously
+        currentIndex++;
+        displayCurrentCard();
+        isProcessing = false;  // Allow next swipe/click
+
+        // Fire backend denial in background (don't wait for response)
+        google.script.run.withSuccessHandler((response) => {
+          if (!response || response.status !== 'success') {
+            showToast('⚠ Denial failed - check the backend logs', 'error', 4000);
+          }
+        }).withFailureHandler((error) => {
+          showToast('❌ Network error: ' + error, 'error', 4000);
+        }).denySubmission(submission.submissionId, 'Denied via swipe');
+      } else {
+        // FALLBACK MODE: Wait for backend (used for manual button clicks)
+        google.script.run.withSuccessHandler((response) => {
+          if (response && response.status === 'success') {
+            currentIndex++;
+            displayCurrentCard();
+          } else {
+            showToast('Error: ' + (response ? response.message : 'An unexpected error occurred.'), 'error');
+            // Reset card for retry
+            document.getElementById('swipe-card').style.transform = '';
+            document.getElementById('swipe-card').classList.remove('animate-slide-left');
+          }
+        }).withFailureHandler((error) => {
+          showToast('Error: ' + error, 'error');
           // Reset card for retry
           document.getElementById('swipe-card').style.transform = '';
           document.getElementById('swipe-card').classList.remove('animate-slide-left');
-        }
-      }).denySubmission(submission.submissionId, 'Denied via swipe');
+        }).denySubmission(submission.submissionId, 'Denied via swipe');
+      }
     }
 
     function showEmptyState() {

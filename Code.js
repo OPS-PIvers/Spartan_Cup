@@ -191,7 +191,7 @@ function doGet(e) {
   const user = Session.getActiveUser();
   template.userEmail = user.getEmail();
   template.userName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
-  template.userPhoto = getUserProfilePhoto(user.getEmail());
+  template.userPhoto = getUserProfilePhoto(user.getEmail(), template.userName); // Pass display name for initials
   template.isAdmin = getAdminEmails().includes(user.getEmail().toLowerCase());
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
 
@@ -208,11 +208,35 @@ function doGet(e) {
 }
 
 /**
- * Gets user's profile photo from Google Drive or generates avatar.
- * @param {string} email - User email
- * @return {string} URL to user's profile photo or default avatar
+ * Extracts initials from a display name (first letter of first name + first letter of last name).
+ * @param {string} displayName - Full name (e.g., "Pat Ipsum")
+ * @return {string} Initials (e.g., "PI")
  */
-function getUserProfilePhoto(email) {
+function extractInitials(displayName) {
+  if (!displayName || displayName.trim() === '') {
+    return '?';
+  }
+
+  const nameParts = displayName.trim().split(/\s+/); // Split on whitespace
+
+  if (nameParts.length === 1) {
+    // Single word name: use first letter twice or just first letter
+    return nameParts[0].charAt(0).toUpperCase();
+  } else {
+    // Multiple words: first letter of first and last word
+    const firstInitial = nameParts[0].charAt(0).toUpperCase();
+    const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+    return firstInitial + lastInitial;
+  }
+}
+
+/**
+ * Gets user's profile photo from Google Drive or generates avatar with initials.
+ * @param {string} email - User email
+ * @param {string} displayName - User's display name for generating initials
+ * @return {string} URL to user's profile photo or avatar with initials
+ */
+function getUserProfilePhoto(email, displayName) {
   try {
     const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
     if (parentFolders.hasNext()) {
@@ -232,8 +256,9 @@ function getUserProfilePhoto(email) {
     Logger.log('Error fetching profile photo: ' + e.message);
   }
 
-  // Fallback: Use Google's default avatar based on email
-  return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(email) + '&background=1b3b87&color=fff&bold=true&size=96';
+  // Fallback: Generate avatar with initials
+  const initials = extractInitials(displayName);
+  return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initials) + '&background=1b3b87&color=fff&bold=true&size=96';
 }
 
 /**
@@ -562,6 +587,8 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('🏆 Spartan Cup Admin')
     .addItem('1. Run First-Time Setup (All Files)', 'firstTimeSetup')
+    .addItem('2. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
+    .addItem('3. Clear Cache (Development)', 'clearAllCaches')
     .addToUi();
 }
 
@@ -638,6 +665,199 @@ function setupSpreadsheet() {
   // Add sample data
   ss.getSheetByName('Events').appendRow(['GBB-01', 'Girls Basketball', 'vs. Edina', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out']);
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+}
+
+/**
+ * Generates sample submissions for testing the admin workflow.
+ * Creates sample students, pending submissions, and verified submissions.
+ * Safe to run multiple times - clears old test data first.
+ */
+function generateSampleSubmissions() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  try {
+    // Sample student data
+    const sampleStudents = [
+      { email: 'testuser1@orono.k12.mn.us', name: 'Sarah Johnson', grade: 12 },
+      { email: 'testuser2@orono.k12.mn.us', name: 'Marcus Davis', grade: 11 },
+      { email: 'testuser3@orono.k12.mn.us', name: 'Emma Wilson', grade: 10 },
+      { email: 'testuser4@orono.k12.mn.us', name: 'James Chen', grade: 11 },
+      { email: 'testuser5@orono.k12.mn.us', name: 'Olivia Martinez', grade: 12 },
+      { email: 'testuser6@orono.k12.mn.us', name: 'Lucas Thompson', grade: 9 },
+      { email: 'testuser7@orono.k12.mn.us', name: 'Sophia Anderson', grade: 10 },
+      { email: 'testuser8@orono.k12.mn.us', name: 'Noah Garcia', grade: 11 },
+      { email: 'testuser9@orono.k12.mn.us', name: 'Isabella Lee', grade: 12 },
+      { email: 'testuser10@orono.k12.mn.us', name: 'Ethan Brown', grade: 9 }
+    ];
+
+    // Add students to Student_Profiles (skip if already exist)
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+    const existingEmails = new Set(studentData.slice(1).map(row => row[0]));
+
+    sampleStudents.forEach(student => {
+      if (!existingEmails.has(student.email)) {
+        studentSheet.appendRow([
+          student.email,
+          student.name,
+          0, // Total_Points_Season (will be updated when submissions approved)
+          0, // Total_Points_AllTime
+          '', // Badges_Earned
+          '{}', // Loyalty_Stats_JSON
+          '[]', // Variety_Stats_Set
+          false, // Disqualified
+          '{}' // Student_Settings
+        ]);
+      }
+    });
+
+    // Placeholder image URL (300x400 placeholder)
+    const placeholderImageUrl = 'https://via.placeholder.com/300x400/1b3b87/ffffff?text=Student+Photo';
+
+    // Location data (within campus geofence bounds, slightly varied)
+    const locationVariations = [
+      { lat: 44.9660, lon: -93.6250 },
+      { lat: 44.9670, lon: -93.6240 },
+      { lat: 44.9680, lon: -93.6260 },
+      { lat: 44.9650, lon: -93.6270 },
+      { lat: 44.9665, lon: -93.6220 },
+    ];
+
+    // Sample notes (realistic student comments)
+    const sampleNotes = [
+      'Great game! Amazing support from the crowd.',
+      'So excited to be here supporting the team!',
+      'Love the white out theme - everyone looked great.',
+      'Awesome atmosphere tonight. Go Spartans!',
+      'Had a blast at the game with friends.',
+      'Best school spirit event of the year!',
+      'Supporting our athletes all the way!',
+      'Cheering loud for the team!',
+      ''
+    ];
+
+    // Create 10 pending submissions
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    const now = new Date();
+
+    // Clear old test submissions first (optional - helps avoid duplicates)
+    const pendingDataBefore = pendingSheet.getDataRange().getValues();
+    for (let i = pendingDataBefore.length - 1; i > 0; i--) {
+      if (pendingDataBefore[i][2] && pendingDataBefore[i][2].includes('testuser')) {
+        pendingSheet.deleteRow(i + 1);
+      }
+    }
+
+    for (let i = 0; i < 10; i++) {
+      const student = sampleStudents[i];
+      const hoursAgo = Math.floor(Math.random() * 48) + 1; // 1-48 hours ago
+      const submissionTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
+      const location = locationVariations[i % locationVariations.length];
+      const dressedForTheme = Math.random() > 0.3; // 70% chance of theme
+      const notes = sampleNotes[Math.floor(Math.random() * sampleNotes.length)];
+
+      pendingSheet.appendRow([
+        Utilities.getUuid(), // Submission_ID
+        submissionTime, // Timestamp
+        student.email, // Email
+        'GBB-01', // Event_ID
+        placeholderImageUrl, // Photo_URL
+        'placeholder_' + i, // Photo_ID
+        JSON.stringify(location), // Location_Data_JSON
+        dressedForTheme ? 'Yes' : 'No', // Dressed_For_Theme
+        notes // Notes
+      ]);
+    }
+
+    // Create 5 verified submissions (approved examples)
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+
+    // Clear old test verified submissions first
+    const verifiedDataBefore = verifiedSheet.getDataRange().getValues();
+    for (let i = verifiedDataBefore.length - 1; i > 0; i--) {
+      if (verifiedDataBefore[i][3] && verifiedDataBefore[i][3].includes('testuser')) {
+        verifiedSheet.deleteRow(i + 1);
+      }
+    }
+
+    const currentAdminEmail = Session.getActiveUser().getEmail();
+
+    for (let i = 0; i < 5; i++) {
+      const student = sampleStudents[i];
+      const hoursAgo = Math.floor(Math.random() * 72) + 1; // 1-72 hours ago
+      const submittedTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
+      const approvedTime = new Date(submittedTime.getTime() + Math.floor(Math.random() * 3600000)); // 0-1hr after submission
+      const dressedForTheme = Math.random() > 0.3;
+      const basePoints = dressedForTheme ? 50 : 50;
+      const themeBonus = dressedForTheme ? 25 : 0;
+      const spotlightMultiplier = 1.5; // GBB-01 is a spotlight game
+      const totalPoints = Math.round((basePoints + themeBonus) * spotlightMultiplier);
+
+      verifiedSheet.appendRow([
+        Utilities.getUuid(), // Submission_ID
+        submittedTime, // Timestamp_Submitted
+        approvedTime, // Timestamp_Approved
+        student.email, // Email
+        'GBB-01', // Event_ID
+        currentAdminEmail, // Admin_Email
+        basePoints, // Points_Base
+        themeBonus, // Points_Theme
+        spotlightMultiplier, // Points_Spotlight_Multiplier
+        totalPoints, // Points_Total
+        placeholderImageUrl // Photo_URL
+      ]);
+
+      // Update student points
+      const studentDataCurrent = studentSheet.getDataRange().getValues();
+      for (let j = 1; j < studentDataCurrent.length; j++) {
+        if (studentDataCurrent[j][0] === student.email) {
+          const newSeasonPoints = (studentDataCurrent[j][2] || 0) + totalPoints;
+          const newAllTimePoints = (studentDataCurrent[j][3] || 0) + totalPoints;
+          studentSheet.getRange(j + 1, 3).setValue(newSeasonPoints);
+          studentSheet.getRange(j + 1, 4).setValue(newAllTimePoints);
+          break;
+        }
+      }
+    }
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Sample Data Generated!\n\n' +
+      '• Created 10 sample students\n' +
+      '• Added 10 pending submissions (for admin review)\n' +
+      '• Added 5 verified submissions (approved examples)\n' +
+      '• Updated student points\n\n' +
+      'Go to the Admin page to review submissions or check the Student_Profiles sheet to see updated points.'
+    );
+
+  } catch (e) {
+    Logger.log('Error generating sample submissions: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * Clears all Apps Script caches. Use this during development when you update
+ * spreadsheet data and need changes to reflect immediately in the web app.
+ */
+function clearAllCaches() {
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.removeAll([
+      'admin_emails',
+      'student_profiles_data',
+      'event_map_cache',
+      'badge_map_cache'
+    ]);
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Cache Cleared!\n\n' +
+      'All cached data has been removed.\n' +
+      'Refresh the web app to see your spreadsheet changes.'
+    );
+  } catch (e) {
+    Logger.log('Error clearing cache: ' + e.message);
+    SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
+  }
 }
 
 /**
