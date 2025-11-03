@@ -67,6 +67,27 @@ Spartan_Cup/
 
 In Google Sheets where the script is bound, click the **"🏆 Spartan Cup Admin"** menu and select **"1. Run First-Time Setup"**. This creates all spreadsheet tabs, Drive folders, and dynamically generates all HTML page files.
 
+### Firebase Deployment (For iOS Safari Geolocation)
+
+The project uses Firebase Hosting to host a geolocation wrapper that fixes iOS Safari's iframe geolocation blocking.
+
+**Deployed Firebase Project:**
+- **Project ID:** `the-spartan-cup`
+- **Firebase Hosting URL:** `https://the-spartan-cup.web.app`
+- **Wrapper location:** `/public/index.html`
+
+**To deploy updates to the wrapper:**
+```bash
+firebase deploy --only hosting
+```
+
+**To verify wrapper is live:**
+1. Open `https://the-spartan-cup.web.app` in a browser
+2. Grant location permission when prompted
+3. Browser should redirect to GAS app with location params in URL
+
+See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for complete setup instructions.
+
 ### Testing
 
 There is no automated test framework configured. Testing is manual:
@@ -74,6 +95,7 @@ There is no automated test framework configured. Testing is manual:
 - Test QR code scanning with generated QR codes
 - Verify spreadsheet data updates correctly
 - Test admin approval workflow
+- Test on iOS Safari to verify geolocation now works
 
 ### Linting
 

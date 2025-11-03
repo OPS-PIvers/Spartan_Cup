@@ -76,15 +76,9 @@
   function initQRCode() {
     // NEW: Point to Firebase wrapper instead of direct GAS URL
     // The wrapper captures geolocation before loading the GAS app (fixes iOS Safari)
-    // IMPORTANT: Update this URL to match your Firebase Hosting project!
-    const firebaseUrl = 'https://spartan-cup.web.app';
+    const firebaseUrl = 'https://the-spartan-cup.web.app';
 
-    // Fallback to direct GAS URL if Firebase not configured (for backwards compatibility)
-    const qrUrl = firebaseUrl !== 'https://spartan-cup.web.app'
-      ? firebaseUrl
-      : 'https://spartan-cup.web.app'; // Replace with your actual Firebase URL
-
-    document.getElementById('qr-url').textContent = qrUrl;
+    document.getElementById('qr-url').textContent = firebaseUrl;
 
     // Use qrcode.js library (needs to be added to Index.html)
     const qrcodeElement = document.getElementById('qrcode');
@@ -102,7 +96,7 @@
 
   function testQRCode() {
     // NEW: Test using Firebase wrapper URL
-    const firebaseUrl = 'https://spartan-cup.web.app';
+    const firebaseUrl = 'https://the-spartan-cup.web.app';
     window.open(firebaseUrl, '_blank');
   }
 
