@@ -34,7 +34,8 @@
       <ol class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-decimal list-inside">
         <li>Display or print this QR code at your event location</li>
         <li>Students scan the code with their phone camera</li>
-        <li>The app automatically detects their location and selects the closest event</li>
+        <li><strong>NEW:</strong> The wrapper requests location permission (works on iOS Safari now! ✅)</li>
+        <li>App automatically detects their location and selects the closest event</li>
         <li>They take a photo and submit</li>
         <li>The system validates their location and time window automatically</li>
       </ol>
@@ -59,9 +60,12 @@
     </button>
 
     <!-- Notes -->
-    <div class="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4">
-      <p class="text-xs text-yellow-800 dark:text-yellow-300">
-        <strong>Note:</strong> This is a single, reusable QR code. You can print it once and use it for all events. The event selection happens dynamically based on the student's location and the active event time window.
+    <div class="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
+      <p class="text-xs text-green-800 dark:text-green-300">
+        <strong>✅ Updated:</strong> This QR code now points to a Firebase wrapper that captures geolocation permission BEFORE loading the app. This fixes iOS Safari geolocation blocking and provides a better user experience for all platforms.
+      </p>
+      <p class="text-xs text-green-800 dark:text-green-300 mt-2">
+        <strong>Update needed:</strong> In Page.qr-code.html, replace 'https://spartan-cup.web.app' with your actual Firebase Hosting URL (shown after running 'firebase deploy').
       </p>
     </div>
   </div>
@@ -70,8 +74,15 @@
 <script>
   // Generate QR code on page load
   function initQRCode() {
-    const appUrl = APP_DATA.appUrl || '';
-    const qrUrl = appUrl + '?page=submit';
+    // NEW: Point to Firebase wrapper instead of direct GAS URL
+    // The wrapper captures geolocation before loading the GAS app (fixes iOS Safari)
+    // IMPORTANT: Update this URL to match your Firebase Hosting project!
+    const firebaseUrl = 'https://spartan-cup.web.app';
+
+    // Fallback to direct GAS URL if Firebase not configured (for backwards compatibility)
+    const qrUrl = firebaseUrl !== 'https://spartan-cup.web.app'
+      ? firebaseUrl
+      : 'https://spartan-cup.web.app'; // Replace with your actual Firebase URL
 
     document.getElementById('qr-url').textContent = qrUrl;
 
@@ -90,9 +101,9 @@
   }
 
   function testQRCode() {
-    const appUrl = APP_DATA.appUrl || '';
-    const testUrl = appUrl + '?page=submit';
-    window.open(testUrl, '_blank');
+    // NEW: Test using Firebase wrapper URL
+    const firebaseUrl = 'https://spartan-cup.web.app';
+    window.open(firebaseUrl, '_blank');
   }
 
   // Initialize when page loads

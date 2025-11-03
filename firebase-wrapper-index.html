@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spartan Cup</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1b3b87 0%, #b5121b 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 400px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 900;
+    }
+
+    .logo {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #status {
+      font-size: 1rem;
+      margin-top: 1rem;
+      line-height: 1.6;
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 2px solid #ef4444;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      background: white;
+      color: #1b3b87;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    .instructions {
+      font-size: 0.875rem;
+      margin-top: 15px;
+      opacity: 0.9;
+      line-height: 1.6;
+    }
+
+    .instructions strong {
+      display: block;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">🏆</div>
+    <h1>Spartan Cup</h1>
+    <div class="spinner" id="spinner"></div>
+    <p id="status">Requesting location permission...</p>
+    <div id="error-container"></div>
+  </div>
+
+  <script>
+    // IMPORTANT: Replace this with your actual Google Apps Script web app URL
+    // Find it in: Google Apps Script → Deploy → Manage deployments → Web app URL
+    const GAS_APP_URL = 'YOUR_GAS_WEB_APP_URL_HERE';
+
+    // Configuration
+    const GEOLOCATION_CONFIG = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    };
+
+    // Check if browser supports geolocation
+    if (!navigator.geolocation) {
+      showError(
+        'Geolocation Not Supported',
+        'Your browser does not support location services. Please use a modern browser like Chrome, Safari, or Firefox.',
+        false
+      );
+    } else {
+      // Request location permission
+      navigator.geolocation.getCurrentPosition(
+        handleLocationSuccess,
+        handleLocationError,
+        GEOLOCATION_CONFIG
+      );
+    }
+
+    function handleLocationSuccess(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      const acc = position.coords.accuracy;
+
+      document.getElementById('status').textContent = '✓ Location obtained! Loading app...';
+
+      // Build URL with location parameters
+      const separator = GAS_APP_URL.includes('?') ? '&' : '?';
+      const targetUrl = `${GAS_APP_URL}${separator}lat=${lat}&lon=${lon}&acc=${acc}`;
+
+      console.log('[Wrapper] Location obtained, redirecting:', {
+        latitude: lat,
+        longitude: lon,
+        accuracy: acc
+      });
+
+      // Small delay so user sees success message
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 500);
+    }
+
+    function handleLocationError(error) {
+      let errorMessage = '';
+      let instructions = '';
+
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = 'Location Permission Denied';
+          instructions = `
+            Please enable location permissions:
+            <strong>iOS Safari:</strong> Settings → Safari → Location Services → While Using → Allow
+            <strong>Android Chrome:</strong> Tap the lock icon in address bar → Permissions → Location → Allow
+            <strong>Desktop:</strong> Click the location icon in the address bar and select "Allow"
+          `;
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = 'Location Unavailable';
+          instructions = 'Your device cannot determine your location. Please check that Location Services are enabled in your device settings.';
+          break;
+        case error.TIMEOUT:
+          errorMessage = 'Location Request Timeout';
+          instructions = 'The request took too long. Please try again, preferably near a window or outdoors.';
+          break;
+        default:
+          errorMessage = 'Unknown Error';
+          instructions = 'An unknown error occurred. Please try again.';
+      }
+
+      console.error('[Wrapper] Location error:', {
+        code: error.code,
+        message: error.message
+      });
+
+      showError(errorMessage, instructions, true);
+    }
+
+    function showError(title, message, showRetry) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('status').textContent = '';
+
+      const errorHtml = `
+        <div class="error">
+          <h2>⚠️ ${title}</h2>
+          <p class="instructions">${message}</p>
+          ${showRetry ? '<button onclick="location.reload()">Retry</button>' : ''}
+        </div>
+      `;
+
+      document.getElementById('error-container').innerHTML = errorHtml;
+    }
+  </script>
+</body>
+</html>

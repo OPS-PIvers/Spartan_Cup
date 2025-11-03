@@ -17,7 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - html5-qrcode for QR code scanning
   - Google Material Icons for icons
   - Google Fonts (Public Sans) for typography
-- **Deployment Tool:** Clasp (Google Apps Script CLI)
+- **Deployment Tools:** Clasp (Google Apps Script CLI), Firebase Hosting (geolocation wrapper)
+- **Hosting:** Firebase Hosting (wrapper to capture geolocation for iOS Safari)
 
 ## Repository Structure
 
@@ -90,7 +91,7 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 5. **Photo Handling:** Photos are base64-encoded in client and saved to Google Drive with metadata. Large photo sizes may impact quota.
 
-6. **Geolocation:** Uses browser Geolocation API. Requires HTTPS and user permission. Fallback behavior is defined.
+6. **Geolocation with Firebase Wrapper:** iOS Safari blocks geolocation in iframes (GAS runs in an iframe). Solution: Firebase Hosting wrapper captures location BEFORE loading GAS. Flow: Firebase wrapper → requests location permission (works on iOS!) → passes location via URL params → GAS receives it in `doGet(e)` and passes to frontend via `APP_DATA`. See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for setup instructions. The wrapper location is checked first in `requestLocation()` (JavaScript.html), with fallback to cache/browser geolocation.
 
 7. **Google Apps Script Navigation (IMPORTANT):** Navigation in Google Apps Script web apps requires user activation. This means you MUST navigate in direct response to user interactions (click handlers, form submissions) without breaking the activation chain. Common pitfalls:
    - **DO NOT use `confirm()` dialogs before navigation** - Browser dialogs break the user activation chain, causing "Unsafe attempt to navigate" errors

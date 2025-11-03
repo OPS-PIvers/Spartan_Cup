@@ -124,7 +124,11 @@
       userPhoto: "<?= userPhoto ?>",
       isAdmin: <?= isAdmin ?>,
       appUrl: "<?= getWebAppUrl() ?>",
-      userSettings: <?!= userSettings ?> // Directly embed the JSON string from the server
+      userSettings: <?!= userSettings ?>, // Directly embed the JSON string from the server
+      // NEW: Location from Firebase wrapper (passed via URL parameters)
+      userLat: <?= userLat ? userLat : 'null' ?>,
+      userLon: <?= userLon ? userLon : 'null' ?>,
+      userAcc: <?= userAcc ? userAcc : 'null' ?>
     };
   </script>
   

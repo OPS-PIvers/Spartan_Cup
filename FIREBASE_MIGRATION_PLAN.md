@@ -37,6 +37,39 @@ Instead of a full 35-hour Firebase migration, we implement a **2-3 hour Web App 
 
 ---
 
+## Integration with Existing Codebase
+
+This plan was refined to integrate cleanly with your existing, sophisticated location handling system. Here's what you already have and how the wrapper extends it:
+
+### What Already Exists (Don't Replace)
+- `JavaScript.html` lines 2-183: Complete location caching system with session storage
+- `JavaScript.html` lines 72-130: `testLocationAccess()` - iOS Safari detection with detailed error handling
+- `JavaScript.html` lines 630-723: `updateLocationStatus()` - Beautiful UI showing location permission status with platform-specific help text
+- Location permission detection for iOS Safari, timeouts, and unavailable GPS
+- Geofencing validation in Code.js
+
+### What We Add (Integration Points Only)
+1. **APP_DATA in Index.html** - Add `userLat`, `userLon`, `userAcc` from doGet() URL parameters
+2. **New `isValidLocation()` helper** - Validates wrapper-provided coordinates before using them
+3. **PRIORITY 1 in `requestLocation()`** - Check for wrapper location before checking cache
+4. **Firebase wrapper** - Static HTML that runs outside the iframe, captures location, redirects with params
+
+### The Clean Integration
+```
+Firebase Wrapper (NEW)          GAS App (ENHANCED, NOT REPLACED)
+   ↓                              ↓
+  location                    APP_DATA.userLat/Lon/Acc (NEW)
+   ↓                              ↓
+  redirect      ------->   requestLocation()
+   ?lat=X&lon=Y               PRIORITY 1: Check APP_DATA (NEW)
+   &acc=Z                      PRIORITY 2: Check cache (EXISTING)
+                              PRIORITY 3: Browser geo (EXISTING)
+                                    ↓
+                              iOS Safari works! ✅
+```
+
+---
+
 ## Architecture Overview
 
 ### Current Architecture (Problem)
@@ -516,10 +549,12 @@ const GAS_APP_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
 
 ---
 
-### Phase 2: Modify GAS to Accept Location (45 minutes)
+### Phase 2: Modify GAS to Accept Location (1 hour)
 **Status:** NOT STARTED
 **Duration:** 1 day
 **Owner:** [TO BE ASSIGNED]
+
+**NOTE:** This phase is now clearer with integrated approach. Tasks build on your existing robust location handling code.
 
 #### Task 2.1: Update doGet() Function (15 minutes)
 
@@ -600,29 +635,14 @@ Find the `APP_DATA` object and add location parameters:
 
 **File:** `JavaScript.html`
 
-Find the `requestLocation()` function and modify it to use passed location first:
+**IMPORTANT:** Your existing `requestLocation()` function already has sophisticated iOS detection and error handling. We integrate with it rather than replacing it.
 
+Find the `requestLocation()` function (around line 138) and modify only the beginning to check for wrapper location first:
+
+**REPLACE THIS:**
 ```javascript
-/**
- * Request user location with caching and proper error handling
- * NOW checks if location was passed from Firebase wrapper first
- * @param {Function} onSuccess - Callback with location {lat, lon, acc}
- * @param {Function} onError - Callback with error message
- * @param {boolean} forceRefresh - Skip cache and request fresh location
- */
 function requestLocation(onSuccess, onError, forceRefresh = false) {
-  // PRIORITY 1: Check if location was passed from Firebase wrapper
-  if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
-    console.log('Using location from Firebase wrapper');
-    onSuccess({
-      lat: parseFloat(APP_DATA.userLat),
-      lon: parseFloat(APP_DATA.userLon),
-      acc: parseFloat(APP_DATA.userAcc)
-    });
-    return;
-  }
-
-  // PRIORITY 2: Try to use cached location (unless forced refresh)
+  // Try to use cached location first (unless forced refresh)
   if (!forceRefresh) {
     const cached = getCachedLocation();
     if (cached) {
@@ -631,56 +651,94 @@ function requestLocation(onSuccess, onError, forceRefresh = false) {
       return;
     }
   }
+```
 
-  // PRIORITY 3: Request fresh location from browser
-  if (!navigator.geolocation) {
-    onError('Geolocation is not supported by your browser');
-    return;
+**WITH THIS:**
+```javascript
+function requestLocation(onSuccess, onError, forceRefresh = false) {
+  // PRIORITY 1: Check if location was passed from Firebase wrapper (NEW)
+  // This allows iOS Safari to work by capturing location BEFORE entering the GAS iframe
+  if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
+    console.log('[Location] Using location from Firebase wrapper');
+    const wrapperLocation = {
+      lat: parseFloat(APP_DATA.userLat),
+      lon: parseFloat(APP_DATA.userLon),
+      acc: parseFloat(APP_DATA.userAcc)
+    };
+    // Validate location values are reasonable (sanity check)
+    if (isValidLocation(wrapperLocation)) {
+      onSuccess(wrapperLocation);
+      return;
+    } else {
+      console.warn('[Location] Wrapper provided invalid location values, falling back to cache');
+    }
   }
 
-  console.log('Requesting fresh location from browser');
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      cacheLocation(position);
-      onSuccess({
-        lat: position.coords.latitude,
-        lon: position.coords.longitude,
-        acc: position.coords.accuracy
-      });
-    },
-    (error) => {
-      let message = 'Unable to get your location.';
-
-      if (error.code === error.PERMISSION_DENIED) {
-        message = 'Location permission denied. Please enable location in Settings > Safari > Location Services (iOS) or browser settings.';
-      } else if (error.code === error.TIMEOUT) {
-        message = 'Location request timed out. Please try again.';
-      } else if (error.code === error.POSITION_UNAVAILABLE) {
-        message = 'Your location is unavailable. Please check GPS.';
-      }
-
-      onError(message);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
+  // PRIORITY 2: Try to use cached location (unless forced refresh)
+  if (!forceRefresh) {
+    const cached = getCachedLocation();
+    if (cached) {
+      console.log('[Location] Using cached location');
+      onSuccess(cached);
+      return;
     }
-  );
+  }
+```
+
+**ADD THIS HELPER FUNCTION** (add it right before `requestLocation()` definition):
+
+```javascript
+/**
+ * Validate that location coordinates are reasonable (sanity check)
+ * @param {Object} location - Location object {lat, lon, acc}
+ * @return {boolean} True if location values are valid
+ */
+function isValidLocation(location) {
+  if (!location || typeof location.lat !== 'number' || typeof location.lon !== 'number') {
+    return false;
+  }
+  // Check latitude is between -90 and 90
+  if (location.lat < -90 || location.lat > 90) {
+    console.warn('[Location] Invalid latitude:', location.lat);
+    return false;
+  }
+  // Check longitude is between -180 and 180
+  if (location.lon < -180 || location.lon > 180) {
+    console.warn('[Location] Invalid longitude:', location.lon);
+    return false;
+  }
+  // Check accuracy is reasonable (>0 and <50km)
+  if (!location.acc || location.acc < 0 || location.acc > 50000) {
+    console.warn('[Location] Invalid accuracy:', location.acc);
+    return false;
+  }
+  return true;
 }
 ```
 
 **Key Changes:**
-- PRIORITY 1: Check for location from URL parameters first (from wrapper)
-- PRIORITY 2: Fall back to cached location
-- PRIORITY 3: Fall back to browser geolocation API
-- Added console.log for debugging which source was used
+- **PRIORITY 1 (NEW):** Checks for location from URL parameters first (passed from wrapper)
+- **Validation:** Added sanity check to ensure wrapper passed valid coordinates
+- **Fallback:** If wrapper location invalid, falls back to existing cache/geolocation logic
+- **Logging:** Added `[Location]` prefix to console logs for easy debugging
+- **Existing code preserved:** All your sophisticated iOS detection and error handling remains unchanged
+
+**Why This Approach:**
+- Your existing code already handles iOS Safari detection, timeouts, permission denied, etc.
+- Wrapper just adds a PRIORITY 1 option; everything else stays intact
+- If wrapper fails or provides invalid data, existing fallback paths handle it gracefully
+- Minimal code change = minimal risk
+- Integrates cleanly with your location caching system
 
 **Success Criteria:**
-- Function uses location from wrapper when available
-- Falls back to existing behavior if no location passed
+- Function checks for wrapper location first when available
+- Validates wrapper-provided coordinates are reasonable
+- Falls back to cached location if wrapper location invalid
+- Falls back to browser geolocation if no wrapper location or cache
+- Console logs show which location source was used
+- iOS detection code still works as before
 - No syntax errors
-- Console logs show which location source is used
+- All existing error handling paths still reachable
 
 ---
 
@@ -698,6 +756,66 @@ clasp push
 - All files pushed successfully
 - No errors in Apps Script editor
 - Can open the web app without errors
+
+---
+
+#### Task 2.5: Parameter Validation & Fallback Strategy (IMPORTANT)
+
+**Understanding the Fallback Chain:**
+
+Your implementation now has a robust fallback chain:
+
+```
+1. Wrapper provides location via URL params?
+   ├─ YES: Validate coordinates (lat -90 to 90, lon -180 to 180, acc 0-50km)
+   │   ├─ VALID: Use it ✅
+   │   └─ INVALID: Log warning, fall through to next priority
+   │
+2. Cache has location within 5 minutes?
+   ├─ YES: Use cached location ✅
+   └─ NO: Fall through to next priority
+   │
+3. Browser geolocation API works?
+   ├─ YES: Request fresh location, cache it ✅
+   └─ NO: Show appropriate error message for iOS Safari, timeout, etc.
+```
+
+**Why This Matters:**
+
+- **iOS Safari wrapper fails?** → Falls back to cache or browser geo (graceful degradation)
+- **User denies location in wrapper?** → Wrapper shows error, user clicks "Retry" → wrapper re-prompts
+- **User submits form without wrapper location?** → Falls back to cache or browser geo
+- **Invalid coordinates passed from wrapper?** → Validation catches it, falls back safely
+
+**Testing the Fallback Chain:**
+
+```
+Test 1: Wrapper works correctly
+→ Remove ?lat=X&lon=Y&acc=Z from URL manually
+→ Verify app falls back to cached or browser geolocation
+→ Submit form successfully
+
+Test 2: Invalid wrapper data
+→ Manually add ?lat=999&lon=999&acc=999 to URL (invalid coords)
+→ Verify validation catches it
+→ Verify fallback to cache/geolocation works
+→ Check console for [Location] warning messages
+
+Test 3: No location available anywhere
+→ Block browser geolocation, clear cache
+→ Verify error messages are helpful
+→ Verify user can retry or use Chrome fallback instructions
+```
+
+**Parameter Size & Encoding:**
+
+URL parameters are safe for location data:
+- `lat`: ~10-20 characters (e.g., `44.9702`)
+- `lon`: ~10-20 characters (e.g., `-93.6300`)
+- `acc`: ~2-5 characters (e.g., `25`)
+- **Total**: ~50 characters (well within URL limits)
+
+**No encoding needed** for numeric parameters, but the wrapper already uses proper URL construction.
 
 ---
 
@@ -738,12 +856,17 @@ firebase deploy --only hosting
 8. Check that location validation works
 
 **Mobile Testing (CRITICAL - iOS Safari):**
-1. Open Firebase Hosting URL on iPhone in Safari
-2. Grant location permission when prompted ✅ **This should work now!**
-3. Verify redirect to GAS app
-4. Navigate to submit page
-5. Verify location status shows "✅ Location Enabled"
-6. Try full submission flow
+1. **Before starting:** Have console open (Safari → Develop → [Device] → Inspect wrapper page)
+2. Open Firebase Hosting URL on iPhone in Safari
+3. Watch console for `[Location]` log messages (should show geolocation attempt)
+4. Grant location permission when prompted ✅ **This should work now!**
+5. Watch console for `[Location] Using location from Firebase wrapper` message
+6. Verify redirect to GAS app happens
+7. Check browser console again on GAS app for location confirmation
+8. Navigate to submit page
+9. Verify location status shows "✅ Location Enabled" with accuracy
+10. Try full submission flow
+11. **Bonus:** Test denying permission in step 4, verify retry button works
 
 **Testing Checklist:**
 - [ ] Desktop Chrome: Location permission prompt appears
@@ -1096,31 +1219,43 @@ Simply require iOS Safari users to use Chrome:
 - **Probability:** Very Low (wrapper is outside iframe, should work)
 - **Impact:** Critical (back to square one)
 - **Mitigation:**
-  - [ ] Test on multiple iOS devices/versions early
+  - [ ] Test on multiple iOS devices/versions early (iOS 15+)
+  - [ ] Test with Safari DevTools connected to see console errors
   - [ ] Have Alternative 1 (Hybrid Approach) ready as backup
   - [ ] Can fall back to Alternative 3 (require Chrome) immediately
+  - [ ] Test the complete flow: wrapper → location grant → redirect → GAS → submit
 
 ### Medium Risk
 
-**Risk 2: URL Parameter Size Limits**
-- **Probability:** Very Low (lat/lon are small strings)
-- **Impact:** Medium (location not passed correctly)
+**Risk 2: Wrapper Location Validation Fails**
+- **Probability:** Very Low (validation logic is simple)
+- **Impact:** Medium (location rejected unexpectedly)
 - **Mitigation:**
-  - [ ] Test with various location coordinates
-  - [ ] URL encode parameters properly
-  - [ ] Monitor for truncation issues
+  - [ ] Test edge cases: lat/lon at poles, dateline, zero values
+  - [ ] Test high accuracy values (indoor GPS) and low accuracy (WiFi-only)
+  - [ ] Verify console logs show validation results
+  - [ ] Review fallback behavior works correctly
+
+**Risk 3: Session Cache Expires During Form Submission**
+- **Probability:** Low (submission is quick, cache is 5 minutes)
+- **Impact:** Low (user gets prompted for location during submit, still works)
+- **Mitigation:**
+  - [ ] Location is re-requested during form submission (line 749 in JavaScript.html)
+  - [ ] Cache TTL (5 minutes) is sufficient for typical event flow
+  - [ ] If cache expires, falls back to browser geolocation automatically
+  - [ ] This is graceful degradation, not an error
 
 ### Low Risk
 
-**Risk 3: User Confusion with Redirect**
+**Risk 4: User Confusion with Redirect**
 - **Probability:** Low (redirect is fast and seamless)
 - **Impact:** Low (minor UX issue)
 - **Mitigation:**
-  - [ ] Add loading animation in wrapper
-  - [ ] Keep delay short (500ms or less)
+  - [ ] Add loading animation in wrapper (already included in plan)
+  - [ ] Keep delay short (500ms or less) (already set in wrapper)
   - [ ] Test user experience with real users
 
-**Risk 4: Firebase Hosting Downtime**
+**Risk 5: Firebase Hosting Downtime**
 - **Probability:** Very Low (Firebase has 99.95% uptime SLA)
 - **Impact:** Low (can use direct GAS URL as backup)
 - **Mitigation:**
@@ -1246,21 +1381,40 @@ After successful deployment, update:
 ### Common Issues
 
 **Issue 1: Wrapper shows "permission denied" on iOS Safari**
-- **Cause:** User denied permission
-- **Solution:** Show clear instructions to enable location in Settings
+- **Cause:** User denied permission in Safari's geolocation prompt
+- **Solution:** Show clear instructions to enable location in Settings → Safari → Spartan Cup app
 - **Prevention:** Make initial prompt very clear about why location is needed
+- **Debug:** Check wrapper console for which error code is being received
 
-**Issue 2: Redirect loop between wrapper and GAS**
-- **Cause:** GAS redirecting back to wrapper
-- **Solution:** Check that GAS reads location from URL params correctly
-- **Prevention:** Test thoroughly in Phase 3
+**Issue 2: Location appears to work in wrapper but GAS shows "Location Disabled"**
+- **Cause:** URL parameters not being passed correctly, or APP_DATA.userLat/Lon/Acc not initialized
+- **Solution:**
+  1. Check browser DevTools Network tab: redirect URL should include `?lat=X&lon=Y&acc=Z`
+  2. In GAS app console, verify `console.log('[Location]')` shows location source
+  3. Check that Index.html was updated with `userLat`, `userLon`, `userAcc` fields
+  4. Verify doGet() includes template.userLat = e.parameter.lat (etc.)
+- **Debug:** Add to browser console on GAS app: `console.log(APP_DATA)` and check if userLat/Lon/Acc are populated
 
-**Issue 3: Location not being passed to GAS**
-- **Cause:** URL encoding issue or parameter names mismatch
-- **Solution:** Check browser console for URL being generated
-- **Prevention:** Verify parameter names match exactly (lat, lon, acc)
+**Issue 3: isValidLocation() keeps rejecting wrapper coordinates**
+- **Cause:** Coordinates are outside expected ranges (likely not actually invalid)
+- **Solution:** Review the validation function bounds:
+  - Latitude: -90 to 90 (poles) ✓
+  - Longitude: -180 to 180 (dateline) ✓
+  - Accuracy: 0 to 50,000 meters ✓
+- **Adjust if needed:** If your school is at unusual coordinates or with high accuracy requirements, modify the bounds in isValidLocation()
+- **Debug:** Check console for `[Location] Invalid latitude/longitude` messages
 
-**Issue 4: Firebase Hosting not deploying**
+**Issue 4: Redirect loop between wrapper and GAS**
+- **Cause:** GAS is somehow redirecting back to wrapper URL
+- **Solution:** Check that doGet() is not redirecting users based on missing location
+- **Prevention:** Location is optional for page load; it's only required during form submission
+
+**Issue 5: Cache-related issues during form submission**
+- **Cause:** Location cache expired (>5 minutes) between wrapper redirect and form submission
+- **Solution:** This is expected behavior! The app will request fresh location via browser geolocation
+- **Debug:** Check console for `[Location]` logs showing which source was used
+
+**Issue 6: Firebase Hosting not deploying**
 - **Cause:** Authentication or permissions issue
 - **Solution:** Run `firebase login` again and verify project access
 - **Prevention:** Test `firebase projects:list` before deploying
@@ -1329,7 +1483,7 @@ The wrapper acts as a lightweight "gate" that:
 | Version | Date | Author | Notes |
 |---------|------|--------|-------|
 | 1.0 | 2025-11-02 | Claude Code | Initial plan, Web App Wrapper approach |
-| | | | |
+| 1.1 | 2025-11-03 | Claude Code | **Refined Plan with Codebase Integration**<br>- Integrated with existing robust location handling code<br>- Added location validation with isValidLocation() helper<br>- Added comprehensive fallback chain documentation<br>- Enhanced iOS Safari testing procedures with console debugging<br>- Added Task 2.5: Parameter Validation & Fallback Strategy<br>- Expanded Risk Register with validation and caching risks<br>- Detailed troubleshooting for wrapper-to-GAS integration issues<br>- Clarified what code is NEW vs EXISTING (don't replace existing code)<br>- Added "Integration with Existing Codebase" section explaining clean integration points |
 
 ---
 

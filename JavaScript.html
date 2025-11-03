@@ -130,17 +130,63 @@
     }
 
     /**
+     * Validate that location coordinates are reasonable (sanity check)
+     * @param {Object} location - Location object {lat, lon, acc}
+     * @return {boolean} True if location values are valid
+     */
+    function isValidLocation(location) {
+      if (!location || typeof location.lat !== 'number' || typeof location.lon !== 'number') {
+        return false;
+      }
+      // Check latitude is between -90 and 90
+      if (location.lat < -90 || location.lat > 90) {
+        console.warn('[Location] Invalid latitude:', location.lat);
+        return false;
+      }
+      // Check longitude is between -180 and 180
+      if (location.lon < -180 || location.lon > 180) {
+        console.warn('[Location] Invalid longitude:', location.lon);
+        return false;
+      }
+      // Check accuracy is reasonable (>0 and <50km)
+      if (!location.acc || location.acc < 0 || location.acc > 50000) {
+        console.warn('[Location] Invalid accuracy:', location.acc);
+        return false;
+      }
+      return true;
+    }
+
+    /**
      * Request user location with caching and proper error handling
+     * NOW checks if location was passed from Firebase wrapper first
      * @param {Function} onSuccess - Callback with location {lat, lon, acc}
      * @param {Function} onError - Callback with error message
      * @param {boolean} forceRefresh - Skip cache and request fresh location
      */
     function requestLocation(onSuccess, onError, forceRefresh = false) {
-      // Try to use cached location first (unless forced refresh)
+      // PRIORITY 1: Check if location was passed from Firebase wrapper (NEW)
+      // This allows iOS Safari to work by capturing location BEFORE entering the GAS iframe
+      if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
+        console.log('[Location] Using location from Firebase wrapper');
+        const wrapperLocation = {
+          lat: parseFloat(APP_DATA.userLat),
+          lon: parseFloat(APP_DATA.userLon),
+          acc: parseFloat(APP_DATA.userAcc)
+        };
+        // Validate location values are reasonable (sanity check)
+        if (isValidLocation(wrapperLocation)) {
+          onSuccess(wrapperLocation);
+          return;
+        } else {
+          console.warn('[Location] Wrapper provided invalid location values, falling back to cache');
+        }
+      }
+
+      // PRIORITY 2: Try to use cached location (unless forced refresh)
       if (!forceRefresh) {
         const cached = getCachedLocation();
         if (cached) {
-          console.log('Using cached location');
+          console.log('[Location] Using cached location');
           onSuccess(cached);
           return;
         }
@@ -151,9 +197,11 @@
         return;
       }
 
-      // Request fresh location
+      // PRIORITY 3: Request fresh location from browser
+      console.log('[Location] Requesting fresh location from browser');
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log('[Location] Got fresh location from browser');
           cacheLocation(position);
           onSuccess({
             lat: position.coords.latitude,
@@ -172,6 +220,7 @@
             message = 'Your location is unavailable. Please check GPS.';
           }
 
+          console.error('[Location] Error:', message);
           onError(message);
         },
         {

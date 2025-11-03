@@ -84,6 +84,12 @@ function doGet(e) {
   template.isAdmin = getAdminEmails().includes(user.getEmail().toLowerCase());
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
 
+  // NEW: Accept location from Firebase wrapper via URL parameters
+  // These are passed from the wrapper: ?lat=X&lon=Y&acc=Z
+  template.userLat = e.parameter.lat || null;
+  template.userLon = e.parameter.lon || null;
+  template.userAcc = e.parameter.acc || null;
+
   return template.evaluate()
     .setTitle('The Spartan Cup')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
