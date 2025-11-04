@@ -112,8 +112,12 @@
   <div class="container">
     <div class="logo">🏆</div>
     <h1>Spartan Cup</h1>
-    <div class="spinner" id="spinner"></div>
-    <p id="status">Requesting location permission...</p>
+    <div id="initial-prompt">
+      <p style="margin-bottom: 20px; font-size: 0.95rem;">Tap the button below to share your location and enter the app.</p>
+      <button id="location-button" onclick="requestLocationPermission()">Share My Location</button>
+    </div>
+    <div id="spinner" style="display: none;"></div>
+    <p id="status"></p>
     <div id="error-container"></div>
   </div>
 
@@ -129,15 +133,21 @@
       maximumAge: 0
     };
 
-    // Check if browser supports geolocation
+    // Check if browser supports geolocation on load
     if (!navigator.geolocation) {
       showError(
         'Geolocation Not Supported',
         'Your browser does not support location services. Please use a modern browser like Chrome, Safari, or Firefox.',
         false
       );
-    } else {
-      // Request location permission
+    }
+
+    // Request location only after user taps button (iOS requirement)
+    function requestLocationPermission() {
+      document.getElementById('initial-prompt').style.display = 'none';
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('status').textContent = 'Requesting location permission...';
+
       navigator.geolocation.getCurrentPosition(
         handleLocationSuccess,
         handleLocationError,

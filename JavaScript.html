@@ -300,13 +300,16 @@
               alert('Invalid QR Code. Not a Spartan Cup code.');
               return;
             }
-            
+
+            // Check for event parameter, but don't require it
+            // The app will auto-detect the event based on user location
             const eventId = url.searchParams.get('event');
             if (eventId) {
               // Navigate to the submit page with the eventId
               navigateToPage('submit&event=' + eventId);
             } else {
-              alert('Invalid QR Code. No event ID found.');
+              // No event ID in QR code - navigate to event selection page to auto-detect by location
+              navigateToPage('event-select');
             }
           } catch (e) {
             console.error(e);
@@ -505,6 +508,14 @@
 
       if (pageKey === 'qr-code') {
         // QR code page - admin only, auto-initializes via script in the page
+        if (!APP_DATA.isAdmin) {
+          document.getElementById('page-title').innerText = 'Access Denied';
+          document.body.innerHTML = '<div class="p-4"><p class="text-red-500">Admin access required.</p></div>';
+        }
+      }
+
+      if (pageKey === 'admin') {
+        // Admin dashboard - admin only
         if (!APP_DATA.isAdmin) {
           document.getElementById('page-title').innerText = 'Access Denied';
           document.body.innerHTML = '<div class="p-4"><p class="text-red-500">Admin access required.</p></div>';

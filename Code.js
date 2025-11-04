@@ -411,6 +411,7 @@ function getProfileData() {
     // If user not in sheet, create a new profile entry
     if (!userProfile) {
       const defaultSettings = { darkMode: false, eventNotifications: true, approvalNotifications: true, badgeNotifications: true };
+      const studentSheet = ss.getSheetByName('Student_Profiles');
       studentSheet.appendRow([email, '', 0, 0, JSON.stringify([]), '', '', false, JSON.stringify(defaultSettings)]);
       userProfile = {
         email: email,
@@ -1455,7 +1456,7 @@ function createHtmlFiles() {
   </div>
   <div id="admin-button-container" class="px-4 mt-6">
     <!-- Admin button will be shown/hidden by JS based on APP_DATA.isAdmin -->
-    <button id="admin-button" class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
+    <button id="admin-button" class="hidden flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
       <span class="truncate">Admin Dashboard</span>
     </button>
   </div>`,
