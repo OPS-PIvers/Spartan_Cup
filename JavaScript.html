@@ -450,16 +450,17 @@
         document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
-        // Admin button
+        // Admin button (only rendered for admin users)
         const adminButton = document.getElementById('admin-button');
-        if (APP_DATA.isAdmin) {
-          adminButton.classList.remove('hidden');
+        if (adminButton) {
+          // Show button only if user is admin
+          if (APP_DATA.isAdmin) {
+            adminButton.classList.remove('hidden');
+          }
           adminButton.addEventListener('click', () => {
             // Show admin menu modal (replaces confirm() which breaks user activation)
             document.getElementById('admin-menu-modal').classList.remove('hidden');
           });
-        } else {
-          adminButton.classList.add('hidden');
         }
         
         // Leaderboard Toggle
