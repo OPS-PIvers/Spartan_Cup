@@ -79,6 +79,31 @@ function getUserDisplayName() {
 }
 
 /**
+ * Gets the current user's admin status from Student_Profiles isAdmin column (J).
+ * @return {boolean} True if user is an admin, false otherwise
+ */
+function getUserIsAdmin() {
+  const email = Session.getActiveUser().getEmail();
+
+  try {
+    const studentData = getStudentProfilesData();
+
+    // Find user and get isAdmin status from column J (index 9)
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        // Column J contains the isAdmin formula result (TRUE/FALSE or boolean)
+        const isAdminValue = studentData[i][9];
+        return isAdminValue === true || isAdminValue === 'TRUE' || isAdminValue === 'True';
+      }
+    }
+  } catch (e) {
+    Logger.log('Error reading user admin status: ' + e.message);
+  }
+
+  return false; // Default to false if not found
+}
+
+/**
  * Gets all student profile data from cache or Sheets.
  * Caches for 10 minutes to reduce redundant API calls within same session.
  * @return {Array} 2D array of student profile data
@@ -192,7 +217,7 @@ function doGet(e) {
   template.userEmail = user.getEmail();
   template.userName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
   template.userPhoto = getUserProfilePhoto(user.getEmail(), template.userName); // Pass display name for initials
-  template.isAdmin = getAdminEmails().includes(user.getEmail().toLowerCase());
+  template.isAdmin = getUserIsAdmin(); // Read from Student_Profiles isAdmin column (J)
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
 
   // NEW: Accept location from Firebase wrapper via URL parameters
@@ -390,10 +415,13 @@ function getProfileData() {
 
   try {
     // --- FETCH USER PROFILE DATA ---
-    // Use cached Student_Profiles data instead of reading directly
-    const studentData = getStudentProfilesData();
+    // Read DIRECTLY from sheet (not cached) to avoid stale cache on first check
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
 
     let userProfile = null;
+    let userRowIndex = -1;
+
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === email) {
         userProfile = {
@@ -404,6 +432,7 @@ function getProfileData() {
           badgesEarned: studentData[i][4] ? JSON.parse(studentData[i][4]) : [],
           disqualified: studentData[i][7] || false
         };
+        userRowIndex = i;
         break;
       }
     }
@@ -411,16 +440,28 @@ function getProfileData() {
     // If user not in sheet, create a new profile entry
     if (!userProfile) {
       const defaultSettings = { darkMode: false, eventNotifications: true, approvalNotifications: true, badgeNotifications: true };
-      const studentSheet = ss.getSheetByName('Student_Profiles');
       studentSheet.appendRow([email, '', 0, 0, JSON.stringify([]), '', '', false, JSON.stringify(defaultSettings)]);
+
+      // Clear the cache since we added a new user
+      const cache = CacheService.getScriptCache();
+      cache.remove('student_profiles_data');
+
+      // Read the newly added row (will be at the end)
+      const updatedData = studentSheet.getDataRange().getValues();
+      const newRowIndex = updatedData.length - 1;
+      const newRow = updatedData[newRowIndex];
+
       userProfile = {
-        email: email,
-        displayName: '', // Display name will be auto-populated by formula in sheet
+        email: newRow[0],
+        displayName: newRow[1], // Will have the formula-populated value now
         seasonPoints: 0,
         allTimePoints: 0,
         badgesEarned: [],
         disqualified: false
       };
+
+      // Update studentData with the new row included for leaderboard building
+      studentData.push(newRow);
     }
 
     // --- BUILD LEADERBOARDS (Season + All-Time) ---
@@ -1098,93 +1139,8 @@ function createHtmlFiles() {
       }
     }
 
-    // --- EVENT LISTENERS ----------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      // 1. Set Page Title
-      document.getElementById('page-title').innerText = TITLES[APP_DATA.page] || 'The Spartan Cup';
-      
-      // 2. Set Active Nav Item
-      const activeNavItem = document.querySelector(\`.nav-item[data-page="\${APP_DATA.page}"]\`);
-      if (activeNavItem) activeNavItem.classList.add('active');
-
-      // 3. Handle Back/Settings Buttons
-      const backButton = document.getElementById('header-back-button');
-      const settingsButton = document.getElementById('settings-button');
-      
-      if (APP_DATA.page !== 'profile') {
-        backButton.classList.remove('hidden');
-        backButton.addEventListener('click', () => navigateToPage('profile'));
-      }
-      settingsButton.addEventListener('click', () => navigateToPage('settings'));
-
-      // --- PAGE-SPECIFIC LOGIC ---
-      
-      if (APP_DATA.page === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
-        document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
-        document.getElementById('view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
-        if(APP_DATA.isAdmin) {
-          document.getElementById('admin-button').addEventListener('click', () => navigateToPage('admin'));
-        }
-        
-        // Leaderboard Toggle
-        document.getElementById('leaderboard-toggle').addEventListener('click', (e) => {
-          if (e.target.tagName === 'BUTTON') {
-            document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
-            e.target.classList.add('active-toggle');
-            const view = e.target.dataset.view;
-
-            if (currentProfileData) {
-              const leaderboard = view === 'all-time' ? currentProfileData.allTimeLeaderboard : currentProfileData.leaderboard;
-              updateLeaderboardDisplay(leaderboard);
-            }
-          }
-        });
-        
-        // Load dynamic profile data
-        google.script.run.withSuccessHandler(populateProfile).getProfileData();
-      }
-      
-      if (APP_DATA.page === 'scanner') {
-        document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
-        document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
-        startScanner(); // Auto-start scanner
-      }
-      
-      if (APP_DATA.page === 'history') {
-        google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
-      }
-
-      if (APP_DATA.page === 'submit') {
-        document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
-
-        // Get event details from URL and fetch them
-        const urlParams = new URLSearchParams(window.location.search);
-        const eventId = urlParams.get('event');
-        if (eventId) {
-          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventId);
-        }
-      }
-      
-      // Onboarding - Show only on first visit
-      const hasSeenOnboarding = sessionStorage.getItem('onboarding-seen');
-      if (!hasSeenOnboarding) {
-        document.getElementById('onboarding-modal').classList.remove('hidden');
-        sessionStorage.setItem('onboarding-seen', 'true');
-      }
-      document.getElementById('onboarding-agree').addEventListener('click', () => {
-        document.getElementById('onboarding-modal').classList.add('hidden');
-      });
-      
-      // Modal Buttons
-      document.getElementById('modal-cancel').addEventListener('click', () => {
-        document.getElementById('confirm-modal').classList.add('hidden');
-      });
-      document.getElementById('modal-proceed').addEventListener('click', () => {
-        document.getElementById('confirm-modal').classList.add('hidden');
-        // Resubmit logic here
-      });
-    });
+    // NOTE: All event listeners and page-specific logic have been moved to JavaScript.html
+    // This includes page routing, button event handlers, and modal management
 
     // --- DATA POPULATION ---
     function updateLeaderboardDisplay(leaderboard) {
@@ -1454,12 +1410,14 @@ function createHtmlFiles() {
       </div>
     </div>
   </div>
+  <?if (isAdmin) ?>
   <div id="admin-button-container" class="px-4 mt-6">
-    <!-- Admin button will be shown/hidden by JS based on APP_DATA.isAdmin -->
-    <button id="admin-button" class="hidden flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
+    <!-- Admin-only button: only renders for admin users -->
+    <button id="admin-button" class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-secondary/10 dark:bg-secondary/20 text-secondary dark:text-red-400 text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
       <span class="truncate">Admin Dashboard</span>
     </button>
-  </div>`,
+  </div>
+  <?endif?>`,
     'Page.history.html': `<div class="p-4 pt-6">
     <div class="rounded-xl bg-gradient-total-points p-6 text-white shadow-lg shadow-primary/30" style="background-image: linear-gradient(to right, #b5121b, #1b3b87)">
       <p class="text-base font-medium leading-normal opacity-80">Total Points Earned</p>
