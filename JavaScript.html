@@ -157,6 +157,25 @@
     }
 
     /**
+     * Calculate distance between two geographic coordinates using Haversine formula
+     * @param {number} lat1 - Latitude of point 1
+     * @param {number} lon1 - Longitude of point 1
+     * @param {number} lat2 - Latitude of point 2
+     * @param {number} lon2 - Longitude of point 2
+     * @return {number} Distance in meters
+     */
+    function calculateDistanceClient(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Returns distance in meters
+    }
+
+    /**
      * Request user location with caching and proper error handling
      * NOW checks if location was passed from Firebase wrapper first
      * @param {Function} onSuccess - Callback with location {lat, lon, acc}
@@ -447,7 +466,11 @@
       // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
       
       if (pageKey === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
+        document.getElementById('scan-qr-button').addEventListener('click', () => {
+          // Redirect to Firebase wrapper to capture geolocation, then return to auto-submit
+          const returnUrl = APP_DATA.appUrl + '?page=auto-submit';
+          window.top.location.href = 'https://the-spartan-cup.web.app/?return=' + encodeURIComponent(returnUrl);
+        });
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
         // Admin button event listener (visibility controlled by populateProfile based on data.isAdmin)
@@ -519,6 +542,70 @@
         }
       }
 
+      if (pageKey === 'auto-submit') {
+        // Auto-detect closest event based on user location from Firebase wrapper
+        console.log('[Auto-Submit] Checking for location data...');
+
+        // Check if location was captured by Firebase wrapper
+        if (APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
+          const userLocation = {
+            lat: parseFloat(APP_DATA.userLat),
+            lon: parseFloat(APP_DATA.userLon),
+            acc: parseFloat(APP_DATA.userAcc)
+          };
+
+          console.log('[Auto-Submit] Location found:', userLocation);
+
+          // Fetch events sorted by distance
+          google.script.run
+            .withSuccessHandler((events) => {
+              console.log('[Auto-Submit] Events received:', events);
+
+              if (events && events.length > 0) {
+                const closestEvent = events[0];
+                const GEOFENCE_RADIUS_METERS = 100;
+
+                if (closestEvent.distance <= GEOFENCE_RADIUS_METERS) {
+                  // Within range! Redirect to submit page with this event
+                  console.log('[Auto-Submit] Event found within range:', closestEvent);
+                  navigateToPage('submit&eventCode=' + closestEvent.eventCode);
+                } else {
+                  // Too far from any event
+                  console.log('[Auto-Submit] Closest event is', closestEvent.distance, 'm away');
+                  const message = `The nearest event is ${closestEvent.distance}m away. You must be within 100m to check in.`;
+                  document.getElementById('no-event-message').textContent = message;
+                  document.getElementById('auto-submit-loading').classList.add('hidden');
+                  document.getElementById('no-event-modal').classList.remove('hidden');
+                }
+              } else {
+                // No active events at all
+                console.log('[Auto-Submit] No active events found');
+                document.getElementById('no-event-message').textContent = 'There are no active events at this time.';
+                document.getElementById('auto-submit-loading').classList.add('hidden');
+                document.getElementById('no-event-modal').classList.remove('hidden');
+              }
+            })
+            .withFailureHandler((error) => {
+              console.error('[Auto-Submit] Error fetching events:', error);
+              document.getElementById('no-event-message').textContent = 'Error checking for events. Please try again.';
+              document.getElementById('auto-submit-loading').classList.add('hidden');
+              document.getElementById('no-event-modal').classList.remove('hidden');
+            })
+            .getEventsByDistance(userLocation.lat, userLocation.lon);
+        } else {
+          // Location not available - shouldn't happen if coming from Firebase wrapper
+          console.error('[Auto-Submit] No location data available');
+          document.getElementById('no-event-message').textContent = 'Location permission denied. Please enable location access and try again.';
+          document.getElementById('auto-submit-loading').classList.add('hidden');
+          document.getElementById('no-event-modal').classList.remove('hidden');
+        }
+
+        // Setup modal close button
+        document.getElementById('no-event-close').addEventListener('click', () => {
+          navigateToPage('profile');
+        });
+      }
+
       if (pageKey === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
@@ -530,7 +617,26 @@
           // User came from event selection, populate the event code
           document.getElementById('event-code-input').value = eventCode;
           // Load the event details via backend
-          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventCode);
+          google.script.run.withSuccessHandler((eventData) => {
+            populateEventDetails(eventData);
+
+            // Calculate and display distance if we have location data
+            if (APP_DATA.userLat !== null && APP_DATA.userLon !== null && eventData.eventLat && eventData.eventLon) {
+              const distance = calculateDistanceClient(
+                parseFloat(APP_DATA.userLat),
+                parseFloat(APP_DATA.userLon),
+                eventData.eventLat,
+                eventData.eventLon
+              );
+
+              const distanceText = distance < 1000
+                ? `You are ${Math.round(distance)}m from this event`
+                : `You are ${(distance / 1000).toFixed(1)}km from this event`;
+
+              document.getElementById('event-distance-text').textContent = distanceText;
+              document.getElementById('event-distance').classList.remove('hidden');
+            }
+          }).getEventDetails(eventCode);
         } else {
           // No event selected; show a message to the user
           document.getElementById('event-name').value = "Scan a QR code to select an event";
