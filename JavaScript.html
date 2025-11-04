@@ -450,13 +450,9 @@
         document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
-        // Admin button (only rendered for admin users)
+        // Admin button event listener (visibility controlled by populateProfile based on data.isAdmin)
         const adminButton = document.getElementById('admin-button');
         if (adminButton) {
-          // Show button only if user is admin
-          if (APP_DATA.isAdmin) {
-            adminButton.classList.remove('hidden');
-          }
           adminButton.addEventListener('click', () => {
             // Show admin menu modal (replaces confirm() which breaks user activation)
             document.getElementById('admin-menu-modal').classList.remove('hidden');
@@ -632,6 +628,19 @@
       document.getElementById('profile-points').innerText = data.seasonPoints;
       document.getElementById('profile-rank').innerText = `#${data.seasonRank}`;
       document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
+
+      // CLIENT-SIDE ADMIN CHECK: Show admin button only if data.isAdmin is true
+      console.log('[ADMIN CHECK] isAdmin from profile data:', data.isAdmin);
+      const adminButton = document.getElementById('admin-button');
+      if (adminButton) {
+        if (data.isAdmin === true) {
+          console.log('[ADMIN CHECK] Admin confirmed! Showing admin button.');
+          adminButton.classList.remove('hidden');
+        } else {
+          console.log('[ADMIN CHECK] Not admin. Hiding button.');
+          adminButton.classList.add('hidden');
+        }
+      }
 
       const badgeContainer = document.getElementById('badge-container');
       // Build HTML as a single string instead of repeated += operations

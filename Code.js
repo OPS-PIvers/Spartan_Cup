@@ -430,7 +430,8 @@ function getProfileData() {
           seasonPoints: studentData[i][2] || 0,
           allTimePoints: studentData[i][3] || 0,
           badgesEarned: studentData[i][4] ? JSON.parse(studentData[i][4]) : [],
-          disqualified: studentData[i][7] || false
+          disqualified: studentData[i][7] || false,
+          isAdmin: studentData[i][9] === true || studentData[i][9] === 'TRUE' || studentData[i][9] === 'True' // Column J (index 9)
         };
         userRowIndex = i;
         break;
@@ -457,7 +458,8 @@ function getProfileData() {
         seasonPoints: 0,
         allTimePoints: 0,
         badgesEarned: [],
-        disqualified: false
+        disqualified: false,
+        isAdmin: newRow[9] === true || newRow[9] === 'TRUE' || newRow[9] === 'True' // Column J (index 9)
       };
 
       // Update studentData with the new row included for leaderboard building
@@ -600,7 +602,8 @@ function getProfileData() {
       badges: earnedBadges,
       leaderboard: topSeasonLeaderboard, // Default to season; will swap on toggle
       allTimeLeaderboard: topAllTimeLeaderboard,
-      history: history
+      history: history,
+      isAdmin: userProfile.isAdmin // Return admin status from Student_Profiles column J
     };
 
   } catch (e) {
