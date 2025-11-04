@@ -94,8 +94,11 @@
           </div>
         </div>
 
-        <!-- Swipe Feedback Overlay -->
+        <!-- Swipe Feedback Overlay (drag feedback) -->
         <div id="swipe-feedback" class="absolute inset-0 pointer-events-none rounded-xl flex items-center justify-center font-bold text-white text-lg opacity-0 transition-opacity duration-200"></div>
+
+        <!-- Action Confirmation Overlay (approval/denial feedback) -->
+        <div id="confirmation-overlay" class="absolute inset-0 pointer-events-none rounded-xl flex items-center justify-center font-bold text-white text-3xl opacity-0 transition-opacity duration-300" style="background: rgba(0, 0, 0, 0.6);"></div>
       </div>
 
       <!-- Empty State -->
@@ -333,6 +336,18 @@
       }, duration);
     }
 
+    // Show action confirmation overlay (Approved/Denied)
+    function showConfirmation(message, icon) {
+      const overlay = document.getElementById('confirmation-overlay');
+      overlay.textContent = icon + ' ' + message;
+      overlay.style.opacity = '1';
+
+      // Fade in, hold, fade out
+      setTimeout(() => {
+        overlay.style.opacity = '0';
+      }, 800);  // Hold for 800ms before fading out
+    }
+
     // Preload images for next N cards
     function preloadNextImages() {
       for (let i = currentIndex + 1; i < Math.min(currentIndex + PRELOAD_AHEAD, currentQueue.length); i++) {
@@ -539,6 +554,7 @@
         // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously
         currentIndex++;
         displayCurrentCard();
+        showConfirmation('Approved', '✓');  // Show confirmation feedback
         isProcessing = false;  // Allow next swipe/click
 
         // Fire backend approval in background (don't wait for response)
@@ -577,6 +593,7 @@
         // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously
         currentIndex++;
         displayCurrentCard();
+        showConfirmation('Denied', '✗');  // Show confirmation feedback
         isProcessing = false;  // Allow next swipe/click
 
         // Fire backend denial in background (don't wait for response)

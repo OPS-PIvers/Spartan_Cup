@@ -259,8 +259,12 @@
         const loadingModal = document.getElementById('loading-modal');
         if(loadingModal) loadingModal.classList.remove('hidden');
 
-        // Use window.top.location with base target="_top" in Index.html for proper navigation
-        window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
+        // Add a small delay so the loading modal is visible before the page reloads
+        // This ensures the user sees visual feedback that their click registered
+        setTimeout(() => {
+          // Use window.top.location with base target="_top" in Index.html for proper navigation
+          window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
+        }, 250);  // 250ms delay gives a clear visual indication
       }
     }
 
