@@ -1,6 +1,6 @@
 <!--
   QR Code Utility Page - For printing the single reusable QR code
-  Admin-only page to display, test, and print the QR code
+  Admin-only page to display and print the QR code for events
 -->
 <div class="page p-4">
   <div class="space-y-6 max-w-md mx-auto">
@@ -15,17 +15,11 @@
 
     <!-- QR Code Container -->
     <div class="flex justify-center bg-white dark:bg-gray-900 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-700">
-      <div id="qrcode" style="width: 300px; height: 300px;"></div>
-    </div>
-
-    <!-- QR Code URL Display -->
-    <div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-4">
-      <p class="text-xs text-gray-600 dark:text-gray-300 mb-2">
-        This QR code links to:
-      </p>
-      <p id="qr-url" class="text-xs font-mono text-gray-800 dark:text-gray-200 break-all bg-white dark:bg-gray-900 p-2 rounded border border-gray-300 dark:border-gray-600">
-        Loading...
-      </p>
+      <img
+        src="https://the-spartan-cup.web.app/spartan_cup_QR.png"
+        alt="Spartan Cup QR Code"
+        class="w-96 h-auto max-w-full"
+      />
     </div>
 
     <!-- Instructions -->
@@ -34,7 +28,7 @@
       <ol class="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-decimal list-inside">
         <li>Display or print this QR code at your event location</li>
         <li>Students scan the code with their phone camera</li>
-        <li><strong>NEW:</strong> The wrapper requests location permission (works on iOS Safari now! ✅)</li>
+        <li>The geolocation wrapper requests location permission (works on iOS Safari! ✅)</li>
         <li>App automatically detects their location and selects the closest event</li>
         <li>They take a photo and submit</li>
         <li>The system validates their location and time window automatically</li>
@@ -50,60 +44,12 @@
       Print This Page
     </button>
 
-    <!-- Test Button -->
-    <button
-      id="test-button"
-      onclick="testQRCode()"
-      class="w-full bg-secondary text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition-colors active:scale-95"
-    >
-      Test QR Code
-    </button>
-
     <!-- Notes -->
-    <div class="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
-      <p class="text-xs text-green-800 dark:text-green-300">
-        <strong>✅ Updated:</strong> This QR code now points to a Firebase wrapper that captures geolocation permission BEFORE loading the app. This fixes iOS Safari geolocation blocking and provides a better user experience for all platforms.
-      </p>
-      <p class="text-xs text-green-800 dark:text-green-300 mt-2">
-        <strong>Update needed:</strong> In Page.qr-code.html, replace 'https://spartan-cup.web.app' with your actual Firebase Hosting URL (shown after running 'firebase deploy').
+    <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
+      <p class="text-xs text-blue-800 dark:text-blue-300">
+        <strong>ℹ️ Info:</strong> This QR code links to the Firebase geolocation wrapper at <code class="bg-white dark:bg-gray-900 px-1 rounded">https://the-spartan-cup.web.app</code>, which captures location permission before loading the app.
       </p>
     </div>
   </div>
 </div>
 
-<script>
-  // Generate QR code on page load
-  function initQRCode() {
-    // NEW: Point to Firebase wrapper instead of direct GAS URL
-    // The wrapper captures geolocation before loading the GAS app (fixes iOS Safari)
-    const firebaseUrl = 'https://the-spartan-cup.web.app';
-
-    document.getElementById('qr-url').textContent = firebaseUrl;
-
-    // Use qrcode.js library (needs to be added to Index.html)
-    const qrcodeElement = document.getElementById('qrcode');
-    qrcodeElement.innerHTML = ''; // Clear
-
-    new QRCode(qrcodeElement, {
-      text: qrUrl,
-      width: 300,
-      height: 300,
-      colorDark: '#000000',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.H
-    });
-  }
-
-  function testQRCode() {
-    // NEW: Test using Firebase wrapper URL
-    const firebaseUrl = 'https://the-spartan-cup.web.app';
-    window.open(firebaseUrl, '_blank');
-  }
-
-  // Initialize when page loads
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initQRCode);
-  } else {
-    initQRCode();
-  }
-</script>
