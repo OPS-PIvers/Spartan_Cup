@@ -641,16 +641,19 @@ function setupDriveFolders() {
 function setupSpreadsheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setName('[The Spartan Cup] - MASTER');
-  
+
   const sheets = {
     'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified', 'Student_Settings'],
-    'Events': ['Event_ID', 'Sport_Art', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme'],
+    'Activities_Data': ['Activity_Code', 'Activity_Name', 'Season', 'Location_Name', 'Event_Lat', 'Event_Lon'],
+    'Events': ['Event_ID', 'Activity_Code', 'Date', 'Start_Time', 'Duration_Hours', 'Is_Spotlight_Game', 'Theme'],
+    'Config_Event_Codes': ['Event_Code', 'Activity_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Season'],
+    'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role']
   };
-  
+
   Object.keys(sheets).forEach((sheetName, index) => {
     let sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
@@ -662,9 +665,88 @@ function setupSpreadsheet() {
     sheet.getRange(1, 1, 1, sheets[sheetName].length).setFontWeight('bold');
   });
 
-  // Add sample data
-  ss.getSheetByName('Events').appendRow(['GBB-01', 'Girls Basketball', 'vs. Edina', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out']);
+  // Add sample Activities_Data
+  ss.getSheetByName('Activities_Data').appendRow(['GBB', 'Girls Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
+  ss.getSheetByName('Activities_Data').appendRow(['BBB', 'Boys Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
+  ss.getSheetByName('Activities_Data').appendRow(['GVBB', 'Girls Volleyball', 'Fall', 'Orono High School Gym', 44.965, -93.625]);
+
+  // Add sample Events with Activity_Code FK
+  ss.getSheetByName('Events').appendRow(['GBB-001', 'GBB', '2025-11-15', '2025-11-15T19:00', 2, true, 'White Out']);
+
+  // Set Config_Active_Season default
+  ss.getSheetByName('Config_Active_Season').appendRow(['Active_Season', 'Winter']);
+
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+
+  // Rebuild the Config_Event_Codes cache
+  refreshEventCodes();
+}
+
+/**
+ * Refreshes the Config_Event_Codes sheet by joining Events and Activities_Data.
+ * This creates a denormalized cache of active event codes with all necessary data.
+ * Called after creating new events or changing the active season.
+ */
+function refreshEventCodes() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Get Activities_Data
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+    const activitiesMap = {};
+    for (let i = 1; i < activitiesData.length; i++) {
+      const code = activitiesData[i][0];
+      activitiesMap[code] = {
+        activityName: activitiesData[i][1],
+        season: activitiesData[i][2],
+        locationName: activitiesData[i][3],
+        eventLat: activitiesData[i][4],
+        eventLon: activitiesData[i][5]
+      };
+    }
+
+    // Get Events
+    const eventsSheet = ss.getSheetByName('Events');
+    const eventsData = eventsSheet.getDataRange().getValues();
+
+    // Get Config_Event_Codes sheet
+    const configSheet = ss.getSheetByName('Config_Event_Codes');
+    configSheet.clear();
+    configSheet.appendRow(['Event_Code', 'Activity_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Season']);
+    configSheet.setFrozenRows(1);
+    configSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+
+    // Build Config_Event_Codes by joining Events with Activities_Data
+    for (let i = 1; i < eventsData.length; i++) {
+      const eventId = eventsData[i][0];
+      const activityCode = eventsData[i][1];
+      const date = eventsData[i][2];
+      const startTime = eventsData[i][3];
+      const durationHours = eventsData[i][4];
+      const isSpotlightGame = eventsData[i][5];
+      const theme = eventsData[i][6];
+
+      // Look up activity details
+      if (activitiesMap[activityCode]) {
+        const activity = activitiesMap[activityCode];
+        configSheet.appendRow([
+          eventId,
+          activity.activityName,
+          activity.locationName,
+          activity.eventLat,
+          activity.eventLon,
+          startTime,
+          durationHours,
+          activity.season
+        ]);
+      }
+    }
+
+    Logger.log('Config_Event_Codes refreshed successfully');
+  } catch (e) {
+    Logger.log('Error refreshing Config_Event_Codes: ' + e.message);
+  }
 }
 
 /**
@@ -2120,7 +2202,306 @@ function findVerifiedSubmission(email, eventId) {
 }
 
 /**
+ * Gets the currently active season from Config_Active_Season.
+ * @return {string} The active season name
+ */
+function getActiveSeason() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'active_season';
+    const cachedSeason = cache.get(cacheKey);
+
+    if (cachedSeason) {
+      return cachedSeason;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const seasonSheet = ss.getSheetByName('Config_Active_Season');
+    const seasonData = seasonSheet.getDataRange().getValues();
+
+    // Find the Active_Season row
+    for (let i = 1; i < seasonData.length; i++) {
+      if (seasonData[i][0] === 'Active_Season') {
+        const season = seasonData[i][1];
+        cache.put(cacheKey, season, 3600); // Cache for 1 hour
+        return season;
+      }
+    }
+
+    return 'Winter'; // Default to Winter
+  } catch (e) {
+    Logger.log('Error reading active season: ' + e.message);
+    return 'Winter';
+  }
+}
+
+/**
+ * Sets the active season in Config_Active_Season.
+ * Clears cache to ensure updated value is used immediately.
+ * @param {string} season - The season to activate
+ * @return {Object} Status object with success/error message
+ */
+function setActiveSeason(season) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const seasonSheet = ss.getSheetByName('Config_Active_Season');
+    const seasonData = seasonSheet.getDataRange().getValues();
+
+    // Find and update the Active_Season row
+    for (let i = 1; i < seasonData.length; i++) {
+      if (seasonData[i][0] === 'Active_Season') {
+        seasonSheet.getRange(i + 1, 2).setValue(season);
+        // Clear cache to force reload
+        CacheService.getScriptCache().remove('active_season');
+        CacheService.getScriptCache().remove('active_events_data');
+        // Refresh the event codes
+        refreshEventCodes();
+        return { status: 'success', message: 'Active season updated to ' + season };
+      }
+    }
+
+    return { status: 'error', message: 'Active_Season setting not found' };
+  } catch (e) {
+    Logger.log('Error setting active season: ' + e.message);
+    return { status: 'error', message: 'Error updating season: ' + e.message };
+  }
+}
+
+/**
+ * Gets all unique seasons from Activities_Data.
+ * @return {string[]} Array of available seasons
+ */
+function getAvailableSeasons() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+
+    const seasons = new Set();
+    for (let i = 1; i < activitiesData.length; i++) {
+      if (activitiesData[i][2]) { // Season column
+        seasons.add(activitiesData[i][2]);
+      }
+    }
+
+    return Array.from(seasons).sort();
+  } catch (e) {
+    Logger.log('Error getting available seasons: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Gets all activities with a flag indicating if they belong to a specific season.
+ * Used by admin interface to manage season-to-activity assignments.
+ * @param {string} season - The season to check against
+ * @return {Array} Array of activities with isInSeason flag
+ */
+function getActivitiesWithSeasonStatus(season) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+
+    const activities = [];
+    for (let i = 1; i < activitiesData.length; i++) {
+      const code = activitiesData[i][0];
+      const name = activitiesData[i][1];
+      const activitySeason = activitiesData[i][2];
+      const location = activitiesData[i][3];
+      const lat = activitiesData[i][4];
+      const lon = activitiesData[i][5];
+
+      activities.push({
+        activityCode: code,
+        activityName: name,
+        locationName: location,
+        eventLat: lat,
+        eventLon: lon,
+        isInSeason: (activitySeason === season)
+      });
+    }
+
+    return activities;
+  } catch (e) {
+    Logger.log('Error getting activities with season status: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Updates season assignments for activities.
+ * Takes a season and array of activity codes, assigns all those activities to the season
+ * and removes the season from any activities not in the array.
+ * @param {string} season - The season name to assign
+ * @param {Array} activityCodes - Array of activity codes to assign to this season
+ * @return {Object} Status object with success/error message
+ */
+function updateActivitySeasonAssignments(season, activityCodes) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+
+    // Convert activity codes to a Set for O(1) lookup
+    const codeSet = new Set(activityCodes);
+
+    // Update each activity's season assignment
+    for (let i = 1; i < activitiesData.length; i++) {
+      const code = activitiesData[i][0];
+      const currentSeason = activitiesData[i][2];
+
+      // If code is in the list, set its season; otherwise, clear it
+      if (codeSet.has(code)) {
+        if (currentSeason !== season) {
+          activitiesSheet.getRange(i + 1, 3).setValue(season); // Column C is Season
+        }
+      }
+      // Note: We don't remove other seasons - activities can only have one season
+      // If an activity isn't in the list for the selected season, it keeps its old season
+    }
+
+    // Clear caches
+    CacheService.getScriptCache().remove('active_season');
+    CacheService.getScriptCache().remove('active_events_data');
+
+    // Refresh the event codes cache
+    refreshEventCodes();
+
+    return { status: 'success', message: 'Season assignments updated' };
+  } catch (e) {
+    Logger.log('Error updating activity season assignments: ' + e.message);
+    return { status: 'error', message: 'Error updating assignments: ' + e.message };
+  }
+}
+
+/**
+ * Creates a new activity in Activities_Data.
+ * @param {string} activityCode - Unique activity code (e.g., BBB)
+ * @param {string} activityName - Display name (e.g., Boys Basketball)
+ * @param {string} locationName - Location name (e.g., Orono High School Gym)
+ * @param {number} eventLat - Latitude coordinate
+ * @param {number} eventLon - Longitude coordinate
+ * @param {string} season - Season name (e.g., Winter)
+ * @return {Object} Status object with activityCode
+ */
+function createNewActivity(activityCode, activityName, locationName, eventLat, eventLon, season) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+
+    // Validate that activity code is unique
+    for (let i = 1; i < activitiesData.length; i++) {
+      if (activitiesData[i][0] === activityCode) {
+        return { status: 'error', message: 'Activity code already exists: ' + activityCode };
+      }
+    }
+
+    // Validate required fields
+    if (!activityCode || !activityName || !locationName || eventLat === null || eventLon === null) {
+      return { status: 'error', message: 'All fields are required' };
+    }
+
+    // Validate lat/lon are numbers
+    const lat = parseFloat(eventLat);
+    const lon = parseFloat(eventLon);
+    if (isNaN(lat) || isNaN(lon)) {
+      return { status: 'error', message: 'Invalid coordinates. Must be valid numbers.' };
+    }
+
+    // Add new activity row
+    activitiesSheet.appendRow([
+      activityCode,
+      activityName,
+      season || 'Winter', // Default to Winter if not provided
+      locationName,
+      lat,
+      lon
+    ]);
+
+    // Clear caches to force refresh
+    CacheService.getScriptCache().remove('active_season');
+    CacheService.getScriptCache().remove('active_events_data');
+
+    // Refresh event codes
+    refreshEventCodes();
+
+    return { status: 'success', message: 'Activity created: ' + activityName, activityCode: activityCode };
+  } catch (e) {
+    Logger.log('Error creating new activity: ' + e.message);
+    return { status: 'error', message: 'Error creating activity: ' + e.message };
+  }
+}
+
+/**
+ * Gets activity details from Activities_Data by activity code.
+ * @param {string} activityCode - The activity code to look up
+ * @return {Object} Activity details including name, season, location, lat/lon
+ */
+function getActivityDetails(activityCode) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+
+    for (let i = 1; i < activitiesData.length; i++) {
+      if (activitiesData[i][0] === activityCode) {
+        return {
+          activityCode: activitiesData[i][0],
+          activityName: activitiesData[i][1],
+          season: activitiesData[i][2],
+          locationName: activitiesData[i][3],
+          eventLat: activitiesData[i][4],
+          eventLon: activitiesData[i][5]
+        };
+      }
+    }
+
+    return { status: 'error', message: 'Activity not found: ' + activityCode };
+  } catch (e) {
+    Logger.log('Error getting activity details: ' + e.message);
+    return { status: 'error', message: 'Error fetching activity: ' + e.message };
+  }
+}
+
+/**
+ * Generates the next Event_ID for a given Activity_Code.
+ * Uses auto-incrementing number after activity code (e.g., GBB-001, GBB-002).
+ * @param {string} activityCode - The activity code to generate ID for
+ * @return {string} The next Event_ID
+ */
+function generateEventId(activityCode) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const eventsSheet = ss.getSheetByName('Events');
+    const eventsData = eventsSheet.getDataRange().getValues();
+
+    // Find all event IDs that start with this activity code
+    let maxNumber = 0;
+    const prefix = activityCode + '-';
+    for (let i = 1; i < eventsData.length; i++) {
+      const eventId = eventsData[i][0];
+      if (eventId.startsWith(prefix)) {
+        const number = parseInt(eventId.substring(prefix.length));
+        if (!isNaN(number) && number > maxNumber) {
+          maxNumber = number;
+        }
+      }
+    }
+
+    // Return next number with zero padding (e.g., 001, 002)
+    const nextNumber = String(maxNumber + 1).padStart(3, '0');
+    return prefix + nextNumber;
+  } catch (e) {
+    Logger.log('Error generating event ID: ' + e.message);
+    return activityCode + '-001'; // Default fallback
+  }
+}
+
+/**
  * Fetches event details from the Events sheet by event ID.
+ * Joins with Activities_Data to get full event information.
  * @param {string} eventId - The event ID to look up
  * @return {Object} Event details including name, date, location, theme, etc.
  */
@@ -2133,21 +2514,32 @@ function getEventDetails(eventId) {
     const trimmedEventId = String(eventId).trim();
 
     for (let i = 1; i < data.length; i++) {
-      // Trim both sides when comparing
+      // Trim both sides when comparing (column A is Event_ID)
       if (String(data[i][0]).trim() === trimmedEventId) {
+        const activityCode = data[i][1]; // Column B
+        const activityDetails = getActivityDetails(activityCode);
+
+        // Check if activity was found
+        if (activityDetails.status === 'error') {
+          return activityDetails;
+        }
+
         return {
           eventId: data[i][0],
-          sportArt: data[i][1],
-          eventName: data[i][2],
-          date: data[i][3],
-          locationName: data[i][4],
-          eventLat: data[i][5],
-          eventLon: data[i][6],
-          startTime: data[i][7],
-          durationHours: data[i][8],
-          isHomeGame: data[i][9] || false,
-          isSpotlightGame: data[i][10] || false,
-          theme: data[i][11] || 'None'
+          activityCode: activityCode,
+          activityName: activityDetails.activityName,
+          sportArt: activityDetails.activityName, // Alias for compatibility
+          eventName: activityDetails.activityName, // Alias for compatibility with frontend
+          date: data[i][2], // Column C
+          locationName: activityDetails.locationName,
+          eventLat: activityDetails.eventLat,
+          eventLon: activityDetails.eventLon,
+          startTime: data[i][3], // Column D
+          durationHours: data[i][4], // Column E
+          isSpotlightGame: data[i][5] || false, // Column F
+          theme: data[i][6] || 'None', // Column G
+          season: activityDetails.season,
+          isHomeGame: true // All events are home games now
         };
       }
     }
@@ -2201,18 +2593,26 @@ function getActiveEvents(userLat = null, userLon = null) {
 
       const data = sheet.getDataRange().getValues();
 
+      // Get active season for filtering
+      const activeSeason = getActiveSeason();
+
       // Transform and cache the event data
       eventData = [];
       for (let i = 1; i < data.length; i++) {
-        eventData.push({
-          eventCode: data[i][0],
-          eventName: data[i][1],
-          locationName: data[i][2],
-          eventLat: data[i][3],
-          eventLon: data[i][4],
-          startTime: data[i][5],
-          durationHours: data[i][6]
-        });
+        // Filter by active season (column G is Season)
+        const eventSeason = data[i][7];
+        if (eventSeason === activeSeason) {
+          eventData.push({
+            eventCode: data[i][0],
+            eventName: data[i][1],
+            locationName: data[i][2],
+            eventLat: data[i][3],
+            eventLon: data[i][4],
+            startTime: data[i][5],
+            durationHours: data[i][6],
+            season: data[i][7]
+          });
+        }
       }
 
       // Cache for 1 hour (3600 seconds) since event times change
