@@ -630,14 +630,11 @@
       document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
 
       // CLIENT-SIDE ADMIN CHECK: Show admin button only if data.isAdmin is true
-      console.log('[ADMIN CHECK] isAdmin from profile data:', data.isAdmin);
       const adminButton = document.getElementById('admin-button');
       if (adminButton) {
         if (data.isAdmin === true) {
-          console.log('[ADMIN CHECK] Admin confirmed! Showing admin button.');
           adminButton.classList.remove('hidden');
         } else {
-          console.log('[ADMIN CHECK] Not admin. Hiding button.');
           adminButton.classList.add('hidden');
         }
       }
