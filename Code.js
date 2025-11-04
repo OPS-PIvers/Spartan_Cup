@@ -617,7 +617,8 @@ function getProfileData() {
       badges: [],
       leaderboard: [],
       allTimeLeaderboard: [],
-      history: []
+      history: [],
+      isAdmin: false
     };
   }
 }

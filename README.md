@@ -10,13 +10,14 @@ A gamified attendance and participation system for student events at Orono High 
 
 ## Features
 
-✅ QR code scanning at events
+✅ Automatic location-based event detection (check in within 100m of events)
 ✅ Photo submission for points
-✅ Real-time leaderboards
+✅ Real-time leaderboards (season and all-time)
 ✅ Admin dashboard for submission review
 ✅ iOS Safari geolocation support (via Firebase wrapper)
 ✅ Dark mode theme
 ✅ Badge achievements system
+✅ Real profile data from Google Sheets
 
 ## Getting Started
 
@@ -51,11 +52,12 @@ A gamified attendance and participation system for student events at Orono High 
 
 ### Client-Side (JavaScript.html)
 - Single-page app router for navigation
-- QR code scanning with html5-qrcode
+- Automatic event detection based on proximity
 - Location management with fallback strategy:
   1. Firebase wrapper location (iOS Safari support)
-  2. Browser cache
+  2. Browser cache (5-minute TTL)
   3. Fresh browser geolocation
+- Real-time profile data loading via `google.script.run`
 
 ### Firebase Wrapper
 - Hosted at `https://the-spartan-cup.web.app`
@@ -66,12 +68,12 @@ A gamified attendance and participation system for student events at Orono High 
 
 ### iOS Safari Geolocation
 The app uses a Firebase Hosting wrapper to solve iOS Safari's geolocation blocking in iframes:
-1. User scans QR code → Firebase wrapper loads
+1. User clicks "Check In" → Redirects to Firebase wrapper
 2. Wrapper requests location permission (works on iOS!)
-3. Wrapper redirects to GAS with location params
-4. GAS app displays location-verified interface
+3. Wrapper redirects to GAS app with location params
+4. GAS app auto-detects closest event based on location
 
-See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for technical details.
+**Technical:** Firebase wrapper at `public/index.html` captures location before GAS iframe loads. GAS deployment @79 receives location via URL params and passes to frontend via `APP_DATA`.
 
 ### Navigation Safety
 Google Apps Script requires user activation for navigation. Never use `confirm()` dialogs or `setTimeout()` before navigation—use custom modals instead. See [CLAUDE.md](CLAUDE.md#important-implementation-notes) for details.
@@ -93,18 +95,20 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 
 ### iOS Safari Testing
 ```
-1. Open Firebase URL on iPhone Safari
+1. Open Firebase URL on iPhone Safari: https://the-spartan-cup.web.app
 2. Grant location permission (this now works!)
-3. Verify app loads with location-verified status
-4. Complete full submission workflow
-5. Verify submission appears in Sheets
+3. Verify app loads with location data in URL
+4. Tap "Check In at Event" button
+5. Verify auto-detection or manual event selection
+6. Complete full submission workflow
+7. Verify submission appears in Submissions_Pending sheet
 ```
 
-### QR Code Testing
-1. Navigate to QR Code page (admin only)
-2. Verify QR code displays correctly
-3. Click "Test QR Code" to verify wrapper loads
-4. Scan with phone to test full flow
+### Event Detection Testing
+1. Navigate to campus location within 100m of an active event
+2. Tap "Check In at Event"
+3. Verify auto-submit redirects to submission form for closest event
+4. Try from >100m away to verify "too far" message
 
 ## Development
 
@@ -116,12 +120,13 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 
 ## Deployment Status
 
-| Component | Status | Location |
-|-----------|--------|----------|
-| **Google Apps Script** | ✅ Active | Google Drive (bound to Sheets) |
+| Component | Status | Details |
+|-----------|--------|---------|
+| **Google Apps Script** | ✅ Active | Deployment @79 (Production) |
+| **Deployment ID** | — | `AKfycbzox9ZqfP5FWJrJUpBnpUdBT8PPnDl-NroRfCUbjpPnTpllVpZS__y3pKNV13j4CX_j` |
 | **Firebase Hosting** | ✅ Active | `the-spartan-cup.web.app` |
-| **Geolocation Wrapper** | ✅ Working | Firebase public/index.html |
-| **QR Codes** | ✅ Updated | Point to `the-spartan-cup.web.app` |
+| **Geolocation Wrapper** | ✅ Working | Points to @79 deployment |
+| **Profile Data** | ✅ Live | Real data from Student_Profiles sheet |
 
 ## Troubleshooting
 
@@ -130,10 +135,11 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 - Check Settings → Safari → Location Services is enabled
 - Clear Safari cache and try again
 
-### QR code not redirecting
-- Verify QR code was generated after deploying updated wrapper URL
+### Auto-submit not detecting events
+- Verify you're within 100m of an active event
+- Check Event_Schedule sheet has events with "Active" status
 - Test directly: open `https://the-spartan-cup.web.app` in browser
-- Check browser console for errors
+- Check browser console for [Auto-Submit] logs
 
 ### Submission not saving
 - Verify user is within geofence coordinates
@@ -142,10 +148,9 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 
 ## References
 
-- [Firebase Setup Guide](FIREBASE_SETUP_GUIDE.md)
-- [Firebase Migration Plan](FIREBASE_MIGRATION_PLAN.md)
-- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md)
-- [Claude Development Notes](CLAUDE.md)
+- [Claude Development Notes](CLAUDE.md) - Comprehensive development guide
+- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md) - Setup completion status
+- [Deployment Guide](DEPLOYMENT_GUIDE.md) - Deployment procedures and troubleshooting
 
 ## License
 

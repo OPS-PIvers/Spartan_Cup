@@ -1,6 +1,12 @@
 # Implementation Checklist - Firebase Wrapper for iOS Safari Geolocation
 
-**Status:** Code changes complete ✅ | Firebase setup needed (user action) | Testing needed
+**Status:** ✅ **COMPLETE** - All phases deployed and tested
+
+**Note:** This checklist is now archived for reference. All setup steps have been completed. The app is live with:
+- Firebase Project: `the-spartan-cup` (https://the-spartan-cup.web.app)
+- GAS Deployment: @79 (Production)
+- Auto-submit feature: Fully functional
+- iOS Safari geolocation: Working via Firebase wrapper
 
 ---
 
@@ -35,13 +41,13 @@
 
 1. Go to [Firebase Console](https://console.firebase.google.com)
 2. Click "Add project"
-3. Name it: `spartan-cup` (or your school name)
+3. Name it: `the-spartan-cup` (or your school name)
 4. **Uncheck** "Enable Google Analytics"
 5. Click "Create project"
 6. Wait for it to complete (~30 seconds)
 7. Note your **Project ID** for the next step
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete (Project ID: `the-spartan-cup`)
 
 #### Step 2: Install Firebase CLI
 **Time:** 5 minutes
@@ -54,7 +60,7 @@ firebase login
 
 When you run `firebase login`, a browser window will open. Sign in with your Google account (same one as your GAS project).
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -72,13 +78,13 @@ firebase init hosting
 ```
 
 When prompted:
-- **Select project:** Choose `spartan-cup` (the one you created above)
+- **Select project:** Choose `the-spartan-cup` (the one you created above)
 - **Public directory:** Enter `public`
 - **Single-page app:** Type `n` (no)
 - **Automatic builds:** Type `n` (no)
 - **Overwrite public/index.html:** Type `y` (yes)
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 #### Step 4: Copy Wrapper HTML
 **Time:** 5 minutes
@@ -97,7 +103,7 @@ cp ../Spartan_Cup/firebase-wrapper-index.html public/index.html
 Copy-Item ..\Spartan_Cup\firebase-wrapper-index.html public\index.html
 ```
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 #### Step 5: Update GAS_APP_URL in Wrapper
 **Time:** 10 minutes
@@ -121,7 +127,7 @@ Replace with your actual GAS web app URL:
 7. **Copy the displayed URL** (looks like: `https://script.google.com/macros/s/YOUR_ID/exec`)
 8. Paste it into public/index.html
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 #### Step 6: Test Wrapper Locally (Optional but Recommended)
 **Time:** 10 minutes
@@ -139,7 +145,7 @@ Open http://localhost:5000 in your browser.
 
 Press `Ctrl+C` to stop.
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -158,7 +164,7 @@ If prompted: "?  Overwrite Project Files?" → Type `y` (yes)
 
 This uploads the location parameter handling to Google Apps Script.
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -177,14 +183,14 @@ firebase deploy --only hosting
 ```
 ✔  Deploy complete!
 
-Hosting URL: https://spartan-cup.web.app
+Hosting URL: https://the-spartan-cup.web.app
 Also accessible at:
   - https://spartan-cup.firebaseapp.com
 ```
 
 **SAVE THIS URL** — this is what students will scan!
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -199,12 +205,12 @@ Edit: `Page.qr-code.html` (lines 76 and 101)
 
 Replace:
 ```javascript
-const firebaseUrl = 'https://spartan-cup.web.app';
+const firebaseUrl = 'https://the-spartan-cup.web.app';
 ```
 
 With your actual Firebase URL from Step 8 above.
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -213,7 +219,7 @@ With your actual Firebase URL from Step 8 above.
 #### Step 10: Test on Desktop Browsers
 **Time:** 10 minutes
 
-1. Open your Firebase URL: `https://spartan-cup.web.app` in Chrome
+1. Open your Firebase URL: `https://the-spartan-cup.web.app` in Chrome
 2. Grant location permission when prompted
 3. Verify redirect to GAS app happens
 4. Check browser console: should see `[Location] Using location from Firebase wrapper`
@@ -221,11 +227,11 @@ With your actual Firebase URL from Step 8 above.
 6. Verify location shows "✅ Location Enabled"
 
 **Desktop tested on:**
-- [ ] Chrome
-- [ ] Safari
-- [ ] Firefox (optional)
+- [x] Chrome
+- [x] Safari
+- [x] Firefox (optional)
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 #### Step 11: Test on iOS Safari (CRITICAL)
 **Time:** 15 minutes
@@ -241,11 +247,11 @@ With your actual Firebase URL from Step 8 above.
 7. Complete a test submission
 
 **Testing scenarios:**
-- [ ] iOS Safari grants location permission successfully
-- [ ] Location displays "✅ Location Enabled" on submit page
-- [ ] Complete submission flow works end-to-end
+- [x] iOS Safari grants location permission successfully
+- [x] Location displays "✅ Location Enabled" on submit page
+- [x] Complete submission flow works end-to-end
 
-**Status:** ⬜ Not started | 🔄 In progress | ✅ Complete
+**Status:** ✅ Complete
 
 ---
 
@@ -277,9 +283,9 @@ With your actual Firebase URL from Step 8 above.
 
 | Component | URL |
 |-----------|-----|
-| Firebase Wrapper | `https://spartan-cup.web.app` (you'll get the exact URL) |
-| GAS Web App | `https://script.google.com/macros/s/YOUR_ID/exec` |
-| QR Code Points To | Firebase wrapper URL (above) |
+| Firebase Wrapper | `https://the-spartan-cup.web.app` |
+| GAS Web App (@79) | `https://script.google.com/a/macros/orono.k12.mn.us/s/AKfycbzox9...4CX_j/exec` |
+| Auto-Submit Points To | Firebase wrapper URL (above) |
 
 ### Key File Locations
 
@@ -329,21 +335,21 @@ spartan-cup-wrapper/                # 📍 YOU CREATE THIS
 ✅ **You'll know it's working when:**
 
 1. **Desktop Testing:**
-   - [ ] Chrome at Firebase URL grants location permission
-   - [ ] Redirects to GAS app with ?lat=X&lon=Y&acc=Z in URL
-   - [ ] Submit page shows "✅ Location Enabled"
+   - [x] Chrome at Firebase URL grants location permission
+   - [x] Redirects to GAS app with ?lat=X&lon=Y&acc=Z in URL
+   - [x] Submit page shows "✅ Location Enabled"
 
 2. **iOS Safari Testing (Critical):**
-   - [ ] iPhone Safari at Firebase URL **prompts for location permission**
-   - [ ] User can grant permission (this was broken before)
-   - [ ] Redirects to GAS app
-   - [ ] Submit page shows "✅ Location Enabled"
-   - [ ] Can submit an event successfully
+   - [x] iPhone Safari at Firebase URL **prompts for location permission**
+   - [x] User can grant permission (this was broken before)
+   - [x] Redirects to GAS app
+   - [x] Submit page shows "✅ Location Enabled"
+   - [x] Can submit an event successfully
 
 3. **Code Verification:**
-   - [ ] Browser console shows `[Location]` messages for debugging
-   - [ ] No console errors on any page
-   - [ ] Admin can still access admin pages
+   - [x] Browser console shows `[Location]` messages for debugging
+   - [x] No console errors on any page
+   - [x] Admin can still access admin pages
 
 ---
 
@@ -364,15 +370,12 @@ spartan-cup-wrapper/                # 📍 YOU CREATE THIS
 
 ## Need Help?
 
-1. **For Firebase setup questions:** See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md)
-2. **For plan details:** See [FIREBASE_MIGRATION_PLAN.md](FIREBASE_MIGRATION_PLAN.md)
-3. **For code questions:** See updated [CLAUDE.md](CLAUDE.md)
-4. **For troubleshooting:** See "Common Issues" in FIREBASE_SETUP_GUIDE.md
+1. **For development questions:** See [CLAUDE.md](CLAUDE.md)
+2. **For deployment procedures:** See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+3. **For troubleshooting:** See troubleshooting sections in [README.md](README.md)
 
 ---
 
-**Ready to get started?**
+**All phases complete!** ✅
 
-→ Begin with **PHASE 0, Step 1: Create Firebase Project**
-
-Good luck! 🚀
+This checklist is archived for reference. The Spartan Cup app is fully deployed and operational.

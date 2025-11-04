@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Spartan Cup** is a Google Apps Script-based web application that gamifies student attendance and participation at school events. It's a single-page application (SPA) allowing students to scan QR codes at events, submit photos to earn points, and compete on leaderboards. The admin dashboard enables staff to review and approve submissions. The application is tailored for Orono High School with custom branding and geolocation verification to prevent cheating.
+**Spartan Cup** is a Google Apps Script-based web application that gamifies student attendance and participation at school events. It's a single-page application (SPA) that uses automatic location-based event detection to allow students to check in at events, submit photos to earn points, and compete on leaderboards. The admin dashboard enables staff to review and approve submissions. The application is tailored for Orono High School with custom branding and geofencing to prevent cheating.
 
 ## Technology Stack
 
@@ -14,7 +14,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Frontend Framework:** Vanilla JavaScript SPA with server-driven routing
 - **CSS:** Tailwind CSS (CDN-hosted)
 - **Libraries:**
-  - html5-qrcode for QR code scanning
   - Google Material Icons for icons
   - Google Fonts (Public Sans) for typography
 - **Deployment Tools:** Clasp (Google Apps Script CLI), Firebase Hosting (geolocation wrapper)
@@ -28,10 +27,17 @@ This is a flat, single-folder Google Apps Script project with no subdirectories:
 Spartan_Cup/
 ├── Code.js                 # Server-side business logic (V8 Apps Script)
 ├── Index.html              # Main SPA template entry point
-├── JavaScript.html         # Client-side JS (SPA router, QR scanning, form handling)
+├── JavaScript.html         # Client-side JS (SPA router, location handling, form handling)
 ├── CSS.html                # Styling and theme configuration
 ├── Modals.html             # Modal dialog components
-├── Page.*.html             # Modular page components (scanner, profile, history, etc.)
+├── Page.*.html             # Modular page components (profile, history, auto-submit, etc.)
+│   ├── Page.profile.html   # Main dashboard with stats and leaderboard
+│   ├── Page.auto-submit.html  # Auto-detect event based on location
+│   ├── Page.event-select.html # Manual event selection by distance
+│   ├── Page.submit.html    # Event submission form with photo upload
+│   └── ...                 # Other page components
+├── public/                 # Firebase hosting files
+│   └── index.html          # Geolocation wrapper for iOS Safari fix
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
 └── README.md               # Project documentation
@@ -52,11 +58,12 @@ Spartan_Cup/
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
 **Key Components:**
-- `Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-- `JavaScript.html` (337 lines): Client-side routing, page navigation, QR scanner initialization, form submission handlers
-- `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
-- `Page.scanner.html`: QR code scanning interface with geolocation verification
-- `Page.submit.html`: Event submission form
+- `Code.js`: All backend functions, spreadsheet operations, Drive API, authentication, photo handling, profile data
+- `JavaScript.html`: Client-side routing, page navigation, location caching, form submission handlers
+- `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard (loads real data via `getProfileData()`)
+- `Page.auto-submit.html`: Automatic event detection based on user location
+- `Page.event-select.html`: Manual event selection showing events sorted by distance
+- `Page.submit.html`: Event submission form with photo upload and location verification
 - `Page.admin.html`: Admin approval dashboard
 
 **Geofencing:** Location verification is hardcoded (coordinates in Code.js lines 16-19) to prevent cheating submissions from outside campus.
@@ -86,16 +93,18 @@ firebase deploy --only hosting
 2. Grant location permission when prompted
 3. Browser should redirect to GAS app with location params in URL
 
-See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for complete setup instructions.
+**Current Deployment:** @79 - `AKfycbzox9ZqfP5FWJrJUpBnpUdBT8PPnDl-NroRfCUbjpPnTpllVpZS__y3pKNV13j4CX_j`
 
 ### Testing
 
 There is no automated test framework configured. Testing is manual:
 - Open the deployed web app URL in a browser
-- Test QR code scanning with generated QR codes
-- Verify spreadsheet data updates correctly
+- Test automatic event detection by checking in at campus locations
+- Test event selection by distance feature
+- Verify spreadsheet data updates correctly (Student_Profiles, Submissions_Pending)
 - Test admin approval workflow
-- Test on iOS Safari to verify geolocation now works
+- Test on iOS Safari to verify geolocation wrapper works correctly
+- Verify profile page loads real data from `getProfileData()`
 
 ### Linting
 
@@ -103,19 +112,21 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 ## Important Implementation Notes
 
-1. **Mock Data:** Profile and history pages currently return mock/placeholder data. Real student data needs to be fetched from the Sheets tabs.
+1. **Profile Data:** Profile and history pages load real data from Google Sheets via `getProfileData()` function. Data includes season/all-time points, rank, badges, submission history, and admin status. The profile page in `JavaScript.html` line 499 calls this function on page load.
 
-2. **Submission Workflow:** Submissions follow: Pending → Verified (by admin) → Archived. The verification system prevents duplicate approvals.
+2. **Auto-Submit Feature:** Replaced QR code scanning with automatic location-based event detection. Flow: User taps "Check In" → redirects to Firebase wrapper → captures location → auto-submit page detects closest event within 100m → auto-redirects to submission form. See `Page.auto-submit.html` and `JavaScript.html` lines 545-607.
 
-3. **Admin Access:** Based on email whitelist. Check `ADMIN_EMAILS` in Code.js for current admins.
+3. **Submission Workflow:** Submissions follow: Pending → Verified (by admin) → Archived. The verification system prevents duplicate approvals.
 
-4. **Dark Mode:** Implemented via Tailwind's `dark:` classes and CSS variables. Toggle is planned in settings page.
+4. **Admin Access:** Determined by `isAdmin` column (Column J) in Student_Profiles sheet. This column uses a formula to check if user email is in Config_Admins. Admin status is returned by `getProfileData()` and checked client-side in `JavaScript.html` lines 738-744.
 
-5. **Photo Handling:** Photos are base64-encoded in client and saved to Google Drive with metadata. Large photo sizes may impact quota.
+5. **Dark Mode:** Implemented via Tailwind's `dark:` classes and CSS variables. Toggle is available in settings page.
 
-6. **Geolocation with Firebase Wrapper:** iOS Safari blocks geolocation in iframes (GAS runs in an iframe). Solution: Firebase Hosting wrapper captures location BEFORE loading GAS. Flow: Firebase wrapper → requests location permission (works on iOS!) → passes location via URL params → GAS receives it in `doGet(e)` and passes to frontend via `APP_DATA`. See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for setup instructions. The wrapper location is checked first in `requestLocation()` (JavaScript.html), with fallback to cache/browser geolocation.
+6. **Photo Handling:** Photos are base64-encoded in client and saved to Google Drive with metadata. Optimized compression reduces file size (see `JavaScript.html` lines 941-980).
 
-7. **Google Apps Script Navigation (IMPORTANT):** Navigation in Google Apps Script web apps requires user activation. This means you MUST navigate in direct response to user interactions (click handlers, form submissions) without breaking the activation chain. Common pitfalls:
+7. **Geolocation with Firebase Wrapper:** iOS Safari blocks geolocation in iframes (GAS runs in an iframe). Solution: Firebase Hosting wrapper (`public/index.html`) captures location BEFORE loading GAS. Flow: Firebase wrapper → requests location permission (works on iOS!) → passes location via URL params → GAS receives it in `doGet(e)` and passes to frontend via `APP_DATA`. The wrapper location is checked first in `requestLocation()` (JavaScript.html lines 186-202), with fallback to cache/browser geolocation.
+
+8. **Google Apps Script Navigation (IMPORTANT):** Navigation in Google Apps Script web apps requires user activation. This means you MUST navigate in direct response to user interactions (click handlers, form submissions) without breaking the activation chain. Common pitfalls:
    - **DO NOT use `confirm()` dialogs before navigation** - Browser dialogs break the user activation chain, causing "Unsafe attempt to navigate" errors
    - **DO NOT use `setTimeout()` before navigation** - Async delays break the activation chain
    - **USE custom modals instead** - See Modals.html for the pattern (show modal on click, then navigate when button clicked within modal)
@@ -125,13 +136,13 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 ## Key Known TODOs
 
 From in-code comments, these features need completion:
-- Connect real student profile data from Sheets (currently returns mock data)
 - Build admin verification queue UI (swipe-to-approve interface planned)
-- Implement badge system calculation logic
-- Complete settings page (dark mode toggle, notification preferences)
-- Populate event details dynamically from Event_Schedule tab
+- Implement badge system calculation logic and auto-awarding
+- Complete settings page (add more preference options beyond dark mode)
 - Add fan feed/social interaction features
-- Implement real leaderboard data fetching
+- Implement notifications system (email/push for approvals, badges)
+- Add event photo gallery view
+- Optimize performance for large datasets (caching, pagination)
 
 ## Adding Features
 

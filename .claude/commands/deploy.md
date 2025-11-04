@@ -1,10 +1,14 @@
 ---
-allowed-tools: Bash(clasp push --force), Bash(clasp deploy*)
-description: Deploy Google Apps Script project using clasp push and deploy
+allowed-tools: Bash(clasp push --force), Bash(clasp deploy*), Bash(firebase deploy*)
+description: Deploy Google Apps Script project using clasp push and deploy (project)
 ---
 
-Deploy the Google Apps Script project by:
-1. Running `clasp push --force` to upload local changes
-2. Running `clasp deploy --deploymentId AKfycby30w5xtj2kz4InzGX9sgMaF8M5UnkqcWKF3w5cEHGIaOd-679D3Y5d2Z1L3x-dbPbk` to redeploy the web app
+Deploy the Spartan Cup application by:
+1. Running `clasp push` to upload local changes to Google Apps Script
+2. Running `clasp deploy --deploymentId AKfycbzox9ZqfP5FWJrJUpBnpUdBT8PPnDl-NroRfCUbjpPnTpllVpZS__y3pKNV13j4CX_j --description "Production deployment"` to redeploy the web app (@79)
+3. Running `firebase deploy --only hosting` to update the Firebase geolocation wrapper
 
-Show the output of both commands and confirm successful deployment.
+**Alternative: Deploy to @6 (previous production):**
+`clasp deploy --deploymentId AKfycbwpwlNmxO25IeWbtR7TkJOs48Uh189iQ1BjGWw9K1--4PVwq0z7Px9X1MOm6OvWbWkg --description "Legacy production deployment"`
+
+Show the output of all commands and confirm successful deployment.
