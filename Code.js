@@ -2706,7 +2706,12 @@ function getActiveEvents(userLat = null, userLon = null) {
 
       // Parse start time with explicit timezone handling
       let startTime = null;
-      const startTimeStr = item.startTime.toString();
+
+      // Handle different input types: Date objects vs strings
+      // Date.toString() produces locale-dependent strings, so use ISO format instead
+      const startTimeStr = typeof item.startTime === 'string'
+        ? item.startTime
+        : (item.startTime instanceof Date ? item.startTime.toISOString() : String(item.startTime));
 
       // Try each date format until one works
       for (let formatIndex = 0; formatIndex < dateFormats.length; formatIndex++) {
@@ -2717,6 +2722,8 @@ function getActiveEvents(userLat = null, userLon = null) {
             break;  // Successfully parsed, exit format loop
           }
         } catch (e) {
+          // Log format attempt failure for debugging
+          Logger.log('Format "' + dateFormats[formatIndex] + '" failed for event ' + item.eventCode + ': ' + e.message);
           // Continue to next format
         }
       }
