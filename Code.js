@@ -104,6 +104,36 @@ function getUserIsAdmin() {
 }
 
 /**
+ * Checks if the current user is new (not in Student_Profiles or display name not yet populated).
+ * Used to determine if user should see welcome screen.
+ * @return {boolean} True if user is new, false if returning user
+ */
+function isNewUser() {
+  const email = Session.getActiveUser().getEmail();
+
+  try {
+    const studentData = getStudentProfilesData();
+
+    // Find user in Student_Profiles
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] === email) {
+        // User exists - check if display name is populated (column B, index 1)
+        const displayName = studentData[i][1];
+        // If display name is empty or undefined, they're still a "new" user
+        return !displayName || displayName.toString().trim() === '';
+      }
+    }
+
+    // User not found in sheet = definitely a new user
+    return true;
+  } catch (e) {
+    Logger.log('Error checking if user is new: ' + e.message);
+    // On error, assume returning user to avoid unnecessary welcome screens
+    return false;
+  }
+}
+
+/**
  * Gets all student profile data from cache or Sheets.
  * Caches for 10 minutes to reduce redundant API calls within same session.
  * @return {Array} 2D array of student profile data
@@ -207,13 +237,20 @@ function getEventMapCache() {
  * Main entry point for the web app. Acts as a router to serve the SPA.
  */
 function doGet(e) {
-  const page = e.parameter.page || 'profile'; // Default to profile page
+  let page = e.parameter.page || 'profile'; // Default to profile page
+
+  const user = Session.getActiveUser();
+
+  // NEW USER WELCOME SCREEN: Redirect new users to welcome page on first visit
+  // This gives time for the Display Name formula in Student_Profiles to populate
+  if (page === 'profile' && isNewUser() && !e.parameter.skip_welcome) {
+    page = 'welcome';
+  }
 
   // Pass data to the HTML template
   const template = HtmlService.createTemplateFromFile('Index');
   template.page = page; // Tell the template which page to load
 
-  const user = Session.getActiveUser();
   template.userEmail = user.getEmail();
   template.userName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
   template.userPhoto = getUserProfilePhoto(user.getEmail(), template.userName); // Pass display name for initials
@@ -225,6 +262,26 @@ function doGet(e) {
   template.userLat = e.parameter.lat || null;
   template.userLon = e.parameter.lon || null;
   template.userAcc = e.parameter.acc || null;
+
+  // AUTO-EVENT DETECTION: If submit page with location but no eventCode, auto-select closest event
+  template.autoEventCode = null;
+  template.autoEventName = null;
+  template.autoEventError = null;
+  if (page === 'submit' && !e.parameter.eventCode && !e.parameter.event) {
+    // User came to submit page without an event (direct from Firebase wrapper)
+    if (template.userLat && template.userLon) {
+      // Location available - try to auto-select closest event
+      const closestEvent = getClosestEvent(parseFloat(template.userLat), parseFloat(template.userLon));
+      if (closestEvent.status === 'success') {
+        template.autoEventCode = closestEvent.eventCode;
+        template.autoEventName = closestEvent.eventName;
+      } else {
+        template.autoEventError = closestEvent.message;
+      }
+    } else {
+      template.autoEventError = 'Location is required to check in. Please enable location access.';
+    }
+  }
 
   return template.evaluate()
     .setTitle('The Spartan Cup')
@@ -2647,6 +2704,69 @@ function getEventsByDistance(userLat, userLon) {
   } catch (e) {
     Logger.log('Error in getEventsByDistance: ' + e.message);
     return [];
+  }
+}
+
+/**
+ * Gets the closest event that the user is within the geofence of.
+ * Auto-selects the event that user is closest to the center of.
+ * Used for direct check-in flow without QR scanning.
+ * @param {number} userLat - User's latitude
+ * @param {number} userLon - User's longitude
+ * @return {Object} {status, eventCode, eventName, distance} or {status: 'error', message}
+ */
+function getClosestEvent(userLat, userLon) {
+  try {
+    // Validate input
+    if (userLat === null || userLon === null || userLat === undefined || userLon === undefined) {
+      return {
+        status: 'error',
+        message: 'Location is required. Please enable location access.'
+      };
+    }
+
+    // Get all currently active events
+    const activeEvents = getActiveEvents(userLat, userLon);
+
+    if (activeEvents.length === 0) {
+      return {
+        status: 'error',
+        message: 'No events are currently active. Please check back during an event.'
+      };
+    }
+
+    // Filter events where user is within geofence radius (100m)
+    const GEOFENCE_RADIUS_METERS = 100;
+    const validEvents = activeEvents.filter(evt => {
+      return evt.distance !== null && evt.distance <= GEOFENCE_RADIUS_METERS;
+    });
+
+    if (validEvents.length === 0) {
+      // Find closest event to show helpful message
+      const closest = activeEvents[0]; // Already sorted by distance
+      return {
+        status: 'error',
+        message: `You are ${Math.round(closest.distance)}m away from the nearest event. You must be within ${GEOFENCE_RADIUS_METERS}m to check in.`,
+        nearestEventName: closest.eventName,
+        nearestDistance: Math.round(closest.distance)
+      };
+    }
+
+    // Return the closest valid event (first in sorted list)
+    const closestEvent = validEvents[0];
+    return {
+      status: 'success',
+      eventCode: closestEvent.eventCode,
+      eventName: closestEvent.eventName,
+      locationName: closestEvent.locationName,
+      distance: Math.round(closestEvent.distance)
+    };
+  } catch (e) {
+    Logger.log('Error in getClosestEvent: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error finding nearby events. Please try again.'
+    };
   }
 }
 

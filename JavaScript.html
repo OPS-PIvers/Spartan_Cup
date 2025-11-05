@@ -232,7 +232,6 @@
     }
 
     // --- STATE & PAGE ROUTING -----------------------------------------------
-    let html5QrCode = null;
 
     // Page titles map
     const TITLES = {
@@ -262,75 +261,35 @@
         // Add a small delay so the loading modal is visible before the page reloads
         // This ensures the user sees visual feedback that their click registered
         setTimeout(() => {
+          // PRESERVE LOCATION PARAMS: Extract from current URL or APP_DATA
+          let lat = APP_DATA.userLat;
+          let lon = APP_DATA.userLon;
+          let acc = APP_DATA.userAcc;
+
+          // If not in APP_DATA, try to extract from current URL
+          if (!lat || !lon) {
+            const urlParams = new URLSearchParams(window.location.search);
+            lat = urlParams.get('lat') || lat;
+            lon = urlParams.get('lon') || lon;
+            acc = urlParams.get('acc') || acc;
+          }
+
+          // Build URL with location params preserved
+          let url = APP_DATA.appUrl + '?page=' + pageName;
+          if (lat && lon) {
+            url += '&lat=' + lat + '&lon=' + lon;
+            if (acc) {
+              url += '&acc=' + acc;
+            }
+          }
+
           // Use window.top.location with base target="_top" in Index.html for proper navigation
-          window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
+          window.top.location.href = url;
         }, 250);  // 250ms delay gives a clear visual indication
       }
     }
 
-    // --- QR SCANNER LOGIC ---------------------------------------------------
-    
-    /** Start the QR Code scanner */
-    function startScanner() {
-      // Prevent starting multiple scanners
-      if (html5QrCode && html5QrCode.isScanning) {
-        return;
-      }
-
-      // Clean up any existing camera elements to prevent duplicates
-      const readerDiv = document.getElementById('qr-reader');
-      if (readerDiv) {
-        readerDiv.innerHTML = '';
-      }
-
-      html5QrCode = new Html5Qrcode("qr-reader");
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-      html5QrCode.start(
-        { facingMode: "environment" }, // Use rear camera
-        config,
-        (decodedText, decodedResult) => { // onScanSuccess
-          console.log(`Scan result: ${decodedText}`, decodedResult);
-          stopScanner();
-          
-          try {
-            // Validate that it's our app's URL
-            const url = new URL(decodedText);
-            if (url.origin !== new URL(APP_DATA.appUrl).origin) {
-              alert('Invalid QR Code. Not a Spartan Cup code.');
-              return;
-            }
-
-            // Check for event parameter, but don't require it
-            // The app will auto-detect the event based on user location
-            const eventId = url.searchParams.get('event');
-            if (eventId) {
-              // Navigate to the submit page with the eventId
-              navigateToPage('submit&event=' + eventId);
-            } else {
-              // No event ID in QR code - navigate to event selection page to auto-detect by location
-              navigateToPage('event-select');
-            }
-          } catch (e) {
-            console.error(e);
-            alert('Scanned code is not a valid event URL.');
-          }
-        },
-        (error) => { /* onScanFailure, optional */ }
-      );
-    }
-    
-    /** Stop the QR Code scanner */
-    function stopScanner() {
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().then(() => {
-          console.log("QR Scanner stopped.");
-        }).catch(err => {
-          console.error("Failed to stop QR scanner:", err);
-        });
-        html5QrCode = null;
-      }
-    }
+    // --- QR SCANNER REMOVED - Location-based check-in now used ---
 
     /** Load and display events sorted by distance for selection */
     function loadEventsByDistance() {
@@ -447,7 +406,15 @@
       // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
       
       if (pageKey === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => navigateToPage('scanner'));
+        // Check-in button redirects to Firebase wrapper for location capture, then to submit page
+        const checkInButton = document.getElementById('check-in-button');
+        if (checkInButton) {
+          checkInButton.addEventListener('click', () => {
+            // Redirect to Firebase wrapper with target=submit
+            // Firebase wrapper will capture location and redirect to GAS with ?page=submit&lat=X&lon=Y&acc=Z
+            window.top.location.href = 'https://the-spartan-cup.web.app/?target=submit';
+          });
+        }
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
         
         // Admin button event listener (visibility controlled by populateProfile based on data.isAdmin)
@@ -475,7 +442,14 @@
         // Load dynamic profile data
         google.script.run.withSuccessHandler(populateProfile).getProfileData();
       }
-      
+
+      if (pageKey === 'welcome') {
+        // Welcome page - no special initialization needed
+        // Button handler is in Page.welcome.html
+        // Hide back button on welcome screen
+        backButton.classList.add('hidden');
+      }
+
       if (pageKey === 'event-select') {
         // Don't auto-load events; wait for user to click the button
         const loadButton = document.getElementById('load-events-button');
@@ -487,13 +461,8 @@
         }
       }
 
-      if (pageKey === 'scanner') {
-        document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
-        // COMMENTED OUT: Manual entry button is hidden - users should scan QR codes
-        // document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
-        startScanner(); // Auto-start scanner
-      }
-      
+      // Scanner page removed - users now check in via location-based auto-detection
+
       if (pageKey === 'history') {
         // Load dynamic history data
         google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
@@ -522,18 +491,30 @@
       if (pageKey === 'submit') {
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
-        // Try to auto-populate event from URL parameter, but don't request location yet
-        const urlParams = new URLSearchParams(window.location.search);
-        const eventCode = urlParams.get('eventCode');
-
-        if (eventCode) {
-          // User came from event selection, populate the event code
-          document.getElementById('event-code-input').value = eventCode;
-          // Load the event details via backend
-          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventCode);
+        // AUTO-EVENT DETECTION: Check if server auto-selected an event based on location
+        if (APP_DATA.autoEventCode && APP_DATA.autoEventName) {
+          // Server successfully auto-detected closest event
+          document.getElementById('event-code-input').value = APP_DATA.autoEventCode;
+          // Load full event details via backend
+          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(APP_DATA.autoEventCode);
+        } else if (APP_DATA.autoEventError) {
+          // Server tried to auto-detect but failed (no events nearby, location denied, etc.)
+          document.getElementById('event-name').value = APP_DATA.autoEventError;
+          // Error already displayed in event-name field
         } else {
-          // No event selected; show a message to the user
-          document.getElementById('event-name').value = "Scan a QR code to select an event";
+          // Fallback: Try to get event code from URL parameter (old QR scanner flow or manual selection)
+          const urlParams = new URLSearchParams(window.location.search);
+          const eventCode = urlParams.get('eventCode');
+
+          if (eventCode) {
+            // User came from event selection, populate the event code
+            document.getElementById('event-code-input').value = eventCode;
+            // Load the event details via backend
+            google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventCode);
+          } else {
+            // No event selected; show a message to the user
+            document.getElementById('event-name').value = "No event selected. Please check in from the profile page.";
+          }
         }
 
         // Test location permission status and update UI dynamically

@@ -162,14 +162,19 @@
 
       document.getElementById('status').textContent = '✓ Location obtained! Loading app...';
 
-      // Build URL with location parameters
+      // Check for target page parameter (e.g., ?target=submit)
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetPage = urlParams.get('target') || 'profile'; // Default to profile
+
+      // Build URL with location parameters and target page
       const separator = GAS_APP_URL.includes('?') ? '&' : '?';
-      const targetUrl = `${GAS_APP_URL}${separator}lat=${lat}&lon=${lon}&acc=${acc}`;
+      const targetUrl = `${GAS_APP_URL}${separator}lat=${lat}&lon=${lon}&acc=${acc}&page=${targetPage}`;
 
       console.log('[Wrapper] Location obtained, redirecting:', {
         latitude: lat,
         longitude: lon,
-        accuracy: acc
+        accuracy: acc,
+        targetPage: targetPage
       });
 
       // Small delay so user sees success message

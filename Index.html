@@ -17,8 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
   
-  <!-- 3. Load QR Scanner and Generator Libraries -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- 3. Load QR Generator Library (for admin QR code generation only) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <!-- 4. Inject School Colors into Tailwind -->
@@ -131,7 +130,11 @@
       // NEW: Location from Firebase wrapper (passed via URL parameters)
       userLat: <?= userLat ? userLat : 'null' ?>,
       userLon: <?= userLon ? userLon : 'null' ?>,
-      userAcc: <?= userAcc ? userAcc : 'null' ?>
+      userAcc: <?= userAcc ? userAcc : 'null' ?>,
+      // AUTO-EVENT DETECTION: Pre-populated event from server-side auto-detection
+      autoEventCode: <?= autoEventCode ? '"' + autoEventCode + '"' : 'null' ?>,
+      autoEventName: <?= autoEventName ? '"' + autoEventName + '"' : 'null' ?>,
+      autoEventError: <?= autoEventError ? '"' + autoEventError + '"' : 'null' ?>
     };
   </script>
   

@@ -1,0 +1,67 @@
+<!--
+  This file holds the content for the 'welcome' page.
+  Shown to new users on their first visit to allow Display Name formula to populate.
+-->
+<div class="page">
+  <div class="flex flex-col items-center justify-center min-h-[80vh] px-4">
+    <div class="text-center max-w-md">
+      <!-- Logo/Icon -->
+      <div class="text-8xl mb-6">
+        🏆
+      </div>
+
+      <!-- Welcome Header -->
+      <h1 class="text-[#111318] dark:text-white text-4xl font-black leading-tight tracking-[-0.015em] mb-4">
+        Welcome to<br>The Spartan Cup!
+      </h1>
+
+      <!-- Description -->
+      <p class="text-[#616f89] dark:text-gray-400 text-lg font-normal leading-relaxed mb-8">
+        Earn points, collect badges, and compete on the leaderboard by attending school events and showing your Spartan spirit!
+      </p>
+
+      <!-- Features List -->
+      <div class="flex flex-col gap-3 text-left mb-8 bg-white dark:bg-gray-800/50 rounded-xl p-6 shadow-sm">
+        <div class="flex items-start gap-3">
+          <span class="material-symbols-outlined text-primary text-2xl">qr_code_scanner</span>
+          <div>
+            <p class="text-[#111318] dark:text-white font-semibold">Check in at Events</p>
+            <p class="text-sm text-[#616f89] dark:text-gray-400">Show up and earn points automatically</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="material-symbols-outlined text-secondary text-2xl">emoji_events</span>
+          <div>
+            <p class="text-[#111318] dark:text-white font-semibold">Earn Badges</p>
+            <p class="text-sm text-[#616f89] dark:text-gray-400">Unlock achievements for your attendance</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="material-symbols-outlined text-primary text-2xl">leaderboard</span>
+          <div>
+            <p class="text-[#111318] dark:text-white font-semibold">Climb the Leaderboard</p>
+            <p class="text-sm text-[#616f89] dark:text-gray-400">Compete with classmates for the top spot</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Get Started Button -->
+      <button id="get-started-button" class="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-14 px-8 bg-gradient-button text-white text-base font-bold leading-normal tracking-[0.015em] w-full shadow-lg shadow-primary/30 active:scale-95 transition-transform" style="background-image: linear-gradient(to right, #b5121b, #1b3b87)">
+        <span class="truncate">Get Started</span>
+        <span class="material-symbols-outlined text-2xl">arrow_forward</span>
+      </button>
+
+      <!-- Disclaimer -->
+      <p class="text-xs text-[#616f89] dark:text-gray-400 mt-6 opacity-75">
+        By using The Spartan Cup, you agree to have your event attendance tracked and displayed on leaderboards.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Get Started button click handler
+  document.getElementById('get-started-button').addEventListener('click', function() {
+    navigateToPage('profile');
+  });
+</script>
