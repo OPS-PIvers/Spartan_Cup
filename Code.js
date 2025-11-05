@@ -2692,9 +2692,28 @@ function getActiveEvents(userLat = null, userLon = null) {
 
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
-      // Fix timezone issue: Replace 'T' with space to force local time interpretation
-      // ISO format with 'T' is interpreted as UTC, but we want local time
-      const startTime = new Date(item.startTime.toString().replace('T', ' '));
+
+      // Parse start time with explicit timezone handling
+      // If already a Date object, use it directly; otherwise parse with script timezone
+      let startTime;
+      if (item.startTime instanceof Date) {
+        startTime = item.startTime;
+      } else {
+        // Use Utilities.parseDate() for robust parsing with explicit timezone
+        const timezone = Session.getScriptTimeZone();
+        try {
+          startTime = Utilities.parseDate(item.startTime.toString(), timezone, "yyyy-MM-dd'T'HH:mm:ss");
+        } catch (e) {
+          // Fallback to simpler format if seconds are missing
+          try {
+            startTime = Utilities.parseDate(item.startTime.toString(), timezone, "yyyy-MM-dd'T'HH:mm");
+          } catch (e2) {
+            // Final fallback: try standard Date parsing
+            startTime = new Date(item.startTime);
+          }
+        }
+      }
+
       const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
       // Check if current time is within the event window
