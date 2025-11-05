@@ -651,7 +651,10 @@
       const onboardingAgree = document.getElementById('onboarding-agree');
       if (onboardingAgree) {
         onboardingAgree.addEventListener('click', () => {
-          document.getElementById('onboarding-modal').classList.add('hidden');
+          const onboardingModal = document.getElementById('onboarding-modal');
+          if (onboardingModal) {
+            onboardingModal.classList.add('hidden');
+          }
         });
       }
 
@@ -659,7 +662,10 @@
       const modalCancel = document.getElementById('modal-cancel');
       if (modalCancel) {
         modalCancel.addEventListener('click', () => {
-          document.getElementById('confirm-modal').classList.add('hidden');
+          const confirmModal = document.getElementById('confirm-modal');
+          if (confirmModal) {
+            confirmModal.classList.add('hidden');
+          }
           pendingFormData = null;
           pendingPhotoBlob = null;
         });
@@ -668,10 +674,16 @@
       const modalProceed = document.getElementById('modal-proceed');
       if (modalProceed) {
         modalProceed.addEventListener('click', () => {
-          document.getElementById('confirm-modal').classList.add('hidden');
+          const confirmModal = document.getElementById('confirm-modal');
+          if (confirmModal) {
+            confirmModal.classList.add('hidden');
+          }
           // Call the resubmit function
           if (pendingFormData && pendingPhotoBlob) {
-            document.getElementById('loading-modal').classList.remove('hidden');
+            const loadingModal = document.getElementById('loading-modal');
+            if (loadingModal) {
+              loadingModal.classList.remove('hidden');
+            }
             google.script.run
               .withSuccessHandler(handleSubmissionResponse)
               .withFailureHandler(handleFailure)
@@ -686,8 +698,14 @@
       const manualCodeCancel = document.getElementById('manual-code-cancel');
       if (manualCodeCancel) {
         manualCodeCancel.addEventListener('click', () => {
-          document.getElementById('manual-code-modal').classList.add('hidden');
-          document.getElementById('manual-code-input').value = '';
+          const manualCodeModal = document.getElementById('manual-code-modal');
+          const manualCodeInput = document.getElementById('manual-code-input');
+          if (manualCodeModal) {
+            manualCodeModal.classList.add('hidden');
+          }
+          if (manualCodeInput) {
+            manualCodeInput.value = '';
+          }
         });
       }
 
@@ -695,10 +713,16 @@
       if (manualCodeForm) {
         manualCodeForm.addEventListener('submit', (e) => {
           e.preventDefault();
-          const eventId = document.getElementById('manual-code-input').value.trim();
+          const manualCodeInput = document.getElementById('manual-code-input');
+          if (!manualCodeInput) return;
+
+          const eventId = manualCodeInput.value.trim();
           if (eventId && eventId.length > 2) {
-            document.getElementById('manual-code-modal').classList.add('hidden');
-            document.getElementById('manual-code-input').value = '';
+            const manualCodeModal = document.getElementById('manual-code-modal');
+            if (manualCodeModal) {
+              manualCodeModal.classList.add('hidden');
+            }
+            manualCodeInput.value = '';
             navigateToPage('submit&event=' + eventId);
           } else {
             alert('Please enter a valid event code (at least 3 characters)');
@@ -710,14 +734,20 @@
       const adminMenuCancel = document.getElementById('admin-menu-cancel');
       if (adminMenuCancel) {
         adminMenuCancel.addEventListener('click', () => {
-          document.getElementById('admin-menu-modal').classList.add('hidden');
+          const adminMenuModal = document.getElementById('admin-menu-modal');
+          if (adminMenuModal) {
+            adminMenuModal.classList.add('hidden');
+          }
         });
       }
 
       const adminDashboardBtn = document.getElementById('admin-dashboard-btn');
       if (adminDashboardBtn) {
         adminDashboardBtn.addEventListener('click', () => {
-          document.getElementById('admin-menu-modal').classList.add('hidden');
+          const adminMenuModal = document.getElementById('admin-menu-modal');
+          if (adminMenuModal) {
+            adminMenuModal.classList.add('hidden');
+          }
           navigateToPage('admin');
         });
       }
@@ -725,7 +755,10 @@
       const adminQrcodeBtn = document.getElementById('admin-qrcode-btn');
       if (adminQrcodeBtn) {
         adminQrcodeBtn.addEventListener('click', () => {
-          document.getElementById('admin-menu-modal').classList.add('hidden');
+          const adminMenuModal = document.getElementById('admin-menu-modal');
+          if (adminMenuModal) {
+            adminMenuModal.classList.add('hidden');
+          }
           navigateToPage('qr-code');
         });
       }
