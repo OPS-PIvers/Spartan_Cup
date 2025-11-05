@@ -80,17 +80,17 @@
       const isInIframe = window.self !== window.top;
       const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
-      console.log('Testing geolocation:', {
-        isInIframe: isInIframe,
-        isIOSSafari: isIOSSafari,
-        userAgent: navigator.userAgent
-      });
+      // console.log('Testing geolocation:', {
+      //   isInIframe: isInIframe,
+      //   isIOSSafari: isIOSSafari,
+      //   userAgent: navigator.userAgent
+      // });
 
       // Try to get location with short timeout - just testing permission
       navigator.geolocation.getCurrentPosition(
         (position) => {
           // Success - permission is granted and working
-          console.log('Geolocation success:', position.coords);
+          // console.log('Geolocation success:', position.coords);
           cacheLocation(position); // Cache it while we're at it
           onGranted({
             lat: position.coords.latitude,
@@ -167,7 +167,7 @@
       // PRIORITY 1: Check if location was passed from Firebase wrapper (NEW)
       // This allows iOS Safari to work by capturing location BEFORE entering the GAS iframe
       if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
-        console.log('[Location] Using location from Firebase wrapper');
+        // console.log('[Location] Using location from Firebase wrapper');
         const wrapperLocation = {
           lat: parseFloat(APP_DATA.userLat),
           lon: parseFloat(APP_DATA.userLon),
@@ -186,7 +186,7 @@
       if (!forceRefresh) {
         const cached = getCachedLocation();
         if (cached) {
-          console.log('[Location] Using cached location');
+          // console.log('[Location] Using cached location');
           onSuccess(cached);
           return;
         }
@@ -198,10 +198,10 @@
       }
 
       // PRIORITY 3: Request fresh location from browser
-      console.log('[Location] Requesting fresh location from browser');
+      // console.log('[Location] Requesting fresh location from browser');
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('[Location] Got fresh location from browser');
+          // console.log('[Location] Got fresh location from browser');
           cacheLocation(position);
           onSuccess({
             lat: position.coords.latitude,

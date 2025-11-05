@@ -48,7 +48,7 @@ function getAdminEmails() {
 
     return adminEmails;
   } catch (e) {
-    Logger.log('Error reading admin emails: ' + e.message);
+    // Logger.log('Error reading admin emails: ' + e.message);
     return [];
   }
 }
@@ -72,7 +72,7 @@ function getUserDisplayName() {
       }
     }
   } catch (e) {
-    Logger.log('Error reading user display name: ' + e.message);
+    // Logger.log('Error reading user display name: ' + e.message);
   }
 
   return ''; // Default to empty if not found
@@ -97,7 +97,7 @@ function getUserIsAdmin() {
       }
     }
   } catch (e) {
-    Logger.log('Error reading user admin status: ' + e.message);
+    // Logger.log('Error reading user admin status: ' + e.message);
   }
 
   return false; // Default to false if not found
@@ -125,7 +125,7 @@ function isNewUser() {
     // User not found in sheet = definitely a new user
     return true;
   } catch (e) {
-    Logger.log('Error checking if user is new: ' + e.message);
+    // Logger.log('Error checking if user is new: ' + e.message);
     // On error, assume returning user to avoid unnecessary welcome screens
     return false;
   }
@@ -313,20 +313,20 @@ function doGet(e) {
   }
 
   // DEBUG LOGGING: Log all template variable values to trace what's breaking JavaScript
-  Logger.log('=== TEMPLATE VARIABLES DEBUG ===');
-  Logger.log('page: ' + page);
-  Logger.log('userEmail: [' + template.userEmail + ']');
-  Logger.log('userName: [' + template.userName + ']');
-  Logger.log('userPhoto: [' + template.userPhoto + ']');
-  Logger.log('isAdmin: ' + template.isAdmin);
-  Logger.log('appUrl: [' + getWebAppUrl() + ']');
-  Logger.log('userLat: ' + template.userLat);
-  Logger.log('userLon: ' + template.userLon);
-  Logger.log('userAcc: ' + template.userAcc);
-  Logger.log('autoEventCode: [' + template.autoEventCode + ']');
-  Logger.log('autoEventName: [' + template.autoEventName + ']');
-  Logger.log('autoEventError: [' + template.autoEventError + ']');
-  Logger.log('userSettings: [' + template.userSettings + ']');
+  // Logger.log('=== TEMPLATE VARIABLES DEBUG ===');
+  // Logger.log('page: ' + page);
+  // Logger.log('userEmail: [' + template.userEmail + ']');
+  // Logger.log('userName: [' + template.userName + ']');
+  // Logger.log('userPhoto: [' + template.userPhoto + ']');
+  // Logger.log('isAdmin: ' + template.isAdmin);
+  // Logger.log('appUrl: [' + getWebAppUrl() + ']');
+  // Logger.log('userLat: ' + template.userLat);
+  // Logger.log('userLon: ' + template.userLon);
+  // Logger.log('userAcc: ' + template.userAcc);
+  // Logger.log('autoEventCode: [' + template.autoEventCode + ']');
+  // Logger.log('autoEventName: [' + template.autoEventName + ']');
+  // Logger.log('autoEventError: [' + template.autoEventError + ']');
+  // Logger.log('userSettings: [' + template.userSettings + ']');
 
   return template.evaluate()
     .setTitle('The Spartan Cup')
@@ -380,7 +380,7 @@ function getUserProfilePhoto(email, displayName) {
       }
     }
   } catch (e) {
-    Logger.log('Error fetching profile photo: ' + e.message);
+    // Logger.log('Error fetching profile photo: ' + e.message);
   }
 
   // Fallback: Generate avatar with initials
@@ -406,7 +406,7 @@ function serveImage(fileId) {
     const dataUrl = 'data:' + blob.getContentType() + ';base64,' + base64;
     return { status: "success", dataUrl: dataUrl };
   } catch (e) {
-    Logger.log('Error serving image ' + fileId + ': ' + e.message);
+    // Logger.log('Error serving image ' + fileId + ': ' + e.message);
     return { status: "error", message: "Image not found or access denied" };
   }
 }
@@ -441,20 +441,20 @@ function getUserSettings() {
           if (settingsJson.startsWith('""') && settingsJson.endsWith('""')) {
             settingsJson = settingsJson.slice(2, -2); // Remove outer quotes
           }
-          Logger.log('Raw settings from sheet: ' + settingsJson);
+          // Logger.log('Raw settings from sheet: ' + settingsJson);
           try {
             const parsed = JSON.parse(settingsJson);
-            Logger.log('Successfully parsed settings: ' + JSON.stringify(parsed));
+            // Logger.log('Successfully parsed settings: ' + JSON.stringify(parsed));
             return parsed;
           } catch (parseError) {
-            Logger.log('Failed to parse settings JSON: ' + parseError.message);
-            Logger.log('Malformed JSON was: ' + settingsJson);
+            // Logger.log('Failed to parse settings JSON: ' + parseError.message);
+            // Logger.log('Malformed JSON was: ' + settingsJson);
           }
         }
       }
     }
   } catch (e) {
-    Logger.log('Error reading user settings: ' + e.message);
+    // Logger.log('Error reading user settings: ' + e.message);
   }
 
   // Return default settings if none found or on error
@@ -464,7 +464,7 @@ function getUserSettings() {
     approvalNotifications: true,
     badgeNotifications: true
   };
-  Logger.log('Returning default settings: ' + JSON.stringify(defaults));
+  // Logger.log('Returning default settings: ' + JSON.stringify(defaults));
   return defaults;
 }
 
@@ -478,8 +478,8 @@ function saveUserSettings(settings) {
   const email = Session.getActiveUser().getEmail();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
-  Logger.log('User email: ' + email);
+  // Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
+  // Logger.log('User email: ' + email);
 
   try {
     const studentSheet = ss.getSheetByName('Student_Profiles');
@@ -488,20 +488,20 @@ function saveUserSettings(settings) {
     // Find user and update settings in column I (index 8)
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === email) {
-        Logger.log('Found user at row ' + (i + 1));
+        // Logger.log('Found user at row ' + (i + 1));
         const settingsJson = JSON.stringify(settings);
-        Logger.log('Saving JSON: ' + settingsJson);
+        // Logger.log('Saving JSON: ' + settingsJson);
         studentSheet.getRange(i + 1, 9).setValue(settingsJson); // Column I = column 9
         SpreadsheetApp.flush(); // Force immediate write to sheet
-        Logger.log('Settings saved and flushed successfully');
+        // Logger.log('Settings saved and flushed successfully');
         return { status: 'success', message: 'Settings saved' };
       }
     }
 
-    Logger.log('User not found in Student_Profiles sheet');
+    // Logger.log('User not found in Student_Profiles sheet');
     return { status: 'error', message: 'User profile not found' };
   } catch (e) {
-    Logger.log('Error saving user settings: ' + e.message);
+    // Logger.log('Error saving user settings: ' + e.message);
     return { status: 'error', message: 'Failed to save settings: ' + e.message };
   }
 }
@@ -709,7 +709,7 @@ function getProfileData() {
     };
 
   } catch (e) {
-    Logger.log('Error in getProfileData: ' + e.message);
+    // Logger.log('Error in getProfileData: ' + e.message);
     // Return empty/default data on error
     return {
       seasonPoints: 0,
@@ -778,7 +778,7 @@ function setupDriveFolders() {
     }
     
   } catch (e) {
-    Logger.log('Drive Folders already exist or error: ' + e.message);
+    // Logger.log('Drive Folders already exist or error: ' + e.message);
   }
 }
 
@@ -890,9 +890,9 @@ function refreshEventCodes() {
       }
     }
 
-    Logger.log('Config_Event_Codes refreshed successfully');
+    // Logger.log('Config_Event_Codes refreshed successfully');
   } catch (e) {
-    Logger.log('Error refreshing Config_Event_Codes: ' + e.message);
+    // Logger.log('Error refreshing Config_Event_Codes: ' + e.message);
   }
 }
 
@@ -1059,7 +1059,7 @@ function generateSampleSubmissions() {
     );
 
   } catch (e) {
-    Logger.log('Error generating sample submissions: ' + e.message);
+    // Logger.log('Error generating sample submissions: ' + e.message);
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
 }
@@ -1084,7 +1084,7 @@ function clearAllCaches() {
       'Refresh the web app to see your spreadsheet changes.'
     );
   } catch (e) {
-    Logger.log('Error clearing cache: ' + e.message);
+    // Logger.log('Error clearing cache: ' + e.message);
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
 }
@@ -1329,7 +1329,7 @@ function createHtmlFiles() {
       window.currentEventData = eventData;
 
       // Optionally show event details like location and theme
-      console.log('Event loaded:', eventData.eventName, 'Theme:', eventData.theme);
+      // console.log('Event loaded:', eventData.eventName, 'Theme:', eventData.theme);
     }
 
     // --- FORM SUBMISSION ---
@@ -1694,7 +1694,7 @@ function createHtmlFiles() {
 
     function toggleLike(submissionId) {
       // This can be extended to implement actual like functionality
-      console.log('Liked submission:', submissionId);
+      // console.log('Liked submission:', submissionId);
     }
   </script>`,
     'Page.scanner.html': `<div class="page fixed inset-0 z-50 bg-background-dark text-white">
@@ -2212,17 +2212,17 @@ function createHtmlFiles() {
     // If not found, create it
     if (!found) {
       try {
-        Logger.log('Creating file: ' + filename);
+        // Logger.log('Creating file: ' + filename);
         const blob = Utilities.newBlob(files[filename], 'text/html', filename);
         DriveApp.getRootFolder().createFile(blob);
       } catch (e) {
-        Logger.log(`Failed to create file ${filename}: ${e.message}`);
+        // Logger.log(`Failed to create file ${filename}: ${e.message}`);
         // This can fail if it's not in the root folder, but it's the only way
         // to programmatically add files to an Apps Script project.
         // The user may need to create them manually if this fails.
       }
     } else {
-      Logger.log('File already exists: ' + filename);
+      // Logger.log('File already exists: ' + filename);
     }
   });
   
@@ -2294,7 +2294,7 @@ function getActiveSeason() {
 
     return 'Winter'; // Default to Winter
   } catch (e) {
-    Logger.log('Error reading active season: ' + e.message);
+    // Logger.log('Error reading active season: ' + e.message);
     return 'Winter';
   }
 }
@@ -2326,7 +2326,7 @@ function setActiveSeason(season) {
 
     return { status: 'error', message: 'Active_Season setting not found' };
   } catch (e) {
-    Logger.log('Error setting active season: ' + e.message);
+    // Logger.log('Error setting active season: ' + e.message);
     return { status: 'error', message: 'Error updating season: ' + e.message };
   }
 }
@@ -2350,7 +2350,7 @@ function getAvailableSeasons() {
 
     return Array.from(seasons).sort();
   } catch (e) {
-    Logger.log('Error getting available seasons: ' + e.message);
+    // Logger.log('Error getting available seasons: ' + e.message);
     return [];
   }
 }
@@ -2388,7 +2388,7 @@ function getActivitiesWithSeasonStatus(season) {
 
     return activities;
   } catch (e) {
-    Logger.log('Error getting activities with season status: ' + e.message);
+    // Logger.log('Error getting activities with season status: ' + e.message);
     return [];
   }
 }
@@ -2434,7 +2434,7 @@ function updateActivitySeasonAssignments(season, activityCodes) {
 
     return { status: 'success', message: 'Season assignments updated' };
   } catch (e) {
-    Logger.log('Error updating activity season assignments: ' + e.message);
+    // Logger.log('Error updating activity season assignments: ' + e.message);
     return { status: 'error', message: 'Error updating assignments: ' + e.message };
   }
 }
@@ -2493,7 +2493,7 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
 
     return { status: 'success', message: 'Activity created: ' + activityName, activityCode: activityCode };
   } catch (e) {
-    Logger.log('Error creating new activity: ' + e.message);
+    // Logger.log('Error creating new activity: ' + e.message);
     return { status: 'error', message: 'Error creating activity: ' + e.message };
   }
 }
@@ -2524,7 +2524,7 @@ function getActivityDetails(activityCode) {
 
     return { status: 'error', message: 'Activity not found: ' + activityCode };
   } catch (e) {
-    Logger.log('Error getting activity details: ' + e.message);
+    // Logger.log('Error getting activity details: ' + e.message);
     return { status: 'error', message: 'Error fetching activity: ' + e.message };
   }
 }
@@ -2558,7 +2558,7 @@ function generateEventId(activityCode) {
     const nextNumber = String(maxNumber + 1).padStart(3, '0');
     return prefix + nextNumber;
   } catch (e) {
-    Logger.log('Error generating event ID: ' + e.message);
+    // Logger.log('Error generating event ID: ' + e.message);
     return activityCode + '-001'; // Default fallback
   }
 }
@@ -2614,7 +2614,7 @@ function getEventDetails(eventId) {
       message: 'Event not found with ID: ' + eventId
     };
   } catch (e) {
-    Logger.log('Error in getEventDetails: ' + e.message);
+    // Logger.log('Error in getEventDetails: ' + e.message);
     return {
       status: 'error',
       message: 'Error fetching event details: ' + e.message
@@ -2723,7 +2723,7 @@ function getActiveEvents(userLat = null, userLon = null) {
 
     return activeEvents;
   } catch (e) {
-    Logger.log('Error in getActiveEvents: ' + e.message);
+    // Logger.log('Error in getActiveEvents: ' + e.message);
     return [];
   }
 }
@@ -2747,7 +2747,7 @@ function getEventsByDistance(userLat, userLon) {
       distance: Math.round(evt.distance)
     }));
   } catch (e) {
-    Logger.log('Error in getEventsByDistance: ' + e.message);
+    // Logger.log('Error in getEventsByDistance: ' + e.message);
     return [];
   }
 }
@@ -2807,7 +2807,7 @@ function getClosestEvent(userLat, userLon) {
       distance: Math.round(closestEvent.distance)
     };
   } catch (e) {
-    Logger.log('Error in getClosestEvent: ' + e.message);
+    // Logger.log('Error in getClosestEvent: ' + e.message);
     return {
       status: 'error',
       message: 'Error finding nearby events. Please try again.'
@@ -2838,7 +2838,7 @@ function findEventIdByCode(eventId) {
 
     return null;
   } catch (e) {
-    Logger.log('Error in findEventIdByCode: ' + e.message);
+    // Logger.log('Error in findEventIdByCode: ' + e.message);
     return null;
   }
 }
@@ -2882,7 +2882,7 @@ function getEventsList() {
 
     return { status: 'success', events };
   } catch (e) {
-    Logger.log('Error in getEventsList: ' + e.message);
+    // Logger.log('Error in getEventsList: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -2934,7 +2934,7 @@ function addEvent(eventData) {
 
     return { status: 'success', message: 'Event added successfully' };
   } catch (e) {
-    Logger.log('Error in addEvent: ' + e.message);
+    // Logger.log('Error in addEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -2978,7 +2978,7 @@ function updateEvent(eventId, eventData) {
 
     return { status: 'error', message: 'Event ID not found' };
   } catch (e) {
-    Logger.log('Error in updateEvent: ' + e.message);
+    // Logger.log('Error in updateEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -3008,7 +3008,7 @@ function deleteEvent(eventId) {
 
     return { status: 'error', message: 'Event ID not found' };
   } catch (e) {
-    Logger.log('Error in deleteEvent: ' + e.message);
+    // Logger.log('Error in deleteEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -3084,7 +3084,7 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
       message: 'Submission validated successfully.'
     };
   } catch (e) {
-    Logger.log('Error in validateEventSubmission: ' + e.message);
+    // Logger.log('Error in validateEventSubmission: ' + e.message);
     return {
       valid: false,
       message: 'Error validating submission. Please try again.'
@@ -3137,11 +3137,11 @@ function savePhotoToDrive(photoBlob, eventId, email) {
     const fileId = file.getId();
     const exportUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
 
-    Logger.log(`Photo saved: ${fileSizeMB.toFixed(1)}MB for event ${eventId} by ${email}`);
+    // Logger.log(`Photo saved: ${fileSizeMB.toFixed(1)}MB for event ${eventId} by ${email}`);
 
     return { id: fileId, url: exportUrl };
   } catch (e) {
-    Logger.log('Error saving photo to Drive: ' + e.message);
+    // Logger.log('Error saving photo to Drive: ' + e.message);
     throw e;
   }
 }
@@ -3183,7 +3183,7 @@ function submitEvent(formObject, photoBlob) {
     return { status: "success", message: "Submission received! You can view it in your 'My History' page." };
 
   } catch (e) {
-    Logger.log(e);
+    // Logger.log(e);
     return { status: "error", message: "An error occurred: " + e.message };
   }
 }
@@ -3209,7 +3209,7 @@ function resubmitEvent(formObject, photoBlob) {
       try {
         DriveApp.getFileById(oldSubmission.photoId).setTrashed(true);
       } catch (e) {
-        Logger.log("Could not find old photo to delete: " + oldSubmission.photoId);
+        // Logger.log("Could not find old photo to delete: " + oldSubmission.photoId);
       }
       SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending').deleteRow(oldSubmission.row);
     }
@@ -3226,7 +3226,7 @@ function resubmitEvent(formObject, photoBlob) {
     return { status: "success", message: "Your previous submission has been replaced." };
 
   } catch (e) {
-    Logger.log(e);
+    // Logger.log(e);
     return { status: "error", message: "An error occurred: " + e.message };
   }
 }
@@ -3246,31 +3246,31 @@ function resubmitEvent(formObject, photoBlob) {
  */
 function getAdminQueue(page = 1, itemsPerPage = 20) {
   const email = Session.getActiveUser().getEmail();
-  Logger.log('getAdminQueue called by: ' + email + ', page: ' + page);
+  // Logger.log('getAdminQueue called by: ' + email + ', page: ' + page);
 
   // Check if user is admin
   const adminEmails = getAdminEmails();
   if (!adminEmails.includes(email.toLowerCase())) {
-    Logger.log('Access denied for: ' + email);
+    // Logger.log('Access denied for: ' + email);
     return { status: "error", message: "Access denied. You are not an admin." };
   }
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    Logger.log('Spreadsheet accessed');
+    // Logger.log('Spreadsheet accessed');
 
     // Get pending submissions
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
     if (!pendingSheet) {
-      Logger.log('Submissions_Pending sheet not found');
+      // Logger.log('Submissions_Pending sheet not found');
       return { status: "error", message: "Submissions_Pending sheet not found." };
     }
     const pendingData = pendingSheet.getDataRange().getValues();
-    Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
+    // Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
     // Get event details map (cached)
     const eventMap = getEventMapCache();
-    Logger.log('Event map retrieved from cache');
+    // Logger.log('Event map retrieved from cache');
 
     // Build full queue
     const fullQueue = [];
@@ -3290,7 +3290,7 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
         timestamp: pendingData[i][1].toISOString()
       });
     }
-    Logger.log('Full queue built: ' + fullQueue.length + ' items');
+    // Logger.log('Full queue built: ' + fullQueue.length + ' items');
 
     // Paginate results
     const totalPages = Math.ceil(fullQueue.length / itemsPerPage);
@@ -3312,7 +3312,7 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
     };
 
   } catch (e) {
-    Logger.log('Error in getAdminQueue: ' + e.message);
+    // Logger.log('Error in getAdminQueue: ' + e.message);
     return {
       status: "error",
       message: "Error fetching admin queue: " + e.message
@@ -3422,7 +3422,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     };
 
   } catch (e) {
-    Logger.log('Error in approveSubmission: ' + e.message);
+    // Logger.log('Error in approveSubmission: ' + e.message);
     return {
       status: "error",
       message: "Error approving submission: " + e.message
@@ -3471,7 +3471,7 @@ function denySubmission(submissionId, reason) {
     try {
       DriveApp.getFileById(submissionInfo[5]).setTrashed(true);
     } catch (e) {
-      Logger.log("Could not delete photo: " + e.message);
+      // Logger.log("Could not delete photo: " + e.message);
     }
 
     return {
@@ -3480,7 +3480,7 @@ function denySubmission(submissionId, reason) {
     };
 
   } catch (e) {
-    Logger.log('Error in denySubmission: ' + e.message);
+    // Logger.log('Error in denySubmission: ' + e.message);
     return {
       status: "error",
       message: "Error denying submission: " + e.message
@@ -3534,7 +3534,7 @@ function getBadgeData() {
     };
 
   } catch (e) {
-    Logger.log('Error in getBadgeData: ' + e.message);
+    // Logger.log('Error in getBadgeData: ' + e.message);
     return {
       status: "error",
       message: "Error fetching badge data: " + e.message
@@ -3613,7 +3613,7 @@ function calculateBadges(email) {
     studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
 
   } catch (e) {
-    Logger.log('Error in calculateBadges: ' + e.message);
+    // Logger.log('Error in calculateBadges: ' + e.message);
   }
 }
 
@@ -3658,7 +3658,7 @@ function getEventList(category) {
     };
 
   } catch (e) {
-    Logger.log('Error in getEventList: ' + e.message);
+    // Logger.log('Error in getEventList: ' + e.message);
     return {
       status: "error",
       message: "Error fetching events: " + e.message
@@ -3719,7 +3719,7 @@ function getFanFeed() {
     };
 
   } catch (e) {
-    Logger.log('Error in getFanFeed: ' + e.message);
+    // Logger.log('Error in getFanFeed: ' + e.message);
     return {
       status: "error",
       message: "Error fetching fan feed: " + e.message
@@ -3782,7 +3782,7 @@ function calculateStreakBonus(email) {
     return bonus;
 
   } catch (e) {
-    Logger.log('Error in calculateStreakBonus: ' + e.message);
+    // Logger.log('Error in calculateStreakBonus: ' + e.message);
     return 0;
   }
 }
@@ -3821,10 +3821,10 @@ function sendNotification(studentEmail, type, message) {
 
     userProperties.setProperty(notificationsKey, JSON.stringify(notifications));
 
-    Logger.log('Notification sent to ' + studentEmail + ': ' + message);
+    // Logger.log('Notification sent to ' + studentEmail + ': ' + message);
 
   } catch (e) {
-    Logger.log('Error in sendNotification: ' + e.message);
+    // Logger.log('Error in sendNotification: ' + e.message);
   }
 }
 
