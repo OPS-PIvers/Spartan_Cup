@@ -466,35 +466,48 @@
       // --- PAGE-SPECIFIC LOGIC (using 'pageKey' for safety) ---
       
       if (pageKey === 'profile') {
-        document.getElementById('scan-qr-button').addEventListener('click', () => {
-          // Redirect to Firebase wrapper to capture geolocation, then return to auto-submit
-          const returnUrl = APP_DATA.appUrl + '?page=auto-submit';
-          window.top.location.href = 'https://the-spartan-cup.web.app/?return=' + encodeURIComponent(returnUrl);
-        });
-        document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));
-        
+        const scanQrButton = document.getElementById('scan-qr-button');
+        if (scanQrButton) {
+          scanQrButton.addEventListener('click', () => {
+            // Redirect to Firebase wrapper to capture geolocation, then return to auto-submit
+            const returnUrl = APP_DATA.appUrl + '?page=auto-submit';
+            window.top.location.href = 'https://the-spartan-cup.web.app/?return=' + encodeURIComponent(returnUrl);
+          });
+        }
+
+        const eventHistoryButton = document.getElementById('event-history-button');
+        if (eventHistoryButton) {
+          eventHistoryButton.addEventListener('click', () => navigateToPage('history'));
+        }
+
         // Admin button event listener (visibility controlled by populateProfile based on data.isAdmin)
         const adminButton = document.getElementById('admin-button');
         if (adminButton) {
           adminButton.addEventListener('click', () => {
             // Show admin menu modal (replaces confirm() which breaks user activation)
-            document.getElementById('admin-menu-modal').classList.remove('hidden');
+            const adminMenuModal = document.getElementById('admin-menu-modal');
+            if (adminMenuModal) {
+              adminMenuModal.classList.remove('hidden');
+            }
           });
         }
-        
+
         // Leaderboard Toggle
-        document.getElementById('leaderboard-toggle').addEventListener('click', (e) => {
-          if (e.target.tagName === 'BUTTON') {
-            document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
-            e.target.classList.add('active-toggle');
-            // Switch between season and all-time leaderboards
-            const view = e.target.dataset.view;
-            const lbContainer = document.getElementById('leaderboard-container');
-            const leaderboard = view === 'season' ? currentProfileData.leaderboard : currentProfileData.allTimeLeaderboard;
-            updateLeaderboardDisplay(leaderboard);
-          }
-        });
-        
+        const leaderboardToggle = document.getElementById('leaderboard-toggle');
+        if (leaderboardToggle) {
+          leaderboardToggle.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+              document.querySelectorAll('#leaderboard-toggle button').forEach(btn => btn.classList.remove('active-toggle'));
+              e.target.classList.add('active-toggle');
+              // Switch between season and all-time leaderboards
+              const view = e.target.dataset.view;
+              const lbContainer = document.getElementById('leaderboard-container');
+              const leaderboard = view === 'season' ? currentProfileData.leaderboard : currentProfileData.allTimeLeaderboard;
+              updateLeaderboardDisplay(leaderboard);
+            }
+          });
+        }
+
         // Load dynamic profile data
         google.script.run.withSuccessHandler(populateProfile).getProfileData();
       }
@@ -511,19 +524,25 @@
       }
 
       if (pageKey === 'scanner') {
-        document.getElementById('scanner-close-button').addEventListener('click', () => navigateToPage('profile'));
+        const scannerCloseButton = document.getElementById('scanner-close-button');
+        if (scannerCloseButton) {
+          scannerCloseButton.addEventListener('click', () => navigateToPage('profile'));
+        }
         // COMMENTED OUT: Manual entry button is hidden - users should scan QR codes
         // document.getElementById('manual-entry-button').addEventListener('click', enterCodeManually);
         startScanner(); // Auto-start scanner
       }
-      
+
       if (pageKey === 'history') {
         // Load dynamic history data
         google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
       }
-      
+
       if (pageKey === 'all-badges') {
-        document.getElementById('view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
+        const viewAllBadgesButton = document.getElementById('view-all-badges-button');
+        if (viewAllBadgesButton) {
+          viewAllBadgesButton.addEventListener('click', () => navigateToPage('all-badges'));
+        }
       }
 
       if (pageKey === 'qr-code') {
