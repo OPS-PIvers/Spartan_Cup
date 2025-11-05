@@ -648,59 +648,87 @@
 
       // Onboarding - Shows on first visit per session
       // (Actual onboarding modal logic is in Code.js using sessionStorage)
-      document.getElementById('onboarding-agree').addEventListener('click', () => {
-        document.getElementById('onboarding-modal').classList.add('hidden');
-      });
-      
+      const onboardingAgree = document.getElementById('onboarding-agree');
+      if (onboardingAgree) {
+        onboardingAgree.addEventListener('click', () => {
+          document.getElementById('onboarding-modal').classList.add('hidden');
+        });
+      }
+
       // Modal Buttons
-      document.getElementById('modal-cancel').addEventListener('click', () => {
-        document.getElementById('confirm-modal').classList.add('hidden');
-        pendingFormData = null;
-        pendingPhotoBlob = null;
-      });
-      document.getElementById('modal-proceed').addEventListener('click', () => {
-        document.getElementById('confirm-modal').classList.add('hidden');
-        // Call the resubmit function
-        if (pendingFormData && pendingPhotoBlob) {
-          document.getElementById('loading-modal').classList.remove('hidden');
-          google.script.run
-            .withSuccessHandler(handleSubmissionResponse)
-            .withFailureHandler(handleFailure)
-            .resubmitEvent(pendingFormData, pendingPhotoBlob);
-        }
-        pendingFormData = null;
-        pendingPhotoBlob = null;
-      });
+      const modalCancel = document.getElementById('modal-cancel');
+      if (modalCancel) {
+        modalCancel.addEventListener('click', () => {
+          document.getElementById('confirm-modal').classList.add('hidden');
+          pendingFormData = null;
+          pendingPhotoBlob = null;
+        });
+      }
+
+      const modalProceed = document.getElementById('modal-proceed');
+      if (modalProceed) {
+        modalProceed.addEventListener('click', () => {
+          document.getElementById('confirm-modal').classList.add('hidden');
+          // Call the resubmit function
+          if (pendingFormData && pendingPhotoBlob) {
+            document.getElementById('loading-modal').classList.remove('hidden');
+            google.script.run
+              .withSuccessHandler(handleSubmissionResponse)
+              .withFailureHandler(handleFailure)
+              .resubmitEvent(pendingFormData, pendingPhotoBlob);
+          }
+          pendingFormData = null;
+          pendingPhotoBlob = null;
+        });
+      }
 
       // Manual Code Entry Modal
-      document.getElementById('manual-code-cancel').addEventListener('click', () => {
-        document.getElementById('manual-code-modal').classList.add('hidden');
-        document.getElementById('manual-code-input').value = '';
-      });
-      document.getElementById('manual-code-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const eventId = document.getElementById('manual-code-input').value.trim();
-        if (eventId && eventId.length > 2) {
+      const manualCodeCancel = document.getElementById('manual-code-cancel');
+      if (manualCodeCancel) {
+        manualCodeCancel.addEventListener('click', () => {
           document.getElementById('manual-code-modal').classList.add('hidden');
           document.getElementById('manual-code-input').value = '';
-          navigateToPage('submit&event=' + eventId);
-        } else {
-          alert('Please enter a valid event code (at least 3 characters)');
-        }
-      });
+        });
+      }
+
+      const manualCodeForm = document.getElementById('manual-code-form');
+      if (manualCodeForm) {
+        manualCodeForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const eventId = document.getElementById('manual-code-input').value.trim();
+          if (eventId && eventId.length > 2) {
+            document.getElementById('manual-code-modal').classList.add('hidden');
+            document.getElementById('manual-code-input').value = '';
+            navigateToPage('submit&event=' + eventId);
+          } else {
+            alert('Please enter a valid event code (at least 3 characters)');
+          }
+        });
+      }
 
       // Admin Menu Modal
-      document.getElementById('admin-menu-cancel').addEventListener('click', () => {
-        document.getElementById('admin-menu-modal').classList.add('hidden');
-      });
-      document.getElementById('admin-dashboard-btn').addEventListener('click', () => {
-        document.getElementById('admin-menu-modal').classList.add('hidden');
-        navigateToPage('admin');
-      });
-      document.getElementById('admin-qrcode-btn').addEventListener('click', () => {
-        document.getElementById('admin-menu-modal').classList.add('hidden');
-        navigateToPage('qr-code');
-      });
+      const adminMenuCancel = document.getElementById('admin-menu-cancel');
+      if (adminMenuCancel) {
+        adminMenuCancel.addEventListener('click', () => {
+          document.getElementById('admin-menu-modal').classList.add('hidden');
+        });
+      }
+
+      const adminDashboardBtn = document.getElementById('admin-dashboard-btn');
+      if (adminDashboardBtn) {
+        adminDashboardBtn.addEventListener('click', () => {
+          document.getElementById('admin-menu-modal').classList.add('hidden');
+          navigateToPage('admin');
+        });
+      }
+
+      const adminQrcodeBtn = document.getElementById('admin-qrcode-btn');
+      if (adminQrcodeBtn) {
+        adminQrcodeBtn.addEventListener('click', () => {
+          document.getElementById('admin-menu-modal').classList.add('hidden');
+          navigateToPage('qr-code');
+        });
+      }
     });
 
     // --- SHARED STATE ---
