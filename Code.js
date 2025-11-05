@@ -2690,9 +2690,50 @@ function getActiveEvents(userLat = null, userLon = null) {
     const now = new Date();
     const activeEvents = [];
 
+    // Get timezone once outside loop for better performance
+    const timezone = Session.getScriptTimeZone();
+
+    // Define date formats to try, in order of preference
+    const dateFormats = [
+      "yyyy-MM-dd'T'HH:mm:ss",  // ISO format with seconds
+      "yyyy-MM-dd'T'HH:mm",      // ISO format without seconds
+      "yyyy-MM-dd HH:mm:ss",     // Space-separated with seconds
+      "yyyy-MM-dd HH:mm"         // Space-separated without seconds
+    ];
+
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
-      const startTime = new Date(item.startTime);
+
+      // Parse start time with explicit timezone handling
+      let startTime = null;
+
+      // Handle different input types: Date objects vs strings
+      // Date.toString() produces locale-dependent strings, so use ISO format instead
+      const startTimeStr = typeof item.startTime === 'string'
+        ? item.startTime
+        : (item.startTime instanceof Date ? item.startTime.toISOString() : String(item.startTime));
+
+      // Try each date format until one works
+      for (let formatIndex = 0; formatIndex < dateFormats.length; formatIndex++) {
+        try {
+          startTime = Utilities.parseDate(startTimeStr, timezone, dateFormats[formatIndex]);
+          // Validate that we got a valid date
+          if (startTime && !isNaN(startTime.getTime())) {
+            break;  // Successfully parsed, exit format loop
+          }
+        } catch (e) {
+          // Log format attempt failure for debugging
+          Logger.log('Format "' + dateFormats[formatIndex] + '" failed for event ' + item.eventCode + ': ' + e.message);
+          // Continue to next format
+        }
+      }
+
+      // If all formats failed, log error and skip this event
+      if (!startTime || isNaN(startTime.getTime())) {
+        Logger.log('Failed to parse start time for event ' + item.eventCode + ': ' + startTimeStr);
+        continue;  // Skip this event
+      }
+
       const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
       // Check if current time is within the event window
