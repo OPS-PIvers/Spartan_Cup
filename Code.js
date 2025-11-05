@@ -2692,7 +2692,7 @@ function getActiveEvents(userLat = null, userLon = null) {
 
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
-      const startTime = new Date(item.startTime);
+      const startTime = new Date(item.startTime.replace('T', ' '));
       const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
       // Check if current time is within the event window
