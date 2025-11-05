@@ -2690,28 +2690,41 @@ function getActiveEvents(userLat = null, userLon = null) {
     const now = new Date();
     const activeEvents = [];
 
+    // Get timezone once outside loop for better performance
+    const timezone = Session.getScriptTimeZone();
+
+    // Define date formats to try, in order of preference
+    const dateFormats = [
+      "yyyy-MM-dd'T'HH:mm:ss",  // ISO format with seconds
+      "yyyy-MM-dd'T'HH:mm",      // ISO format without seconds
+      "yyyy-MM-dd HH:mm:ss",     // Space-separated with seconds
+      "yyyy-MM-dd HH:mm"         // Space-separated without seconds
+    ];
+
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
 
       // Parse start time with explicit timezone handling
-      // If already a Date object, use it directly; otherwise parse with script timezone
-      let startTime;
-      if (item.startTime instanceof Date) {
-        startTime = item.startTime;
-      } else {
-        // Use Utilities.parseDate() for robust parsing with explicit timezone
-        const timezone = Session.getScriptTimeZone();
+      let startTime = null;
+      const startTimeStr = item.startTime.toString();
+
+      // Try each date format until one works
+      for (let formatIndex = 0; formatIndex < dateFormats.length; formatIndex++) {
         try {
-          startTime = Utilities.parseDate(item.startTime.toString(), timezone, "yyyy-MM-dd'T'HH:mm:ss");
-        } catch (e) {
-          // Fallback to simpler format if seconds are missing
-          try {
-            startTime = Utilities.parseDate(item.startTime.toString(), timezone, "yyyy-MM-dd'T'HH:mm");
-          } catch (e2) {
-            // Final fallback: try standard Date parsing
-            startTime = new Date(item.startTime);
+          startTime = Utilities.parseDate(startTimeStr, timezone, dateFormats[formatIndex]);
+          // Validate that we got a valid date
+          if (startTime && !isNaN(startTime.getTime())) {
+            break;  // Successfully parsed, exit format loop
           }
+        } catch (e) {
+          // Continue to next format
         }
+      }
+
+      // If all formats failed, log error and skip this event
+      if (!startTime || isNaN(startTime.getTime())) {
+        Logger.log('Failed to parse start time for event ' + item.eventCode + ': ' + startTimeStr);
+        continue;  // Skip this event
       }
 
       const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
