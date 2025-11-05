@@ -62,6 +62,13 @@
 <script>
   // Get Started button click handler
   document.getElementById('get-started-button').addEventListener('click', function() {
-    navigateToPage('profile');
+    // Navigate to profile page with skip_welcome parameter
+    // Using anchor element to avoid dependency on navigateToPage function
+    const link = document.createElement('a');
+    link.href = APP_DATA.appUrl + '?page=profile&skip_welcome=true';
+    link.target = '_top';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   });
 </script>

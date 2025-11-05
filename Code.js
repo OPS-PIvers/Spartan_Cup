@@ -104,7 +104,7 @@ function getUserIsAdmin() {
 }
 
 /**
- * Checks if the current user is new (not in Student_Profiles or display name not yet populated).
+ * Checks if the current user is new (not in Student_Profiles sheet).
  * Used to determine if user should see welcome screen.
  * @return {boolean} True if user is new, false if returning user
  */
@@ -117,10 +117,8 @@ function isNewUser() {
     // Find user in Student_Profiles
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === email) {
-        // User exists - check if display name is populated (column B, index 1)
-        const displayName = studentData[i][1];
-        // If display name is empty or undefined, they're still a "new" user
-        return !displayName || displayName.toString().trim() === '';
+        // User exists in Student_Profiles = returning user (even if display name empty)
+        return false;
       }
     }
 
@@ -234,6 +232,30 @@ function getEventMapCache() {
 // --- 1. WEB APP ROUTER (doGet) ----------------------------------------------
 
 /**
+ * Escapes a string for safe embedding in JavaScript code.
+ * Handles quotes, apostrophes, backslashes, newlines, and other control characters.
+ * @param {string} str - The string to escape
+ * @return {string} JavaScript-safe escaped string
+ */
+function escapeJavaScriptString(str) {
+  if (str === null || str === undefined) {
+    return '';
+  }
+
+  return String(str)
+    .replace(/\\/g, '\\\\')   // Backslash (must be first!)
+    .replace(/"/g, '\\"')      // Double quotes
+    .replace(/'/g, "\\'")      // Single quotes/apostrophes
+    .replace(/\n/g, '\\n')     // Newlines
+    .replace(/\r/g, '\\r')     // Carriage returns
+    .replace(/\t/g, '\\t')     // Tabs
+    .replace(/\f/g, '\\f')     // Form feeds
+    .replace(/\v/g, '\\v')     // Vertical tabs
+    .replace(/\u2028/g, '\\u2028')  // Line separator
+    .replace(/\u2029/g, '\\u2029'); // Paragraph separator
+}
+
+/**
  * Main entry point for the web app. Acts as a router to serve the SPA.
  */
 function doGet(e) {
@@ -251,11 +273,17 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.page = page; // Tell the template which page to load
 
-  template.userEmail = user.getEmail();
-  template.userName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
-  template.userPhoto = getUserProfilePhoto(user.getEmail(), template.userName); // Pass display name for initials
+  // Escape all string values for safe JavaScript embedding
+  const rawEmail = user.getEmail();
+  const rawUserName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
+  const rawUserPhoto = getUserProfilePhoto(rawEmail, rawUserName); // Pass display name for initials
+
+  template.userEmail = escapeJavaScriptString(rawEmail);
+  template.userName = escapeJavaScriptString(rawUserName);
+  template.userPhoto = escapeJavaScriptString(rawUserPhoto);
   template.isAdmin = getUserIsAdmin(); // Read from Student_Profiles isAdmin column (J)
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
+  template.firebaseWrapperUrl = escapeJavaScriptString('https://the-spartan-cup.web.app/?target=submit');
 
   // NEW: Accept location from Firebase wrapper via URL parameters
   // These are passed from the wrapper: ?lat=X&lon=Y&acc=Z
@@ -264,24 +292,41 @@ function doGet(e) {
   template.userAcc = e.parameter.acc || null;
 
   // AUTO-EVENT DETECTION: If submit page with location but no eventCode, auto-select closest event
-  template.autoEventCode = null;
-  template.autoEventName = null;
-  template.autoEventError = null;
+  // Initialize as empty strings (not null) for safe template rendering
+  template.autoEventCode = '';
+  template.autoEventName = '';
+  template.autoEventError = '';
   if (page === 'submit' && !e.parameter.eventCode && !e.parameter.event) {
     // User came to submit page without an event (direct from Firebase wrapper)
     if (template.userLat && template.userLon) {
       // Location available - try to auto-select closest event
       const closestEvent = getClosestEvent(parseFloat(template.userLat), parseFloat(template.userLon));
       if (closestEvent.status === 'success') {
-        template.autoEventCode = closestEvent.eventCode;
-        template.autoEventName = closestEvent.eventName;
+        template.autoEventCode = escapeJavaScriptString(closestEvent.eventCode);
+        template.autoEventName = escapeJavaScriptString(closestEvent.eventName);
       } else {
-        template.autoEventError = closestEvent.message;
+        template.autoEventError = escapeJavaScriptString(closestEvent.message);
       }
     } else {
-      template.autoEventError = 'Location is required to check in. Please enable location access.';
+      template.autoEventError = escapeJavaScriptString('Location is required to check in. Please enable location access.');
     }
   }
+
+  // DEBUG LOGGING: Log all template variable values to trace what's breaking JavaScript
+  Logger.log('=== TEMPLATE VARIABLES DEBUG ===');
+  Logger.log('page: ' + page);
+  Logger.log('userEmail: [' + template.userEmail + ']');
+  Logger.log('userName: [' + template.userName + ']');
+  Logger.log('userPhoto: [' + template.userPhoto + ']');
+  Logger.log('isAdmin: ' + template.isAdmin);
+  Logger.log('appUrl: [' + getWebAppUrl() + ']');
+  Logger.log('userLat: ' + template.userLat);
+  Logger.log('userLon: ' + template.userLon);
+  Logger.log('userAcc: ' + template.userAcc);
+  Logger.log('autoEventCode: [' + template.autoEventCode + ']');
+  Logger.log('autoEventName: [' + template.autoEventName + ']');
+  Logger.log('autoEventError: [' + template.autoEventError + ']');
+  Logger.log('userSettings: [' + template.userSettings + ']');
 
   return template.evaluate()
     .setTitle('The Spartan Cup')

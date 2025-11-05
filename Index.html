@@ -118,24 +118,29 @@
   <!-- CLIENT-SIDE JAVASCRIPT -->
   <!-- ====================================================================== -->
   <script>
+    console.log('DEBUG: About to construct APP_DATA');
+
     // Pass server-side data (from doGet) to client-side JS
     const APP_DATA = {
       page: "<?= page ?>",
-      userEmail: "<?= userEmail ?>",
-      userName: "<?= userName ?>",
-      userPhoto: "<?= userPhoto ?>",
+      userEmail: "<?!= userEmail ?>",
+      userName: "<?!= userName ?>",
+      userPhoto: "<?!= userPhoto ?>",
       isAdmin: <?= isAdmin ?>,
-      appUrl: "<?= getWebAppUrl() ?>",
-      userSettings: <?!= userSettings ?>, // Directly embed the JSON string from the server
-      // NEW: Location from Firebase wrapper (passed via URL parameters)
-      userLat: <?= userLat ? userLat : 'null' ?>,
-      userLon: <?= userLon ? userLon : 'null' ?>,
-      userAcc: <?= userAcc ? userAcc : 'null' ?>,
+      appUrl: "<?!= getWebAppUrl() ?>",
+      firebaseWrapperUrl: "<?!= firebaseWrapperUrl ?>",
+      userSettings: <?!= userSettings ?>,
+      // Location from Firebase wrapper (passed via URL parameters)
+      userLat: <?= userLat || 'null' ?>,
+      userLon: <?= userLon || 'null' ?>,
+      userAcc: <?= userAcc || 'null' ?>,
       // AUTO-EVENT DETECTION: Pre-populated event from server-side auto-detection
-      autoEventCode: <?= autoEventCode ? '"' + autoEventCode + '"' : 'null' ?>,
-      autoEventName: <?= autoEventName ? '"' + autoEventName + '"' : 'null' ?>,
-      autoEventError: <?= autoEventError ? '"' + autoEventError + '"' : 'null' ?>
+      autoEventCode: "<?!= autoEventCode ?>",
+      autoEventName: "<?!= autoEventName ?>",
+      autoEventError: "<?!= autoEventError ?>"
     };
+
+    console.log('DEBUG: APP_DATA constructed successfully', APP_DATA);
   </script>
   
   <!-- Include JavaScript from JavaScript.html -->

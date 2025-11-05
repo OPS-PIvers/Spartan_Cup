@@ -283,8 +283,13 @@
             }
           }
 
-          // Use window.top.location with base target="_top" in Index.html for proper navigation
-          window.top.location.href = url;
+          // Use anchor element to avoid Caja sanitizer issues with window.top.location
+          const link = document.createElement('a');
+          link.href = url;
+          link.target = '_top';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }, 250);  // 250ms delay gives a clear visual indication
       }
     }
@@ -412,7 +417,13 @@
           checkInButton.addEventListener('click', () => {
             // Redirect to Firebase wrapper with target=submit
             // Firebase wrapper will capture location and redirect to GAS with ?page=submit&lat=X&lon=Y&acc=Z
-            window.top.location.href = 'https://the-spartan-cup.web.app/?target=submit';
+            // Using variable from APP_DATA to avoid Caja sanitizer breaking hardcoded URLs
+            const link = document.createElement('a');
+            link.href = APP_DATA.firebaseWrapperUrl;
+            link.target = '_top';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
           });
         }
         document.getElementById('event-history-button').addEventListener('click', () => navigateToPage('history'));

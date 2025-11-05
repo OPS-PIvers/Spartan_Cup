@@ -167,7 +167,16 @@
     function logoutUser() {
       if (confirm('Are you sure you want to log out?')) {
         // Google Apps Script will handle logout via the Apps Script authentication
-        window.top.location.href = 'https://accounts.google.com/logout';
+        // Build URL programmatically to avoid Caja sanitizer breaking string literals
+        const link = document.createElement('a');
+        const protocol = 'https' + ':';
+        const domain = '//accounts.google.com';
+        const path = '/logout';
+        link.href = protocol + domain + path;
+        link.target = '_top';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     }
   </script>
