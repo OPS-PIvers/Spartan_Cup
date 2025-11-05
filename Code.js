@@ -630,8 +630,10 @@ function getProfileData() {
       if (!badge) return null;
       return {
         name: badge.name,
-        icon: 'military_tech', // Default icon; can be customized per badge
-        color: 'bg-gradient-to-br from-indigo-500 to-purple-400' // Default color; customize as needed
+        description: badge.description,
+        imageUrl: badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg', // Use Firebase-hosted badge image
+        icon: 'military_tech', // Fallback icon if image fails to load
+        color: 'bg-gradient-to-br from-indigo-500 to-purple-400' // Fallback color
       };
     }).filter(b => b !== null);
 

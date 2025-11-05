@@ -42,11 +42,15 @@
         const badgeEl = document.createElement('div');
         badgeEl.className = 'flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm hover:shadow-md transition-shadow';
         badgeEl.innerHTML = `
-          <div class="flex items-center justify-center w-16 h-16 rounded-full ${badge.color} text-white shadow-md">
-            <span class="material-symbols-outlined text-4xl">${badge.icon}</span>
+          <div class="flex items-center justify-center w-20 h-20 rounded-full bg-white dark:bg-gray-700 shadow-md overflow-hidden">
+            <img src="${badge.imageUrl}" alt="${badge.name}" class="w-full h-full object-cover"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="hidden items-center justify-center w-20 h-20 ${badge.color}">
+              <span class="material-symbols-outlined text-4xl text-white">${badge.icon}</span>
+            </div>
           </div>
           <p class="text-sm font-bold text-center text-[#111318] dark:text-white">${badge.name}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 text-center">Achievement unlocked!</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 text-center">${badge.description || 'Achievement unlocked!'}</p>
         `;
         grid.appendChild(badgeEl);
       });

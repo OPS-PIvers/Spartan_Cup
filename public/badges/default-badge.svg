@@ -1,0 +1,37 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="badgeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1b3b87;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b5121b;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer badge shape -->
+  <circle cx="128" cy="128" r="120" fill="url(#badgeGradient)" />
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.3" />
+
+  <!-- Inner circle -->
+  <circle cx="128" cy="128" r="85" fill="#ffffff" opacity="0.95" />
+
+  <!-- Trophy/Award icon -->
+  <g transform="translate(128, 128)">
+    <!-- Trophy cup -->
+    <path d="M -25 -35 L -20 -10 L 20 -10 L 25 -35 Z" fill="#1b3b87" />
+    <rect x="-20" y="-10" width="40" height="8" fill="#1b3b87" />
+
+    <!-- Trophy handles -->
+    <path d="M -25 -30 Q -40 -30 -40 -20 Q -40 -10 -25 -10"
+          fill="none" stroke="#b5121b" stroke-width="3" />
+    <path d="M 25 -30 Q 40 -30 40 -20 Q 40 -10 25 -10"
+          fill="none" stroke="#b5121b" stroke-width="3" />
+
+    <!-- Trophy base -->
+    <rect x="-8" y="-2" width="16" height="20" fill="#1b3b87" />
+    <rect x="-18" y="18" width="36" height="8" rx="2" fill="#1b3b87" />
+
+    <!-- Star accent -->
+    <path d="M 0 -48 L 3 -38 L 13 -38 L 5 -31 L 8 -21 L 0 -28 L -8 -21 L -5 -31 L -13 -38 L -3 -38 Z"
+          fill="#FFD700" opacity="0.9" />
+  </g>
+</svg>
