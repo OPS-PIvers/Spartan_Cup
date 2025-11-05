@@ -2692,7 +2692,9 @@ function getActiveEvents(userLat = null, userLon = null) {
 
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
-      const startTime = new Date(item.startTime);
+      // Fix timezone issue: Replace 'T' with space to force local time interpretation
+      // ISO format with 'T' is interpreted as UTC, but we want local time
+      const startTime = new Date(item.startTime.toString().replace('T', ' '));
       const endTime = new Date(startTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
       // Check if current time is within the event window
