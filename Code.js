@@ -3024,10 +3024,13 @@ function addEvent(eventData) {
       }
     }
 
-    // Parse dateTime
-    const dateTime = new Date(eventData.dateTime);
+    // Parse dateTime from frontend (comes as "2025-11-06T18:30")
+    // IMPORTANT: Treat this as Central Time, not UTC
+    // Convert "2025-11-06T18:30" to "2025-11-06 18:30" for parseDate
+    const dateTimeStr = eventData.dateTime.replace('T', ' ');
+    const dateTime = Utilities.parseDate(dateTimeStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
     const date = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd');
-    const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd\'T\'HH:mm');
+    const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
 
     // Add new row: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
     sheet.appendRow([
@@ -3090,10 +3093,13 @@ function updateEvent(eventId, eventData) {
           return { status: 'error', message: 'Invalid Activity Code: ' + eventData.activityCode };
         }
 
-        // Parse dateTime
-        const dateTime = new Date(eventData.dateTime);
+        // Parse dateTime from frontend (comes as "2025-11-06T18:30")
+        // IMPORTANT: Treat this as Central Time, not UTC
+        // Convert "2025-11-06T18:30" to "2025-11-06 18:30" for parseDate
+        const dateTimeStr = eventData.dateTime.replace('T', ' ');
+        const dateTime = Utilities.parseDate(dateTimeStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
         const date = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd');
-        const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd\'T\'HH:mm');
+        const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
 
         // Update columns 2-12 (Activity_Code through Theme)
         sheet.getRange(i + 1, 2, 1, 11).setValues([[
