@@ -737,7 +737,8 @@ function onOpen() {
     .createMenu('🏆 Spartan Cup Admin')
     .addItem('1. Run First-Time Setup (All Files)', 'firstTimeSetup')
     .addItem('2. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
-    .addItem('3. Clear Cache (Development)', 'clearAllCaches')
+    .addItem('3. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
+    .addItem('4. Clear Cache (Development)', 'clearAllCaches')
     .addToUi();
 }
 
@@ -749,6 +750,34 @@ function firstTimeSetup() {
   setupDriveFolders();
   createHtmlFiles();
   SpreadsheetApp.getUi().alert('✅ Full Setup Complete!\n\nYour spreadsheet, Drive folders, and all HTML files have been created.\n\nDEPLOY this script as a Web App to get started.');
+}
+
+/**
+ * Installs a time-based trigger to update active event status every 10 minutes.
+ * Should only be run once. Checks for existing triggers to prevent duplicates.
+ */
+function installActiveEventsTrigger() {
+  try {
+    // Check if trigger already exists
+    const triggers = ScriptApp.getProjectTriggers();
+    const existingTrigger = triggers.find(t => t.getHandlerFunction() === 'updateActiveEventStatus');
+
+    if (existingTrigger) {
+      SpreadsheetApp.getUi().alert('⚠️ Trigger Already Exists\n\nThe Active Events trigger is already installed.\n\nIt will run every 10 minutes to update event status.');
+      return;
+    }
+
+    // Create new time-based trigger (every 10 minutes)
+    ScriptApp.newTrigger('updateActiveEventStatus')
+      .timeBased()
+      .everyMinutes(10)
+      .create();
+
+    SpreadsheetApp.getUi().alert('✅ Trigger Installed Successfully!\n\nThe Active Events trigger will now run every 10 minutes to automatically update which events are currently active.\n\nYou can see all triggers in Extensions > Apps Script > Triggers.');
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error Installing Trigger\n\n' + e.message);
+    Logger.log('Error installing trigger: ' + e.message);
+  }
 }
 
 /**
@@ -794,8 +823,7 @@ function setupSpreadsheet() {
   const sheets = {
     'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified', 'Student_Settings'],
     'Activities_Data': ['Activity_Code', 'Activity_Name', 'Season', 'Location_Name', 'Event_Lat', 'Event_Lon'],
-    'Events': ['Event_ID', 'Activity_Code', 'Date', 'Start_Time', 'Duration_Hours', 'Is_Spotlight_Game', 'Theme'],
-    'Config_Event_Codes': ['Event_Code', 'Activity_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Season'],
+    'Events': ['Event_ID', 'Activity_Code', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme', 'Is_Active'],
     'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
@@ -820,103 +848,116 @@ function setupSpreadsheet() {
   ss.getSheetByName('Activities_Data').appendRow(['GVBB', 'Girls Volleyball', 'Fall', 'Orono High School Gym', 44.965, -93.625]);
 
   // Add sample Events with Activity_Code FK
-  ss.getSheetByName('Events').appendRow(['GBB-001', 'GBB', '2025-11-15', '2025-11-15T19:00', 2, true, 'White Out']);
+  // Columns: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active
+  ss.getSheetByName('Events').appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out', false]);
 
   // Set Config_Active_Season default
   ss.getSheetByName('Config_Active_Season').appendRow(['Active_Season', 'Winter']);
 
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
 
-  // Rebuild the Config_Event_Codes cache
-  refreshEventCodes();
+  // Note: Config_Event_Codes has been removed - Events tab is now the single source of truth
+  // Is_Active status is updated by the updateActiveEventStatus() trigger
 }
 
 /**
- * Refreshes the Config_Event_Codes sheet by joining Events and Activities_Data.
- * This creates a denormalized cache of active event codes with all necessary data.
- * Called after creating new events or changing the active season.
+ * Updates the Is_Active status for all events in the Events tab.
+ * Should be run by a time-based trigger every 10 minutes.
+ * Marks events as active if current time (Central) is between Start_Time and Start_Time + Duration_Hours.
  */
-function refreshEventCodes() {
+function updateActiveEventStatus() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Get Activities_Data
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
-    const activitiesMap = {};
-    for (let i = 1; i < activitiesData.length; i++) {
-      const code = String(activitiesData[i][0]).trim(); // Ensure code is string and trimmed
-      activitiesMap[code] = {
-        activityName: activitiesData[i][1],
-        season: activitiesData[i][2],
-        locationName: activitiesData[i][3],
-        eventLat: activitiesData[i][4],
-        eventLon: activitiesData[i][5]
-      };
-    }
-    Logger.log(`Activities Map populated: ${JSON.stringify(activitiesMap)}`);
-
-    // Get Events
     const eventsSheet = ss.getSheetByName('Events');
-    const eventsData = eventsSheet.getDataRange().getValues();
+    if (!eventsSheet) {
+      Logger.log('Events sheet not found');
+      return;
+    }
 
-    // Get Config_Event_Codes sheet
-    const configSheet = ss.getSheetByName('Config_Event_Codes');
-    configSheet.clear();
-    configSheet.appendRow(['Event_Code', 'Activity_Name', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Season']);
-    configSheet.setFrozenRows(1);
-    configSheet.getRange(1, 1, 1, 8).setFontWeight('bold');
+    const data = eventsSheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      Logger.log('No events found in Events sheet');
+      return;
+    }
 
-    // Build Config_Event_Codes by joining Events with Activities_Data
-    for (let i = 1; i < eventsData.length; i++) {
-      const eventId = eventsData[i][0];
-      const activityCode = String(eventsData[i][1]).trim(); // Ensure activityCode is string and trimmed
-      const startTimeRaw = eventsData[i][7]; // This is already a Date object
-      const durationHours = eventsData[i][8];
-      const isSpotlightGame = eventsData[i][10];
-      const theme = eventsData[i][11];
+    // Get current time
+    const now = new Date();
 
-      Logger.log(`Processing Event ID: ${eventId}, Activity Code: ${activityCode}`);
-      Logger.log(`  Raw Start_Time from Events sheet (Date object): ${startTimeRaw}`);
+    Logger.log(`Updating event active status at: ${Utilities.formatDate(now, 'America/Chicago', 'yyyy-MM-dd HH:mm:ss')} Central`);
 
-      // Check if startTimeRaw is a valid Date object
-      if (!(startTimeRaw instanceof Date) || isNaN(startTimeRaw.getTime())) {
-        Logger.log(`  Skipping event ${eventId}: Start_Time is not a valid Date object.`);
-        continue; // Skip to next event
+    // Column indices (0-indexed)
+    const COL_EVENT_ID = 0;
+    const COL_START_TIME = 7;
+    const COL_DURATION_HOURS = 8;
+    const COL_IS_ACTIVE = 12;
+
+    let updatesCount = 0;
+
+    // Process each event (skip header row)
+    for (let i = 1; i < data.length; i++) {
+      const eventId = data[i][COL_EVENT_ID];
+      const startTimeRaw = data[i][COL_START_TIME];
+      const durationHours = data[i][COL_DURATION_HOURS];
+
+      // Validate data
+      if (!eventId || !startTimeRaw || !durationHours) {
+        Logger.log(`  Skipping row ${i + 1}: Missing required data`);
+        continue;
       }
 
-      // Format Start_Time for Config_Event_Codes to include time and use Central Time Zone
-      const formattedStartTime = Utilities.formatDate(startTimeRaw, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+      try {
+        Logger.log(`  Processing event ${eventId}:`);
+        Logger.log(`    startTimeRaw: "${startTimeRaw}" (type: ${typeof startTimeRaw})`);
 
-      // Look up activity details
-      if (activitiesMap[activityCode]) {
-        const activity = activitiesMap[activityCode];
-        try {
-          configSheet.appendRow([
-            eventId,
-            activity.activityName,
-            activity.locationName,
-            activity.eventLat,
-            activity.eventLon,
-            formattedStartTime, // Use the newly formatted start time
-            durationHours,
-            activity.season
-          ]);
-          Logger.log(`  Successfully appended event ${eventId} to Config_Event_Codes.`);
-        } catch (appendError) {
-          Logger.log(`  Error appending event ${eventId} to Config_Event_Codes: ${appendError.message}`);
+        // Parse start time
+        let eventStartTime;
+        if (startTimeRaw instanceof Date && !isNaN(startTimeRaw.getTime())) {
+          eventStartTime = startTimeRaw;
+          Logger.log(`    Parsed as Date object: ${eventStartTime}`);
+        } else if (typeof startTimeRaw === 'string') {
+          // Handle string formats
+          if (startTimeRaw.includes('T')) {
+            const normalized = startTimeRaw.substring(0, 16).replace('T', ' ');
+            eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+            Logger.log(`    Parsed ISO format: ${eventStartTime}`);
+          } else {
+            eventStartTime = Utilities.parseDate(startTimeRaw, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+            Logger.log(`    Parsed space format: ${eventStartTime}`);
+          }
+        } else {
+          Logger.log(`  Skipping event ${eventId}: Invalid start time format`);
+          continue;
         }
-      } else {
-        Logger.log(`  Activity ${activityCode} NOT found in map. Skipping event ${eventId}.`);
+
+        // Calculate end time
+        const eventEndTime = new Date(eventStartTime.getTime() + durationHours * 60 * 60 * 1000);
+        Logger.log(`    Event window: ${Utilities.formatDate(eventStartTime, 'America/Chicago', 'HH:mm')} - ${Utilities.formatDate(eventEndTime, 'America/Chicago', 'HH:mm')}`);
+
+        // Determine if event is active
+        const isActive = (now >= eventStartTime && now <= eventEndTime);
+        Logger.log(`    now >= start? ${now >= eventStartTime}, now <= end? ${now <= eventEndTime}, isActive = ${isActive}`);
+
+        // Update the Is_Active column (only if value changed to reduce API calls)
+        const currentIsActive = data[i][COL_IS_ACTIVE];
+        Logger.log(`    currentIsActive: ${currentIsActive}, calculated: ${isActive}`);
+        if (currentIsActive !== isActive) {
+          eventsSheet.getRange(i + 1, COL_IS_ACTIVE + 1).setValue(isActive);
+          updatesCount++;
+          Logger.log(`    ✓ Updated ${eventId}: Is_Active = ${isActive}`);
+        } else {
+          Logger.log(`    (no update needed - already ${currentIsActive})`);
+        }
+      } catch (e) {
+        Logger.log(`  Error processing event ${eventId}: ${e.message}`);
       }
     }
 
-    // Clear the active_events_data cache to force reload with new data
+    // Clear the active events cache to force reload
     CacheService.getScriptCache().remove('active_events_data');
 
-    // Logger.log('Config_Event_Codes refreshed successfully');
+    Logger.log(`Active status update complete. ${updatesCount} events updated.`);
   } catch (e) {
-    // Logger.log('Error refreshing Config_Event_Codes: ' + e.message);
+    Logger.log(`Error in updateActiveEventStatus: ${e.message}`);
   }
 }
 
@@ -2357,11 +2398,9 @@ function setActiveSeason(season) {
     for (let i = 1; i < seasonData.length; i++) {
       if (seasonData[i][0] === 'Active_Season') {
         seasonSheet.getRange(i + 1, 2).setValue(season);
-        // Clear cache to force reload
+        // Clear cache to force reload with new active season
         CacheService.getScriptCache().remove('active_season');
         CacheService.getScriptCache().remove('active_events_data');
-        // Refresh the event codes
-        refreshEventCodes();
         return { status: 'success', message: 'Active season updated to ' + season };
       }
     }
@@ -2467,12 +2506,9 @@ function updateActivitySeasonAssignments(season, activityCodes) {
       // If an activity isn't in the list for the selected season, it keeps its old season
     }
 
-    // Clear caches
+    // Clear caches to force reload with updated season assignments
     CacheService.getScriptCache().remove('active_season');
     CacheService.getScriptCache().remove('active_events_data');
-
-    // Refresh the event codes cache
-    refreshEventCodes();
 
     return { status: 'success', message: 'Season assignments updated' };
   } catch (e) {
@@ -2526,12 +2562,9 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
       lon
     ]);
 
-    // Clear caches to force refresh
+    // Clear caches to force refresh (though new activity won't affect existing events)
     CacheService.getScriptCache().remove('active_season');
     CacheService.getScriptCache().remove('active_events_data');
-
-    // Refresh event codes
-    refreshEventCodes();
 
     return { status: 'success', message: 'Activity created: ' + activityName, activityCode: activityCode };
   } catch (e) {
@@ -2694,22 +2727,52 @@ function getActiveEvents(userLat = null, userLon = null) {
     if (!eventData) {
       // Cache miss: read from Sheets
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getSheetByName('Config_Event_Codes');
-      if (!sheet) return [];
 
-      const data = sheet.getDataRange().getValues();
+      // Get Events sheet
+      const eventsSheet = ss.getSheetByName('Events');
+      if (!eventsSheet) return [];
+      const eventsData = eventsSheet.getDataRange().getValues();
+
+      // Get Activities_Data for joining
+      const activitiesSheet = ss.getSheetByName('Activities_Data');
+      if (!activitiesSheet) return [];
+      const activitiesData = activitiesSheet.getDataRange().getValues();
+
+      // Build activities lookup map
+      const activitiesMap = {};
+      for (let i = 1; i < activitiesData.length; i++) {
+        const code = String(activitiesData[i][0]).trim();
+        activitiesMap[code] = {
+          activityName: activitiesData[i][1],
+          season: activitiesData[i][2]
+        };
+      }
 
       // Get active season for filtering
       const activeSeason = getActiveSeason();
 
+      // Column indices for Events sheet
+      const COL_EVENT_ID = 0;
+      const COL_ACTIVITY_CODE = 1;
+      const COL_EVENT_NAME = 2;
+      const COL_LOCATION_NAME = 4;
+      const COL_EVENT_LAT = 5;
+      const COL_EVENT_LON = 6;
+      const COL_START_TIME = 7;
+      const COL_DURATION_HOURS = 8;
+      const COL_IS_ACTIVE = 12;
+
       // Transform and cache the event data
       eventData = [];
-      for (let i = 1; i < data.length; i++) {
-        // Filter by active season (column G is Season)
-        const eventSeason = data[i][7];
-        if (eventSeason === activeSeason) {
+      for (let i = 1; i < eventsData.length; i++) {
+        const isActive = eventsData[i][COL_IS_ACTIVE];
+        const activityCode = String(eventsData[i][COL_ACTIVITY_CODE]).trim();
+
+        // Only include active events from the active season
+        const activity = activitiesMap[activityCode];
+        if (isActive === true && activity && activity.season === activeSeason) {
           // Normalize startTime to prevent UTC conversion when caching
-          let startTime = data[i][5];
+          let startTime = eventsData[i][COL_START_TIME];
           if (startTime instanceof Date) {
             // Convert Date object to Central Time string to avoid UTC conversion in JSON.stringify
             startTime = Utilities.formatDate(startTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
@@ -2719,110 +2782,83 @@ function getActiveEvents(userLat = null, userLon = null) {
           }
 
           eventData.push({
-            eventCode: data[i][0],
-            eventName: data[i][1],
-            locationName: data[i][2],
-            eventLat: data[i][3],
-            eventLon: data[i][4],
+            eventCode: eventsData[i][COL_EVENT_ID],
+            eventName: eventsData[i][COL_EVENT_NAME] || activity.activityName,
+            locationName: eventsData[i][COL_LOCATION_NAME],
+            eventLat: eventsData[i][COL_EVENT_LAT],
+            eventLon: eventsData[i][COL_EVENT_LON],
             startTime: startTime,
-            durationHours: data[i][6],
-            season: data[i][7]
+            durationHours: eventsData[i][COL_DURATION_HOURS],
+            season: activity.season
           });
         }
       }
 
-      // Cache for 1 hour (3600 seconds) since event times change
-      cache.put(cacheKey, JSON.stringify(eventData), 3600);
+      // Cache for 10 minutes (600 seconds) - shorter since Is_Active is updated by trigger
+      cache.put(cacheKey, JSON.stringify(eventData), 600);
     } else {
       eventData = JSON.parse(eventData);
     }
-
-    // Get current time and convert to Central Time Zone for consistent comparison
-    const now = new Date();
-    const nowCentralFormatted = Utilities.formatDate(now, 'America/Chicago', "yyyy-MM-dd'T'HH:mm:ss");
-    const nowCentral = Utilities.parseDate(nowCentralFormatted, 'America/Chicago', "yyyy-MM-dd'T'HH:mm:ss");
-    Logger.log(`Current time (Central, parsed): ${nowCentral}`);
 
     const activeEvents = [];
 
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
-      Logger.log(`Processing event: ${item.eventName} (${item.eventCode})`);
-      Logger.log(`  Raw item.startTime: ${item.startTime} (type: ${typeof item.startTime})`);
-      Logger.log(`  item.durationHours: ${item.durationHours}`);
 
-      // Handle different input types and formats
+      // Parse start time for calculating end time
       let eventStartTime;
       let eventEndTime;
 
       try {
         if (item.startTime instanceof Date) {
-          // Already a Date object - use directly
           eventStartTime = item.startTime;
-          Logger.log(`  startTime is Date object: ${eventStartTime}`);
         } else if (typeof item.startTime === 'string') {
           const str = item.startTime;
-          Logger.log(`  startTime is string: ${str}`);
 
           // Handle UTC ISO format (from JSON.stringify): "2025-11-06T01:25:00.000Z"
           if (str.endsWith('Z') || str.includes('+') || /\-\d{2}:\d{2}$/.test(str)) {
-            // Parse as UTC/ISO, then convert to Central
             const utcDate = new Date(str);
-            // Convert to Central Time string
             const centralStr = Utilities.formatDate(utcDate, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-            Logger.log(`  Detected UTC ISO format. Converted to Central: ${centralStr}`);
             eventStartTime = Utilities.parseDate(centralStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
           }
           // Handle local ISO format without timezone: "2025-11-06T18:30"
           else if (str.includes('T')) {
-            // Extract date/time parts and parse as Central
             const normalized = str.substring(0, 16).replace('T', ' ');
-            Logger.log(`  Detected local ISO format. Normalized: ${normalized}`);
             eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
           }
           // Handle space-separated format: "2025-11-06 18:30"
           else {
-            Logger.log(`  Detected space-separated format, parsing as Central`);
             eventStartTime = Utilities.parseDate(str, 'America/Chicago', 'yyyy-MM-dd HH:mm');
           }
         } else {
-          // Fallback for unexpected types
-          Logger.log(`  Unexpected type: ${typeof item.startTime}, attempting conversion`);
           eventStartTime = new Date(String(item.startTime));
         }
         eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
-        Logger.log(`  Event Start Time (Central, parsed): ${eventStartTime}`);
-        Logger.log(`  Event End Time (Central, calculated): ${eventEndTime}`);
+        Logger.log(`Active event found: ${item.eventName} (${item.eventCode})`);
       } catch (e) {
-        // Log parsing failure for debugging
-        Logger.log(`  ERROR: Failed to parse date for event ${item.eventCode}: ${e.message}`);
-        Logger.log(`  Skipping this event due to date parsing error.`);
-        continue; // Skip this event and move to next
+        Logger.log(`ERROR: Failed to parse date for event ${item.eventCode}: ${e.message}`);
+        continue;
       }
 
-      // Check if current time is within the event window
-      if (nowCentral >= eventStartTime && nowCentral <= eventEndTime) {
-        Logger.log(`  Event ${item.eventName} is ACTIVE.`);
-        const event = {
-          eventCode: item.eventCode,
-          eventName: item.eventName,
-          locationName: item.locationName,
-          eventLat: item.eventLat,
-          eventLon: item.eventLon,
-          startTime: eventStartTime,
-          endTime: eventEndTime,
-          durationHours: item.durationHours,
-          distance: null
-        };
+      const event = {
+        eventCode: item.eventCode,
+        eventName: item.eventName,
+        locationName: item.locationName,
+        eventLat: item.eventLat,
+        eventLon: item.eventLon,
+        startTime: eventStartTime,
+        endTime: eventEndTime,
+        durationHours: item.durationHours,
+        distance: null
+      };
 
-        // Calculate distance if user location provided
-        if (userLat !== null && userLon !== null) {
-          event.distance = calculateDistance(userLat, userLon, item.eventLat, item.eventLon);
-        }
-
-        activeEvents.push(event);
+      // Calculate distance if user location provided
+      if (userLat !== null && userLon !== null) {
+        event.distance = calculateDistance(userLat, userLon, item.eventLat, item.eventLon);
       }
+
+      activeEvents.push(event);
     }
 
     // Sort by distance if user location was provided
@@ -2830,9 +2866,10 @@ function getActiveEvents(userLat = null, userLon = null) {
       activeEvents.sort((a, b) => a.distance - b.distance);
     }
 
+    Logger.log(`getActiveEvents returning ${activeEvents.length} active events`);
     return activeEvents;
   } catch (e) {
-    // Logger.log('Error in getActiveEvents: ' + e.message);
+    Logger.log('Error in getActiveEvents: ' + e.message);
     return [];
   }
 }
@@ -3102,7 +3139,7 @@ function addEvent(eventData) {
     const date = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd');
     const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
 
-    // Add new row: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
+    // Add new row: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active
     sheet.appendRow([
       newEventId,                                   // A: Event_ID
       eventData.activityCode,                       // B: Activity_Code
@@ -3115,10 +3152,12 @@ function addEvent(eventData) {
       2,                                            // I: Duration_Hours (hardcoded to 2)
       true,                                         // J: Is_Home_Game (hardcoded to true)
       eventData.isSpotlightGame || false,           // K: Is_Spotlight_Game
-      eventData.theme || ''                         // L: Theme
+      eventData.theme || '',                        // L: Theme
+      false                                         // M: Is_Active (starts as false, will be updated by trigger)
     ]);
 
-    refreshEventCodes(); // Refresh the cached event codes
+    // Clear cache so new event appears after trigger runs
+    CacheService.getScriptCache().remove('active_events_data');
 
     return { status: 'success', message: 'Event added successfully' };
   } catch (e) {
@@ -3171,21 +3210,25 @@ function updateEvent(eventId, eventData) {
         const date = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd');
         const startTime = Utilities.formatDate(dateTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
 
-        // Update columns 2-12 (Activity_Code through Theme)
-        sheet.getRange(i + 1, 2, 1, 11).setValues([[
+        // Update columns 2-13 (Activity_Code through Is_Active)
+        sheet.getRange(i + 1, 2, 1, 12).setValues([[
           eventData.activityCode,                       // B: Activity_Code
-          eventData.eventName,
-          date,
-          activityDetails.locationName,
-          activityDetails.eventLat,
-          activityDetails.eventLon,
-          startTime,
+          eventData.eventName,                          // C: Event_Name
+          date,                                         // D: Date
+          activityDetails.locationName,                 // E: Location_Name
+          activityDetails.eventLat,                     // F: Event_Lat
+          activityDetails.eventLon,                     // G: Event_Lon
+          startTime,                                    // H: Start_Time
           2,                                            // I: Duration_Hours (hardcoded to 2)
           true,                                         // J: Is_Home_Game (hardcoded to true)
-          eventData.isSpotlightGame || false,
-          eventData.theme || ''
+          eventData.isSpotlightGame || false,           // K: Is_Spotlight_Game
+          eventData.theme || '',                        // L: Theme
+          false                                         // M: Is_Active (reset to false, will be updated by trigger)
         ]]);
-        refreshEventCodes(); // Refresh the cached event codes
+
+        // Clear cache so updated event reflects after trigger runs
+        CacheService.getScriptCache().remove('active_events_data');
+
         return { status: 'success', message: 'Event updated successfully' };
       }
     }
@@ -3216,7 +3259,10 @@ function deleteEvent(eventId) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(eventId).trim()) {
         sheet.deleteRow(i + 1);
-        refreshEventCodes(); // Refresh the cached event codes
+
+        // Clear cache so deleted event is removed from active events
+        CacheService.getScriptCache().remove('active_events_data');
+
         return { status: 'success', message: 'Event deleted successfully' };
       }
     }

@@ -852,41 +852,68 @@
       events.forEach((event) => {
         const card = document.createElement('div');
         card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700';
+
+        // Create edit button with data attributes instead of inline onclick
+        const editButton = document.createElement('button');
+        editButton.className = 'px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600';
+        editButton.textContent = 'Edit';
+        editButton.dataset.eventId = event.eventId;
+        editButton.dataset.activityCode = event.activityCode;
+        editButton.dataset.eventName = event.eventName;
+        editButton.dataset.dateTime = event.dateTime;
+        editButton.dataset.isSpotlightGame = event.isSpotlightGame;
+        editButton.dataset.theme = event.theme || '';
+        editButton.addEventListener('click', () => {
+          editEvent(
+            editButton.dataset.eventId,
+            editButton.dataset.activityCode,
+            editButton.dataset.eventName,
+            editButton.dataset.dateTime,
+            editButton.dataset.isSpotlightGame === 'true',
+            editButton.dataset.theme
+          );
+        });
+
+        // Create delete button with data attributes instead of inline onclick
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600';
+        deleteButton.textContent = 'Delete';
+        deleteButton.dataset.eventId = event.eventId;
+        deleteButton.dataset.eventName = event.eventName;
+        deleteButton.addEventListener('click', () => {
+          deleteEventConfirm(deleteButton.dataset.eventId, deleteButton.dataset.eventName);
+        });
+
         card.innerHTML = `
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1">
               <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${event.dateTime.split('T')[1] || 'N/A'}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
               ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
             </div>
             <div class="flex gap-2">
-              <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="editEvent('${event.eventId.replace(/'/g, "\'")}', '${event.activityCode.replace(/'/g, "\'")}', '${event.eventName.replace(/'/g, "\'")}', '${event.dateTime}', ${event.isSpotlightGame}, '${event.theme.replace(/'/g, "\'")}')">
-                Edit
-              </button>
-              <button class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600" onclick="deleteEventConfirm('${event.eventId.replace(/'/g, "\\'")}', '${event.eventName.replace(/'/g, "\\'")}')">
-                Delete
-              </button>
             </div>
           </div>
         `;
+
+        const buttonContainer = card.querySelector('.flex.gap-2');
+        buttonContainer.appendChild(editButton);
+        buttonContainer.appendChild(deleteButton);
+
         list.appendChild(card);
       });
     }
 
-    function editEvent(eventId, eventName, sportArt, date, location, startTime, theme, isHomeGame, isSpotlightGame, lat, lon) {
-      document.getElementById('event-id').value = eventId;
+    function editEvent(eventId, activityCode, eventName, dateTime, isSpotlightGame, theme) {
+      document.getElementById('event-id-display').textContent = eventId;
+      document.getElementById('event-activity-code').value = activityCode;
       document.getElementById('event-name').value = eventName;
-      document.getElementById('event-sport').value = sportArt;
-      document.getElementById('event-date').value = date;
-      document.getElementById('event-location').value = location;
-      document.getElementById('event-start').value = startTime;
-      document.getElementById('event-theme').value = theme;
-      document.getElementById('event-home').checked = isHomeGame;
-      document.getElementById('event-spotlight').checked = isSpotlightGame;
-      document.getElementById('event-lat').value = lat || '';
-      document.getElementById('event-lon').value = lon || '';
+      document.getElementById('event-datetime').value = dateTime;
+      document.getElementById('event-spotlight').checked = isSpotlightGame || false;
+      document.getElementById('event-theme').value = theme || '';
       document.querySelector('#event-form button[type="submit"]').textContent = 'Update Event';
       editingEventCode = eventId;
 
