@@ -39,7 +39,7 @@
       </div>
 
       <!-- Card Stack Container -->
-      <div id="swipe-card" class="w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden touch-none select-none relative" style="max-height: 70vh;">
+      <div id="swipe-card" class="hidden w-full max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden touch-none select-none relative" style="max-height: 70vh;">
         <!-- Image Section with Double-Tap Indicator -->
         <div class="relative bg-gray-200">
           <img id="card-photo" src="" alt="Submission photo" class="w-full h-64 object-cover">
@@ -115,11 +115,11 @@
   <!-- ===================================================================== -->
   <!-- TAB 2: MANAGE EVENTS -->
   <!-- ===================================================================== -->
-  <div id="tab-events" class="flex-1 flex flex-col hidden">
+  <div id="tab-events" class="flex-1 flex flex-col hidden overflow-y-auto">
     <!-- Event Form -->
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-primary mb-4">
-      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">Add/Edit Event</h2>
-      <form id="event-form" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+    <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-primary mb-4 flex-shrink-0">
+      <h2 class="text-xl font-bold text-primary dark:text-blue-300 mb-3">Add/Edit Event</h2>
+      <form id="event-form" class="space-y-3">
         <!-- Event ID (Display Only) -->
         <div class="flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-white">
           <label class="text-sm text-gray-600 dark:text-gray-400">Event ID:</label>
@@ -161,9 +161,9 @@
     </div>
 
     <!-- Events List -->
-    <div class="flex-1 flex flex-col min-h-0">
-      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3 flex-shrink-0">Active Events</h3>
-      <div id="events-list" class="space-y-2 overflow-y-auto flex-1">
+    <div class="flex-shrink-0 pb-20">
+      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">Active Events</h3>
+      <div id="events-list" class="space-y-2">
         <div class="text-center py-6 text-gray-500">Loading events...</div>
       </div>
     </div>
@@ -172,7 +172,7 @@
   <!-- ===================================================================== -->
   <!-- TAB 3: SEASON MANAGEMENT -->
   <!-- ===================================================================== -->
-  <div id="tab-season" class="flex-1 flex flex-col hidden overflow-y-auto">
+  <div id="tab-season" class="flex-1 flex flex-col hidden overflow-y-auto pb-20">
     <!-- Season Header -->
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-purple-600 mb-4">
       <h2 class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">Season Management</h2>
@@ -608,11 +608,14 @@
       // Reset card animation and feedback overlay
       const card = document.getElementById('swipe-card');
       const feedback = document.getElementById('swipe-feedback');
-      card.classList.remove('animate-slide-right', 'animate-slide-left');
+      card.classList.remove('animate-slide-right', 'animate-slide-left', 'hidden');
       card.style.transform = '';
       card.classList.add('animate-fade-in');
       feedback.style.opacity = '0';
       feedback.textContent = '';
+
+      // Hide empty state in case it was showing
+      document.getElementById('empty-state').classList.add('hidden');
 
       // Load image from cache (pre-loaded) or fetch if needed
       if (submission.photoId) {
