@@ -511,6 +511,11 @@ function saveUserSettings(settings) {
  * Fetches real data from Student_Profiles, Config_Badges, and Submissions_Verified sheets.
  * @return {Object} Profile data including points, rank, badges, leaderboard, and history
  */
+function toSnakeCase(str) {
+  if (!str) return '';
+  return str.toLowerCase().replace(/\s+/g, '_');
+}
+
 function getProfileData() {
   const email = Session.getActiveUser().getEmail();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -628,10 +633,11 @@ function getProfileData() {
     const earnedBadges = userProfile.badgesEarned.map(badgeId => {
       const badge = badgeMap[badgeId];
       if (!badge) return null;
+      const imageName = toSnakeCase(badge.name) + '.svg';
       return {
         name: badge.name,
         description: badge.description,
-        imageUrl: badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg', // Use Firebase-hosted badge image
+        imageUrl: 'https://the-spartan-cup.web.app/badges/' + imageName, // Use Firebase-hosted badge image
         icon: 'military_tech', // Fallback icon if image fails to load
         color: 'bg-gradient-to-br from-indigo-500 to-purple-400' // Fallback color
       };
