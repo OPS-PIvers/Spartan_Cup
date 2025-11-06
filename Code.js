@@ -1318,7 +1318,7 @@ function openPointsConfigDialog() {
     html += '</script>';
 
     const ui = SpreadsheetApp.getUi();
-    const dialog = ui.createHtmlOutput(html).setWidth(400).setHeight(500);
+    const dialog = HtmlService.createHtmlOutput(html).setWidth(400).setHeight(500);
     ui.showModalDialog(dialog, 'Points Configuration');
 
   } catch (e) {
