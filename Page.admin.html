@@ -840,6 +840,16 @@
       }
     }
 
+    function format24To12Hour(timeStr) {
+      // Convert "18:30" to "6:30 PM"
+      if (!timeStr || !timeStr.includes(':')) return timeStr;
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12; // Convert 0 to 12, keep 1-12 as is
+      return `${displayHour}:${minutes} ${ampm}`;
+    }
+
     function populateEventsList(events) {
       const list = document.getElementById('events-list');
       list.innerHTML = '';
@@ -884,13 +894,16 @@
           deleteEventConfirm(deleteButton.dataset.eventId, deleteButton.dataset.eventName);
         });
 
+        const timeStr = event.dateTime.split('T')[1] || 'N/A';
+        const displayTime = format24To12Hour(timeStr);
+
         card.innerHTML = `
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1">
               <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${event.dateTime.split('T')[1] || 'N/A'}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${displayTime}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
               ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
             </div>
