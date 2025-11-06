@@ -2717,15 +2717,41 @@ function getActiveEvents(userLat = null, userLon = null) {
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
       Logger.log(`Processing event: ${item.eventName} (${item.eventCode})`);
-      Logger.log(`  Raw item.startTime string: ${item.startTime}`);
+      Logger.log(`  Raw item.startTime: ${item.startTime} (type: ${typeof item.startTime})`);
       Logger.log(`  item.durationHours: ${item.durationHours}`);
-      
-      // Parse item.startTime string (e.g., "2025-11-05 16:42") as a Date object in Central Time
-      const eventStartTime = Utilities.parseDate(item.startTime, 'America/Chicago', "yyyy-MM-dd HH:mm");
-      const eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
-      Logger.log(`  Event Start Time (Central, parsed): ${eventStartTime}`);
-      Logger.log(`  Event End Time (Central, calculated): ${eventEndTime}`);
+      // Handle different input types: Date objects vs strings
+      // Date.toString() produces locale-dependent strings, so use ISO format instead
+      let startTimeStr;
+      if (typeof item.startTime === 'string') {
+        startTimeStr = item.startTime;
+      } else if (item.startTime instanceof Date) {
+        // Convert Date to ISO string, then extract just the date and time parts
+        const isoStr = item.startTime.toISOString();
+        // Convert "2025-11-05T16:42:00.000Z" to "2025-11-05 16:42"
+        startTimeStr = isoStr.substring(0, 16).replace('T', ' ');
+      } else {
+        startTimeStr = String(item.startTime);
+      }
+
+      Logger.log(`  Converted startTimeStr: ${startTimeStr}`);
+
+      // Parse item.startTime string (e.g., "2025-11-05 16:42") as a Date object in Central Time
+      let eventStartTime;
+      let eventEndTime;
+
+      try {
+        eventStartTime = Utilities.parseDate(startTimeStr, 'America/Chicago', "yyyy-MM-dd HH:mm");
+        eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
+
+        Logger.log(`  Event Start Time (Central, parsed): ${eventStartTime}`);
+        Logger.log(`  Event End Time (Central, calculated): ${eventEndTime}`);
+      } catch (e) {
+        // Log parsing failure for debugging
+        Logger.log(`  ERROR: Failed to parse date for event ${item.eventCode}: ${e.message}`);
+        Logger.log(`  Skipping this event due to date parsing error.`);
+        continue; // Skip this event and move to next
+      }
 
       // Check if current time is within the event window
       if (nowCentral >= eventStartTime && nowCentral <= eventEndTime) {
