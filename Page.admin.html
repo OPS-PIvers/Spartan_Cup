@@ -120,41 +120,24 @@
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-primary mb-4">
       <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-4">Add/Edit Event</h2>
       <form id="event-form" class="space-y-3 max-h-96 overflow-y-auto pr-2">
-        <!-- Event ID -->
-        <input id="event-id" type="text" placeholder="Event ID (e.g., GBB-01)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+        <!-- Event ID (Display Only) -->
+        <div class="flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-white">
+          <label class="text-sm text-gray-600 dark:text-gray-400">Event ID:</label>
+          <span id="event-id-display" class="font-semibold">Auto-generated</span>
+        </div>
+
+        <!-- Sport/Activity -->
+        <select id="event-activity-code" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+          <option value="">Select Sport/Activity</option>
+        </select>
 
         <!-- Event Name -->
         <input id="event-name" type="text" placeholder="Event Name (e.g., vs. Edina)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
 
-        <!-- Sport/Art -->
-        <input id="event-sport" type="text" placeholder="Sport/Art (e.g., Girls Basketball)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+        <!-- Date & Time -->
+        <input id="event-datetime" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
 
-        <!-- Date -->
-        <input id="event-date" type="date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
 
-        <!-- Location -->
-        <input id="event-location" type="text" placeholder="Location Name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
-
-        <!-- Start Time -->
-        <input id="event-start" type="datetime-local" placeholder="Start Time" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
-
-        <!-- Duration (hidden, always 2 hours) -->
-        <input id="event-duration" type="hidden" value="2">
-
-        <!-- Latitude and Longitude -->
-        <div class="grid grid-cols-2 gap-2">
-          <input id="event-lat" type="number" placeholder="Latitude" step="0.0001" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
-          <input id="event-lon" type="number" placeholder="Longitude" step="0.0001" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
-        </div>
-        <button type="button" id="coord-helper-btn" class="w-full px-3 py-2 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600">
-          Get My Location
-        </button>
-
-        <!-- Home Game -->
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input id="event-home" type="checkbox" class="w-4 h-4">
-          <span class="text-sm text-[#111318] dark:text-white">Home Game</span>
-        </label>
 
         <!-- Spotlight Game -->
         <label class="flex items-center gap-2 cursor-pointer">
@@ -758,90 +741,64 @@
       clearEventForm();
     });
 
-    // Coordinate helper button
-    document.getElementById('coord-helper-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude.toFixed(6);
-            const lon = position.coords.longitude.toFixed(6);
-            document.getElementById('event-lat').value = lat;
-            document.getElementById('event-lon').value = lon;
-            alert('Location set! Latitude: ' + lat + ', Longitude: ' + lon);
-          },
-          (error) => {
-            alert('Could not get your location. Please enter coordinates manually.\n\nError: ' + error.message);
-          }
-        );
-      } else {
-        alert('Geolocation is not supported by your browser. Please enter coordinates manually.');
-      }
-    });
+
 
     function saveEvent() {
-      const eventId = document.getElementById('event-id').value.trim();
+      document.getElementById('loading-modal').classList.remove('hidden'); // Show loading spinner
+
+      const activityCode = document.getElementById('event-activity-code').value.trim();
       const eventName = document.getElementById('event-name').value.trim();
-      const sportArt = document.getElementById('event-sport').value.trim();
-      const date = document.getElementById('event-date').value;
-      const location = document.getElementById('event-location').value.trim();
-      const startTime = document.getElementById('event-start').value;
-      const lat = parseFloat(document.getElementById('event-lat').value) || 0;
-      const lon = parseFloat(document.getElementById('event-lon').value) || 0;
-      const isHomeGame = document.getElementById('event-home').checked;
+      const dateTime = document.getElementById('event-datetime').value;
       const isSpotlightGame = document.getElementById('event-spotlight').checked;
       const theme = document.getElementById('event-theme').value.trim();
 
-      if (!eventId) {
-        alert('Event ID is required (e.g., GBB-01)');
+      if (!activityCode) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Please select a Sport/Activity');
         return;
       }
       if (!eventName) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
         alert('Event name is required');
         return;
       }
-      if (!date) {
-        alert('Date is required');
+      if (!dateTime) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Date and Time are required');
         return;
       }
 
       const eventData = {
-        eventId,
+        activityCode,
         eventName,
-        sportArt,
-        date,
-        location,
-        startTime,
-        lat,
-        lon,
-        isHomeGame,
+        dateTime,
         isSpotlightGame,
-        theme,
-        duration: 2  // Always 2 hours
+        theme
+      };
+
+      const successHandler = (response) => {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        if (response.status === 'success') {
+          alert(response.message);
+          clearEventForm();
+          loadEventsList(); // Refresh event list
+          loadActivityDropdown(); // Refresh activity dropdown
+        } else {
+          alert('Error: ' + response.message);
+        }
+      };
+
+      const failureHandler = (error) => {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Error communicating with server: ' + error.message);
       };
 
       if (editingEventCode) {
         // Update existing event
-        google.script.run.withSuccessHandler((response) => {
-          if (response.status === 'success') {
-            alert(response.message);
-            clearEventForm();
-            loadEventsList();
-          } else {
-            alert('Error: ' + response.message);
-          }
-        }).updateEvent(editingEventCode, eventData);
+        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateEvent(editingEventCode, eventData);
       } else {
         // Add new event
-        google.script.run.withSuccessHandler((response) => {
-          if (response.status === 'success') {
-            alert(response.message);
-            clearEventForm();
-            loadEventsList();
-          } else {
-            alert('Error: ' + response.message);
-          }
-        }).addEvent(eventData);
+        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).addEvent(eventData);
       }
     }
 
@@ -852,6 +809,7 @@
     }
 
     function loadEventsList() {
+      loadActivityDropdown(); // Load activities for the dropdown
       google.script.run.withSuccessHandler((response) => {
         if (response.status === 'success') {
           populateEventsList(response.events);
@@ -859,6 +817,27 @@
           document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + response.message + '</p>';
         }
       }).getEventsList();
+    }
+
+    function loadActivityDropdown() {
+      google.script.run.withSuccessHandler(populateActivityDropdown).getActivitiesForSeason();
+    }
+
+    function populateActivityDropdown(response) {
+      const select = document.getElementById('event-activity-code');
+      select.innerHTML = '<option value="">Select Sport/Activity</option>'; // Reset and add default
+
+      if (response.status === 'success' && response.activities) {
+        response.activities.forEach(activity => {
+          const option = document.createElement('option');
+          option.value = activity.activityCode;
+          option.textContent = activity.activityName;
+          select.appendChild(option);
+        });
+      } else {
+        console.error('Error loading activities:', response.message);
+        // Optionally, display an error message to the user
+      }
     }
 
     function populateEventsList(events) {
@@ -878,12 +857,12 @@
             <div class="flex-1">
               <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">${event.sportArt} • ${event.date}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
               ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
             </div>
             <div class="flex gap-2">
-              <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="editEvent('${event.eventId.replace(/'/g, "\\'")}', '${event.eventName.replace(/'/g, "\\'")}', '${event.sportArt.replace(/'/g, "\\'")}', '${event.date}', '${event.location.replace(/'/g, "\\'")}', '${event.startTime}', '${event.theme.replace(/'/g, "\\'")}', ${event.isHomeGame}, ${event.isSpotlightGame}, ${event.lat}, ${event.lon})">
+              <button class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="editEvent('${event.eventId.replace(/'/g, "\'")}', '${event.activityCode.replace(/'/g, "\'")}', '${event.eventName.replace(/'/g, "\'")}', '${event.dateTime}', ${event.isSpotlightGame}, '${event.theme.replace(/'/g, "\'")}')">
                 Edit
               </button>
               <button class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600" onclick="deleteEventConfirm('${event.eventId.replace(/'/g, "\\'")}', '${event.eventName.replace(/'/g, "\\'")}')">

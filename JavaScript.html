@@ -593,6 +593,34 @@
     let currentProfileData = null; // Store full profile data for leaderboard toggling
 
     // --- HELPER FUNCTIONS ---
+
+    /**
+     * Loads activities from the server and populates the activity dropdown in the admin form.
+     */
+    function loadActivityDropdown() {
+      google.script.run
+        .withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            const selectElement = document.getElementById('event-activity-code');
+            selectElement.innerHTML = '<option value="">Select Sport/Activity</option>'; // Clear existing options and add default
+            response.activities.forEach(activity => {
+              const option = document.createElement('option');
+              option.value = activity.activityCode;
+              option.textContent = activity.activityName;
+              selectElement.appendChild(option);
+            });
+          } else {
+            console.error('Error loading activities:', response.message);
+            alert('Error loading activities: ' + response.message);
+          }
+        })
+        .withFailureHandler((error) => {
+          console.error('Error calling getActivitiesForSeason:', error);
+          alert('Error communicating with server to load activities: ' + (error.message || error));
+        })
+        .getActivitiesForSeason();
+    }
+
     function updateLeaderboardDisplay(leaderboard) {
       const lbContainer = document.getElementById('leaderboard-container');
       // Build HTML as a single string instead of repeated += operations
