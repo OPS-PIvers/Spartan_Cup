@@ -587,6 +587,12 @@
         document.getElementById('admin-menu-modal').classList.add('hidden');
         navigateToPage('qr-code');
       });
+
+      // Success Modal
+      document.getElementById('success-continue-btn').addEventListener('click', () => {
+        document.getElementById('success-modal').classList.add('hidden');
+        navigateToPage('profile');
+      });
     });
 
     // --- SHARED STATE ---
@@ -921,10 +927,11 @@
 
     function handleSubmissionResponse(response) {
       if (response.status === "success") {
-        // Show success message and reload
-        alert(response.message);
-        // Navigate immediately without setTimeout to preserve user activation
-        window.location.href = APP_DATA.appUrl + '?page=profile';
+        // Show success message in styled modal (not alert, which breaks user activation)
+        document.getElementById('loading-modal').classList.add('hidden');
+        document.getElementById('success-message').innerText = response.message;
+        document.getElementById('success-modal').classList.remove('hidden');
+        // Navigation happens when user clicks "Continue" button (preserves user activation)
 
       } else if (response.status === "pending_conflict") {
         document.getElementById('loading-modal').classList.add('hidden');
