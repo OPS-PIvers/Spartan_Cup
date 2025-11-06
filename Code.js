@@ -911,6 +911,9 @@ function refreshEventCodes() {
       }
     }
 
+    // Clear the active_events_data cache to force reload with new data
+    CacheService.getScriptCache().remove('active_events_data');
+
     // Logger.log('Config_Event_Codes refreshed successfully');
   } catch (e) {
     // Logger.log('Error refreshing Config_Event_Codes: ' + e.message);
@@ -1096,7 +1099,9 @@ function clearAllCaches() {
       'admin_emails',
       'student_profiles_data',
       'event_map_cache',
-      'badge_map_cache'
+      'badge_map_cache',
+      'active_events_data',
+      'active_season'
     ]);
 
     SpreadsheetApp.getUi().alert(
@@ -2687,13 +2692,23 @@ function getActiveEvents(userLat = null, userLon = null) {
         // Filter by active season (column G is Season)
         const eventSeason = data[i][7];
         if (eventSeason === activeSeason) {
+          // Normalize startTime to prevent UTC conversion when caching
+          let startTime = data[i][5];
+          if (startTime instanceof Date) {
+            // Convert Date object to Central Time string to avoid UTC conversion in JSON.stringify
+            startTime = Utilities.formatDate(startTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+          } else if (typeof startTime === 'string') {
+            // Keep string as-is
+            startTime = startTime;
+          }
+
           eventData.push({
             eventCode: data[i][0],
             eventName: data[i][1],
             locationName: data[i][2],
             eventLat: data[i][3],
             eventLon: data[i][4],
-            startTime: data[i][5],
+            startTime: startTime,
             durationHours: data[i][6],
             season: data[i][7]
           });
@@ -2941,8 +2956,30 @@ function getEventsList() {
     for (let i = 1; i < data.length; i++) {
       if (data[i][0]) { // If Event_ID exists
         const eventDate = String(data[i][3] || '').trim();
-        const eventStartTime = String(data[i][7] || '').trim();
-        const dateTimeCombined = eventDate && eventStartTime ? `${eventDate}T${eventStartTime.split('T')[1] || '00:00'}` : '';
+        let eventStartTime = data[i][7];
+
+        // Handle different startTime formats
+        let dateTimeCombined = '';
+        if (eventStartTime) {
+          if (eventStartTime instanceof Date) {
+            // Date object from Sheets - format it as Central Time
+            dateTimeCombined = Utilities.formatDate(eventStartTime, 'America/Chicago', "yyyy-MM-dd'T'HH:mm");
+          } else {
+            // String format - normalize to "YYYY-MM-DDTHH:mm" for datetime-local input
+            const str = String(eventStartTime).trim();
+            if (str.includes('T')) {
+              // Already has 'T': "2025-11-06T18:30" or "2025-11-06T18:30:00"
+              dateTimeCombined = str.substring(0, 16); // Take just YYYY-MM-DDTHH:mm
+            } else if (str.includes(' ')) {
+              // Space-separated: "2025-11-06 18:30" → "2025-11-06T18:30"
+              dateTimeCombined = str.substring(0, 16).replace(' ', 'T');
+            } else {
+              // Unexpected format - try to combine with date
+              dateTimeCombined = eventDate ? `${eventDate}T${str}` : '';
+            }
+          }
+          eventStartTime = String(eventStartTime).trim();
+        }
 
         events.push({
           eventId: String(data[i][0]).trim(),
