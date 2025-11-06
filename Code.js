@@ -2720,28 +2720,45 @@ function getActiveEvents(userLat = null, userLon = null) {
       Logger.log(`  Raw item.startTime: ${item.startTime} (type: ${typeof item.startTime})`);
       Logger.log(`  item.durationHours: ${item.durationHours}`);
 
-      // Handle different input types: Date objects vs strings
-      // Date.toString() produces locale-dependent strings, so use ISO format instead
-      let startTimeStr;
-      if (typeof item.startTime === 'string') {
-        startTimeStr = item.startTime;
-      } else if (item.startTime instanceof Date) {
-        // Convert Date to ISO string, then extract just the date and time parts
-        const isoStr = item.startTime.toISOString();
-        // Convert "2025-11-05T16:42:00.000Z" to "2025-11-05 16:42"
-        startTimeStr = isoStr.substring(0, 16).replace('T', ' ');
-      } else {
-        startTimeStr = String(item.startTime);
-      }
-
-      Logger.log(`  Converted startTimeStr: ${startTimeStr}`);
-
-      // Parse item.startTime string (e.g., "2025-11-05 16:42") as a Date object in Central Time
+      // Handle different input types and formats
       let eventStartTime;
       let eventEndTime;
 
       try {
-        eventStartTime = Utilities.parseDate(startTimeStr, 'America/Chicago', "yyyy-MM-dd HH:mm");
+        if (item.startTime instanceof Date) {
+          // Already a Date object - use directly
+          eventStartTime = item.startTime;
+          Logger.log(`  startTime is Date object: ${eventStartTime}`);
+        } else if (typeof item.startTime === 'string') {
+          const str = item.startTime;
+          Logger.log(`  startTime is string: ${str}`);
+
+          // Handle UTC ISO format (from JSON.stringify): "2025-11-06T01:25:00.000Z"
+          if (str.endsWith('Z') || str.includes('+') || /\-\d{2}:\d{2}$/.test(str)) {
+            // Parse as UTC/ISO, then convert to Central
+            const utcDate = new Date(str);
+            // Convert to Central Time string
+            const centralStr = Utilities.formatDate(utcDate, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+            Logger.log(`  Detected UTC ISO format. Converted to Central: ${centralStr}`);
+            eventStartTime = Utilities.parseDate(centralStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+          }
+          // Handle local ISO format without timezone: "2025-11-06T18:30"
+          else if (str.includes('T')) {
+            // Extract date/time parts and parse as Central
+            const normalized = str.substring(0, 16).replace('T', ' ');
+            Logger.log(`  Detected local ISO format. Normalized: ${normalized}`);
+            eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+          }
+          // Handle space-separated format: "2025-11-06 18:30"
+          else {
+            Logger.log(`  Detected space-separated format, parsing as Central`);
+            eventStartTime = Utilities.parseDate(str, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+          }
+        } else {
+          // Fallback for unexpected types
+          Logger.log(`  Unexpected type: ${typeof item.startTime}, attempting conversion`);
+          eventStartTime = new Date(String(item.startTime));
+        }
         eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
         Logger.log(`  Event Start Time (Central, parsed): ${eventStartTime}`);
