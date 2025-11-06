@@ -1104,14 +1104,30 @@ function clearAllCaches() {
       'active_season'
     ]);
 
-    SpreadsheetApp.getUi().alert(
-      '✅ Cache Cleared!\n\n' +
-      'All cached data has been removed.\n' +
-      'Refresh the web app to see your spreadsheet changes.'
-    );
+    const message = '✅ Cache Cleared!\n\nAll cached data has been removed.\nRefresh the web app to see your spreadsheet changes.';
+
+    // Try to show UI alert (works when called from spreadsheet menu)
+    // If no UI available (running from Apps Script editor), just log
+    try {
+      SpreadsheetApp.getUi().alert(message);
+    } catch (uiError) {
+      // No UI available - running from Apps Script editor
+      Logger.log(message);
+      Logger.log('Successfully cleared all caches: admin_emails, student_profiles_data, event_map_cache, badge_map_cache, active_events_data, active_season');
+    }
+
+    return 'Success: All caches cleared';
   } catch (e) {
-    // Logger.log('Error clearing cache: ' + e.message);
-    SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
+    const errorMsg = '❌ Error clearing cache: ' + e.message;
+    Logger.log(errorMsg);
+
+    try {
+      SpreadsheetApp.getUi().alert(errorMsg);
+    } catch (uiError) {
+      // No UI available - error already logged
+    }
+
+    return 'Error: ' + e.message;
   }
 }
 
