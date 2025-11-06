@@ -736,9 +736,10 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('🏆 Spartan Cup Admin')
     .addItem('1. Run First-Time Setup (All Files)', 'firstTimeSetup')
-    .addItem('2. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
-    .addItem('3. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
-    .addItem('4. Clear Cache (Development)', 'clearAllCaches')
+    .addItem('2. Configure Points Values', 'openPointsConfigDialog')
+    .addItem('3. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
+    .addItem('4. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
+    .addItem('5. Clear Cache (Development)', 'clearAllCaches')
     .addToUi();
 }
 
@@ -828,7 +829,8 @@ function setupSpreadsheet() {
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
-    'Config_Admins': ['Admin_Email', 'Role']
+    'Config_Admins': ['Admin_Email', 'Role'],
+    'Config_Points': ['Setting_Name', 'Points_Value', 'Description']
   };
 
   Object.keys(sheets).forEach((sheetName, index) => {
@@ -855,6 +857,9 @@ function setupSpreadsheet() {
   ss.getSheetByName('Config_Active_Season').appendRow(['Active_Season', 'Winter']);
 
   ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+
+  // Initialize Config_Points with default values
+  initializeConfigPoints();
 
   // Note: Config_Event_Codes has been removed - Events tab is now the single source of truth
   // Is_Active status is updated by the updateActiveEventStatus() trigger
@@ -1076,15 +1081,18 @@ function generateSampleSubmissions() {
 
     const currentAdminEmail = Session.getActiveUser().getEmail();
 
+    // Get points configuration
+    const pointsConfig = getPointsConfig();
+
     for (let i = 0; i < 5; i++) {
       const student = sampleStudents[i];
       const hoursAgo = Math.floor(Math.random() * 72) + 1; // 1-72 hours ago
       const submittedTime = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
       const approvedTime = new Date(submittedTime.getTime() + Math.floor(Math.random() * 3600000)); // 0-1hr after submission
       const dressedForTheme = Math.random() > 0.3;
-      const basePoints = dressedForTheme ? 50 : 50;
-      const themeBonus = dressedForTheme ? 25 : 0;
-      const spotlightMultiplier = 1.5; // GBB-01 is a spotlight game
+      const basePoints = dressedForTheme ? pointsConfig['Base_Points_With_Theme'] : pointsConfig['Base_Points_Without_Theme'];
+      const themeBonus = dressedForTheme ? pointsConfig['Theme_Bonus'] : 0;
+      const spotlightMultiplier = pointsConfig['Spotlight_Game_Multiplier']; // GBB-01 is a spotlight game
       const totalPoints = Math.round((basePoints + themeBonus) * spotlightMultiplier);
 
       verifiedSheet.appendRow([
@@ -1169,6 +1177,180 @@ function clearAllCaches() {
     }
 
     return 'Error: ' + e.message;
+  }
+}
+
+/**
+ * Initializes the Config_Points sheet with default point values.
+ * Should be called during setup or when first-time setup is run.
+ */
+function initializeConfigPoints() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const pointsSheet = ss.getSheetByName('Config_Points');
+
+    // Only initialize if empty (no data rows beyond header)
+    const data = pointsSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      return; // Sheet already has data, don't overwrite
+    }
+
+    // Default point values
+    const defaults = [
+      ['Base_Points_With_Theme', 75, 'Points for attending event with theme dress'],
+      ['Base_Points_Without_Theme', 50, 'Points for attending event without theme dress'],
+      ['Theme_Bonus', 25, 'Additional points for dressing according to theme'],
+      ['Spotlight_Game_Multiplier', 1.5, 'Points multiplier for spotlight games'],
+      ['Home_Game_Bonus', 10, 'Bonus points for home games'],
+    ];
+
+    defaults.forEach(row => {
+      pointsSheet.appendRow(row);
+    });
+
+    CacheService.getScriptCache().remove('points_config');
+  } catch (e) {
+    Logger.log('Error initializing Config_Points: ' + e.message);
+  }
+}
+
+/**
+ * Gets the current points configuration from the Config_Points sheet.
+ * Results are cached for 1 hour.
+ * @return {Object} Object with keys like 'Base_Points_With_Theme', etc.
+ */
+function getPointsConfig() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'points_config';
+    const cached = cache.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const pointsSheet = ss.getSheetByName('Config_Points');
+    const data = pointsSheet.getDataRange().getValues();
+
+    const config = {};
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0]) {
+        config[data[i][0]] = parseFloat(data[i][1]) || 0;
+      }
+    }
+
+    // Cache for 1 hour (3600 seconds)
+    cache.put(cacheKey, JSON.stringify(config), 3600);
+    return config;
+  } catch (e) {
+    Logger.log('Error reading points config: ' + e.message);
+    // Return defaults as fallback
+    return {
+      'Base_Points_With_Theme': 75,
+      'Base_Points_Without_Theme': 50,
+      'Theme_Bonus': 25,
+      'Spotlight_Game_Multiplier': 1.5,
+      'Home_Game_Bonus': 10
+    };
+  }
+}
+
+/**
+ * Opens a dialog for editing points configuration.
+ * Creates a simple UI to update points values.
+ */
+function openPointsConfigDialog() {
+  try {
+    const config = getPointsConfig();
+
+    let html = '<style>';
+    html += 'body { font-family: Arial, sans-serif; padding: 15px; }';
+    html += 'label { display: block; margin-top: 12px; font-weight: bold; }';
+    html += 'input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }';
+    html += 'button { margin-top: 20px; padding: 10px 20px; background: #1b3b87; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }';
+    html += 'button:hover { background: #0f2550; }';
+    html += '.description { font-size: 12px; color: #666; margin-top: 2px; }';
+    html += '</style>';
+
+    html += '<h2>⚙️ Points Configuration</h2>';
+    html += '<p>Edit the point values used in the app:</p>';
+
+    html += '<form id="pointsForm">';
+
+    html += '<label>Base Points (With Theme):</label>';
+    html += '<input type="number" id="Base_Points_With_Theme" value="' + config['Base_Points_With_Theme'] + '" step="0.1" />';
+    html += '<div class="description">Points for attending event with theme dress</div>';
+
+    html += '<label>Base Points (Without Theme):</label>';
+    html += '<input type="number" id="Base_Points_Without_Theme" value="' + config['Base_Points_Without_Theme'] + '" step="0.1" />';
+    html += '<div class="description">Points for attending event without theme dress</div>';
+
+    html += '<label>Theme Bonus:</label>';
+    html += '<input type="number" id="Theme_Bonus" value="' + config['Theme_Bonus'] + '" step="0.1" />';
+    html += '<div class="description">Additional points for dressing according to theme</div>';
+
+    html += '<label>Spotlight Game Multiplier:</label>';
+    html += '<input type="number" id="Spotlight_Game_Multiplier" value="' + config['Spotlight_Game_Multiplier'] + '" step="0.1" />';
+    html += '<div class="description">Points multiplier for spotlight games (e.g., 1.5 = 50% more)</div>';
+
+    html += '<label>Home Game Bonus:</label>';
+    html += '<input type="number" id="Home_Game_Bonus" value="' + config['Home_Game_Bonus'] + '" step="0.1" />';
+    html += '<div class="description">Bonus points for home games</div>';
+
+    html += '<button type="button" onclick="submitForm()">Save Changes</button>';
+    html += '<button type="button" onclick="google.script.host.close()" style="margin-left: 8px; background: #999;">Cancel</button>';
+
+    html += '</form>';
+
+    html += '<script>';
+    html += 'function submitForm() {';
+    html += '  const config = {';
+    html += '    "Base_Points_With_Theme": parseFloat(document.getElementById("Base_Points_With_Theme").value),';
+    html += '    "Base_Points_Without_Theme": parseFloat(document.getElementById("Base_Points_Without_Theme").value),';
+    html += '    "Theme_Bonus": parseFloat(document.getElementById("Theme_Bonus").value),';
+    html += '    "Spotlight_Game_Multiplier": parseFloat(document.getElementById("Spotlight_Game_Multiplier").value),';
+    html += '    "Home_Game_Bonus": parseFloat(document.getElementById("Home_Game_Bonus").value)';
+    html += '  };';
+    html += '  google.script.run.updatePointsConfig(config);';
+    html += '  google.script.host.close();';
+    html += '}';
+    html += '</script>';
+
+    const ui = SpreadsheetApp.getUi();
+    const dialog = ui.createHtmlOutput(html).setWidth(400).setHeight(500);
+    ui.showModalDialog(dialog, 'Points Configuration');
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error opening dialog: ' + e.message);
+  }
+}
+
+/**
+ * Updates the points configuration in the Config_Points sheet.
+ * Called from the dialog UI.
+ * @param {Object} config - Object with point settings
+ */
+function updatePointsConfig(config) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const pointsSheet = ss.getSheetByName('Config_Points');
+    const data = pointsSheet.getDataRange().getValues();
+
+    // Update each row based on setting name
+    for (let i = 1; i < data.length; i++) {
+      const settingName = data[i][0];
+      if (config[settingName] !== undefined) {
+        pointsSheet.getRange(i + 1, 2).setValue(config[settingName]);
+      }
+    }
+
+    // Clear cache so new values are picked up
+    CacheService.getScriptCache().remove('points_config');
+
+    SpreadsheetApp.getUi().alert('✅ Points configuration updated successfully!');
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error updating config: ' + e.message);
   }
 }
 
@@ -2102,7 +2284,7 @@ function createHtmlFiles() {
         <div class="space-y-3">
           <div>
             <label class="font-bold text-[#111318] dark:text-white text-sm">Base Points</label>
-            <input type="number" id="approval-base-points" value="50" min="0" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white">
+            <input type="number" id="approval-base-points" value="0" min="0" class="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-white">
           </div>
 
           <div>
@@ -2150,7 +2332,23 @@ function createHtmlFiles() {
     // Store current submission being reviewed
     let currentSubmission = null;
 
+    // Store points config globally for access in functions
+    let pointsConfig = {
+      'Base_Points_With_Theme': 75,
+      'Base_Points_Without_Theme': 50,
+      'Theme_Bonus': 25,
+      'Spotlight_Game_Multiplier': 1.5,
+      'Home_Game_Bonus': 10
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
+      // Load points configuration
+      google.script.run.getPointsConfig((config) => {
+        pointsConfig = config;
+        // Update default values in the form
+        document.getElementById('approval-base-points').placeholder = 'e.g. ' + pointsConfig['Base_Points_Without_Theme'];
+      });
+
       // Load admin queue on page load
       loadAdminQueue();
 
@@ -2239,8 +2437,8 @@ function createHtmlFiles() {
 
     function updateTotalPoints() {
       const basePoints = parseInt(document.getElementById('approval-base-points').value) || 0;
-      const themeBonus = document.getElementById('approval-theme-bonus').checked ? 25 : 0;
-      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? 2 : 1;
+      const themeBonus = document.getElementById('approval-theme-bonus').checked ? pointsConfig['Theme_Bonus'] : 0;
+      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? pointsConfig['Spotlight_Game_Multiplier'] : 1;
       const total = Math.round((basePoints + themeBonus) * multiplier);
 
       document.getElementById('approval-total-points').innerText = 'Total: ' + total + ' PTS';
@@ -2248,8 +2446,8 @@ function createHtmlFiles() {
 
     function confirmApproval() {
       const basePoints = parseInt(document.getElementById('approval-base-points').value) || 0;
-      const themeBonus = document.getElementById('approval-theme-bonus').checked ? 25 : 0;
-      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? 2 : 1;
+      const themeBonus = document.getElementById('approval-theme-bonus').checked ? pointsConfig['Theme_Bonus'] : 0;
+      const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? pointsConfig['Spotlight_Game_Multiplier'] : 1;
 
       google.script.run.withSuccessHandler((response) => {
         alert(response.message);
