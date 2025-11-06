@@ -11,14 +11,14 @@
   </div>
 
   <form id="submission-form" class="space-y-4">
-    <div>
+    <div class="hidden">
       <label class="font-bold text-[#111318] dark:text-white">Event</label>
       <input type="text" id="event-name" value="Loading event..." readonly class="w-full p-3 border rounded-lg bg-gray-200 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400">
       <!-- The Event ID will be in the URL, not a hidden input -->
       <!-- Hidden input for event code, populated by loadCurrentEventCode -->
       <input type="hidden" id="event-code-input">
     </div>
-    
+
     <div>
       <label class="font-bold text-[#111318] dark:text-white">Take a Photo</label>
       <input type="file" id="photo-input" accept="image/*" capture="environment" required class="w-full text-sm file:mr-4 file:py-3 file:px-5 file:rounded-lg file:border-0 file:font-bold file:bg-primary/10 file:text-primary dark:file:bg-primary/20 dark:file:text-blue-300 hover:file:bg-primary/20">
