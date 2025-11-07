@@ -507,15 +507,23 @@ function saveUserSettings(settings) {
 }
 
 /**
+ * Converts a string to snake_case format by replacing spaces with underscores.
+ * @param {string} str - The string to convert
+ * @return {string} The snake_case formatted string
+ */
+function toSnakeCase(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, ''); // Remove all non-alphanumeric characters except underscore
+}
+
+/**
  * Gets the current user's profile data to populate the page.
  * Fetches real data from Student_Profiles, Config_Badges, and Submissions_Verified sheets.
  * @return {Object} Profile data including points, rank, badges, leaderboard, and history
  */
-function toSnakeCase(str) {
-  if (!str) return '';
-  return str.toLowerCase().replace(/\s+/g, '_');
-}
-
 function getProfileData() {
   const email = Session.getActiveUser().getEmail();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
