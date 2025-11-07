@@ -770,6 +770,9 @@ function onOpen() {
     .addItem('3. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
     .addItem('4. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
     .addItem('5. Clear Cache (Development)', 'clearAllCaches')
+    .addSeparator()
+    .addItem('6. Populate Sample Badges', 'populateSampleBadges')
+    .addItem('7. Award Retroactive Badges (Run Once)', 'awardRetroactiveBadges')
     .addToUi();
 }
 
@@ -1164,6 +1167,63 @@ function generateSampleSubmissions() {
   } catch (e) {
     // Logger.log('Error generating sample submissions: ' + e.message);
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
+  }
+}
+
+/**
+ * Populates the Config_Badges sheet with sample badge definitions.
+ * This creates a tiered badge system based on points and event attendance.
+ */
+function populateSampleBadges() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+
+    // Clear existing badges (except header)
+    const existingData = badgesSheet.getDataRange().getValues();
+    if (existingData.length > 1) {
+      badgesSheet.deleteRows(2, existingData.length - 1);
+    }
+
+    // Sample badge definitions
+    // Structure: Badge_ID, Badge_Name, Category, Trigger_Type, Trigger_Value, Description, Badge_Image_URL
+    const sampleBadges = [
+      ['badge_001', 'First Event', 'Participation', 'event_count', 1, 'Attended your first Spartan event', 'https://the-spartan-cup.web.app/badges/first_event.svg'],
+      ['badge_002', 'Rookie Fan', 'Points', 'points_threshold', 50, 'Earned your first 50 points', 'https://the-spartan-cup.web.app/badges/rookie_fan.svg'],
+      ['badge_003', 'Regular', 'Participation', 'event_count', 5, 'Attended 5 events this season', 'https://the-spartan-cup.web.app/badges/regular.svg'],
+      ['badge_004', 'Committed Fan', 'Points', 'points_threshold', 100, 'Reached 100 total points', 'https://the-spartan-cup.web.app/badges/committed_fan.svg'],
+      ['badge_005', 'Super Fan', 'Participation', 'event_count', 10, 'Attended 10 events - true dedication!', 'https://the-spartan-cup.web.app/badges/super_fan.svg'],
+      ['badge_006', 'Century Club', 'Points', 'season_points', 100, 'Earned 100 points in a single season', 'https://the-spartan-cup.web.app/badges/century_club.svg'],
+      ['badge_007', 'Point Collector', 'Points', 'points_threshold', 200, 'Accumulated 200 total points', 'https://the-spartan-cup.web.app/badges/point_collector.svg'],
+      ['badge_008', 'Elite Supporter', 'Participation', 'event_count', 15, 'Attended 15+ events - elite status!', 'https://the-spartan-cup.web.app/badges/elite_supporter.svg'],
+      ['badge_009', 'Triple Threat', 'Points', 'points_threshold', 300, 'Reached the 300 point milestone', 'https://the-spartan-cup.web.app/badges/triple_threat.svg'],
+      ['badge_010', 'Spartan Legend', 'Points', 'points_threshold', 500, 'Legendary dedication - 500 points!', 'https://the-spartan-cup.web.app/badges/spartan_legend.svg']
+    ];
+
+    // Append all badges
+    sampleBadges.forEach(badge => {
+      badgesSheet.appendRow(badge);
+    });
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Sample Badges Created!\n\n' +
+      'Created ' + sampleBadges.length + ' badge definitions:\n\n' +
+      '• First Event (1 event)\n' +
+      '• Rookie Fan (50 pts)\n' +
+      '• Regular (5 events)\n' +
+      '• Committed Fan (100 pts)\n' +
+      '• Super Fan (10 events)\n' +
+      '• Century Club (100 season pts)\n' +
+      '• Point Collector (200 pts)\n' +
+      '• Elite Supporter (15 events)\n' +
+      '• Triple Threat (300 pts)\n' +
+      '• Spartan Legend (500 pts)\n\n' +
+      'Now run "6. Award Retroactive Badges" to award badges to existing students!'
+    );
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error creating badges:\n\n' + e.message);
+    Logger.log('Error in populateSampleBadges: ' + e.message);
   }
 }
 
@@ -4072,17 +4132,25 @@ function calculateBadges(email) {
       const triggerType = badgesData[i][3];
       const triggerValue = badgesData[i][4];
 
+      // Skip if badge ID is empty
+      if (!badgeId) continue;
+
       // Skip if already earned
       if (studentProfile.earnedBadges.includes(badgeId)) continue;
 
+      // Skip if trigger type is empty or invalid
+      if (!triggerType || triggerType === '') continue;
+
       let shouldEarn = false;
 
-      if (triggerType === 'points_threshold') {
-        shouldEarn = studentProfile.allTimePoints >= triggerValue;
-      } else if (triggerType === 'season_points') {
+      // Handle different trigger types from Config_Badges
+      if (triggerType === 'Points_Season') {
+        // Season points threshold - must have valid numeric trigger value
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
         shouldEarn = studentProfile.seasonPoints >= triggerValue;
-      } else if (triggerType === 'event_count') {
-        // Count verified submissions for this student
+      } else if (triggerType === 'Submission_Count' || triggerType === 'Submission_Count_Week_1') {
+        // Count verified submissions for this student - must have valid trigger value
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
         const verifiedSheet = ss.getSheetByName('Submissions_Verified');
         const verifiedData = verifiedSheet.getDataRange().getValues();
         let submissionCount = 0;
@@ -4090,6 +4158,106 @@ function calculateBadges(email) {
           if (verifiedData[j][3] === email) submissionCount++;
         }
         shouldEarn = submissionCount >= triggerValue;
+      } else if (triggerType === 'Events_In_7_Days') {
+        // Count events attended in last 7 days - must have valid trigger value
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+        const verifiedData = verifiedSheet.getDataRange().getValues();
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        let recentCount = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const submissionDate = new Date(verifiedData[j][1]);
+            if (submissionDate >= sevenDaysAgo) {
+              recentCount++;
+            }
+          }
+        }
+        shouldEarn = recentCount >= triggerValue;
+      } else if (triggerType === 'Distinct_Sports') {
+        // Count unique sports/activities attended - must have valid trigger value
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+        const verifiedData = verifiedSheet.getDataRange().getValues();
+        const eventSheet = ss.getSheetByName('Events');
+        const eventData = eventSheet.getDataRange().getValues();
+
+        // Build event to activity map
+        const eventToActivity = {};
+        for (let j = 1; j < eventData.length; j++) {
+          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+        }
+
+        // Count distinct activities
+        const distinctActivities = new Set();
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            const activity = eventToActivity[eventId];
+            if (activity) distinctActivities.add(activity);
+          }
+        }
+        shouldEarn = distinctActivities.size >= triggerValue;
+      } else if (triggerType === 'Home_Game_Pct') {
+        // Percentage of home games attended - must have valid trigger value (0-1)
+        if (typeof triggerValue !== 'number' || triggerValue < 0 || triggerValue > 1) continue;
+        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+        const verifiedData = verifiedSheet.getDataRange().getValues();
+        const eventSheet = ss.getSheetByName('Events');
+        const eventData = eventSheet.getDataRange().getValues();
+
+        // Build event map
+        const eventMap = {};
+        for (let j = 1; j < eventData.length; j++) {
+          eventMap[eventData[j][0]] = {
+            isHome: eventData[j][9] // Is_Home_Game column
+          };
+        }
+
+        let totalHomeGames = 0;
+        let attendedHomeGames = 0;
+
+        // Count total home games in season
+        for (let j = 1; j < eventData.length; j++) {
+          if (eventData[j][9]) totalHomeGames++; // Is_Home_Game
+        }
+
+        // Count attended home games
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            const event = eventMap[eventId];
+            if (event && event.isHome) {
+              attendedHomeGames++;
+            }
+          }
+        }
+
+        const percentage = totalHomeGames > 0 ? attendedHomeGames / totalHomeGames : 0;
+        shouldEarn = percentage >= triggerValue;
+      }
+
+      // Legacy support for old trigger type names
+      else if (triggerType === 'points_threshold') {
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+        shouldEarn = studentProfile.allTimePoints >= triggerValue;
+      } else if (triggerType === 'season_points') {
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+        shouldEarn = studentProfile.seasonPoints >= triggerValue;
+      } else if (triggerType === 'event_count') {
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+        const verifiedData = verifiedSheet.getDataRange().getValues();
+        let submissionCount = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) submissionCount++;
+        }
+        shouldEarn = submissionCount >= triggerValue;
+      }
+
+      // Skip badges with unimplemented trigger types (Activity, Loyalty, Variety, Special)
+      else {
+        continue;
       }
 
       if (shouldEarn) {
@@ -4104,6 +4272,56 @@ function calculateBadges(email) {
 
   } catch (e) {
     // Logger.log('Error in calculateBadges: ' + e.message);
+  }
+}
+
+/**
+ * Retroactively calculates and awards badges for ALL existing students.
+ * This is a one-time admin function to backfill badges for users who already have points.
+ * Can be run from the Admin menu: "6. Award Retroactive Badges (Run Once)"
+ */
+function awardRetroactiveBadges() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    let studentsProcessed = 0;
+    let badgesAwarded = 0;
+
+    // Loop through all students (skip header row)
+    for (let i = 1; i < studentData.length; i++) {
+      const email = studentData[i][0];
+
+      if (!email) continue; // Skip empty rows
+
+      // Get current badge count for this student
+      const currentBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+      const beforeCount = currentBadges.length;
+
+      // Calculate badges (this will add any newly qualified badges)
+      calculateBadges(email);
+
+      // Check how many badges were added
+      const updatedData = studentSheet.getDataRange().getValues();
+      const afterBadges = updatedData[i][4] ? JSON.parse(updatedData[i][4]) : [];
+      const afterCount = afterBadges.length;
+
+      studentsProcessed++;
+      badgesAwarded += (afterCount - beforeCount);
+    }
+
+    // Show completion message
+    SpreadsheetApp.getUi().alert(
+      '✅ Retroactive Badge Award Complete!\n\n' +
+      'Students Processed: ' + studentsProcessed + '\n' +
+      'Total Badges Awarded: ' + badgesAwarded + '\n\n' +
+      'All existing users have now received badges they qualified for based on their current points and submission history.'
+    );
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error awarding retroactive badges:\n\n' + e.message);
+    Logger.log('Error in awardRetroactiveBadges: ' + e.message);
   }
 }
 
