@@ -18,6 +18,8 @@ const CAMPUS_GEOFENCE = [
   [44.9630, -93.6180], [44.9630, -93.6300],
 ];
 
+const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
+
 /**
  * Reads admin emails from the Config_Admins sheet.
  * Results are cached for 6 hours to reduce Sheets API calls.
@@ -284,6 +286,7 @@ function doGet(e) {
   template.isAdmin = getUserIsAdmin(); // Read from Student_Profiles isAdmin column (J)
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
   template.firebaseWrapperUrl = escapeJavaScriptString('https://the-spartan-cup.web.app/?target=submit');
+  template.badgeBaseUrl = escapeJavaScriptString(BADGE_BASE_URL);
 
   // NEW: Accept location from Firebase wrapper via URL parameters
   // These are passed from the wrapper: ?lat=X&lon=Y&acc=Z
@@ -516,7 +519,8 @@ function toSnakeCase(str) {
   return str
     .toLowerCase()
     .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, ''); // Remove all non-alphanumeric characters except underscore
+    .replace(/[^a-z0-9_]/g, '') // Remove all non-alphanumeric characters except underscore
+    .replace(/_+/g, '_'); // Collapse consecutive underscores into a single underscore
 }
 
 /**
@@ -641,11 +645,23 @@ function getProfileData() {
     const earnedBadges = userProfile.badgesEarned.map(badgeId => {
       const badge = badgeMap[badgeId];
       if (!badge) return null;
-      const imageName = toSnakeCase(badge.name) + '.svg';
+
+      // Determine badge image URL with multiple fallback options:
+      // 1. Use badge.imageUrl if provided in Config_Badges sheet
+      // 2. Use badge.imageFile if custom filename is specified (supports different extensions)
+      // 3. Generate filename from badge name using snake_case convention + .svg
+      let imageUrl;
+      if (badge.imageUrl) {
+        imageUrl = badge.imageUrl;
+      } else {
+        const imageName = badge.imageFile || (toSnakeCase(badge.name) + '.svg');
+        imageUrl = BADGE_BASE_URL + imageName;
+      }
+
       return {
         name: badge.name,
         description: badge.description,
-        imageUrl: 'https://the-spartan-cup.web.app/badges/' + imageName, // Use Firebase-hosted badge image
+        imageUrl: imageUrl,
         icon: 'military_tech', // Fallback icon if image fails to load
         color: 'bg-gradient-to-br from-indigo-500 to-purple-400' // Fallback color
       };
@@ -1455,7 +1471,8 @@ function createHtmlFiles() {
       userName: "<?= userName ?>",
       userPhoto: "<?= userPhoto ?>",
       isAdmin: <?= isAdmin ?>,
-      appUrl: "<?= getWebAppUrl() ?>"
+      appUrl: "<?= getWebAppUrl() ?>",
+      badgeBaseUrl: "<?= badgeBaseUrl ?>"
     };
   </script>
   <?!= include('JavaScript'); ?>

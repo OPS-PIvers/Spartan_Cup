@@ -668,7 +668,7 @@
         badgeHtml += `
           <div class="flex flex-col items-center gap-1 shrink-0" title="${badge.description}">
             <img src="${badge.imageUrl}"
-                 onerror="this.src='https://the-spartan-cup.web.app/badges/default-badge.svg'; this.onerror=null;"
+                 onerror="this.src='${APP_DATA.badgeBaseUrl}default-badge.svg'; this.onerror=null;"
                  alt="${badge.name}"
                  class="w-14 h-14 rounded-full shadow-md">
             <span class="text-xs font-medium text-gray-600 dark:text-gray-300 text-center w-16 truncate">${badge.name}</span>
