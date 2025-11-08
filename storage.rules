@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Public read access for badge images
+    match /badges/{imageFile} {
+      allow read: if true;  // Anyone can view badges
+      allow write: if true; // Allow uploads (you can restrict this later if needed)
+    }
+
+    // Block all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
