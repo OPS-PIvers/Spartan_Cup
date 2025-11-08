@@ -1433,7 +1433,7 @@
       const triggerValue = parseInt(document.getElementById('badge-trigger-value').value);
       const description = document.getElementById('badge-description').value.trim();
 
-      if (!badgeName || !category || !triggerType || !triggerValue || !description) {
+      if (!badgeName || !category || !triggerType || isNaN(triggerValue) || !description) {
         document.getElementById('loading-modal').classList.add('hidden');
         alert('All fields are required');
         return;

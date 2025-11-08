@@ -4,7 +4,7 @@ service firebase.storage {
     // Public read access for badge images
     match /badges/{imageFile} {
       allow read: if true;  // Anyone can view badges
-      allow write: if true; // Allow uploads (you can restrict this later if needed)
+      allow write: if request.auth != null;  // Only authenticated users can upload
     }
 
     // Block all other access

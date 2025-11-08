@@ -4644,7 +4644,7 @@ function uploadBadgeImage(badgeName, base64Image, mimeType) {
 
     // Generate filename from badge name
     const snakeCaseName = badgeNameToSnakeCase(badgeName);
-    const extension = mimeType === 'image/svg+xml' ? '.svg' : '.png';
+    const extension = mimeType === 'image/svg+xml' ? '.svg' : (mimeType === 'image/jpeg' ? '.jpg' : '.png');
     const filename = snakeCaseName + extension;
 
     // Remove base64 prefix if present (e.g., "data:image/png;base64,")
@@ -4685,6 +4685,30 @@ function uploadBadgeImage(badgeName, base64Image, mimeType) {
 }
 
 /**
+ * Helper function to handle Google Drive backup upload for badge images.
+ * @param {string} badgeName - Badge name for filename generation
+ * @param {string} imageBase64 - Base64 encoded image data
+ * @param {string} imageMimeType - Image MIME type
+ * @param {string} existingImageUrl - Existing image URL (optional)
+ * @return {string} Image URL to use (Firebase URL if provided, Drive backup URL if not)
+ */
+function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existingImageUrl) {
+  let imageUrl = existingImageUrl || '';
+
+  if (imageBase64 && imageMimeType) {
+    const uploadResult = uploadBadgeImage(badgeName, imageBase64, imageMimeType);
+
+    // Only use Drive URL if Firebase Storage URL wasn't provided
+    if (!imageUrl && uploadResult.status === 'success') {
+      imageUrl = uploadResult.firebaseUrl;
+    }
+    // If Drive upload fails but we have Firebase URL, continue anyway
+  }
+
+  return imageUrl;
+}
+
+/**
  * Creates a new badge in Config_Badges sheet.
  * @param {Object} badgeData - Badge details
  * @return {Object} Response with status
@@ -4704,22 +4728,12 @@ function createBadge(badgeData) {
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
 
     // Use Firebase Storage URL if provided, otherwise upload to Drive
-    let imageUrl = badgeData.imageUrl || '';
-
-    // Also save backup to Google Drive if base64 data is provided
-    if (badgeData.imageBase64 && badgeData.imageMimeType) {
-      const uploadResult = uploadBadgeImage(
-        badgeData.badgeName,
-        badgeData.imageBase64,
-        badgeData.imageMimeType
-      );
-
-      // Only use Drive URL if Firebase Storage URL wasn't provided
-      if (!imageUrl && uploadResult.status === 'success') {
-        imageUrl = uploadResult.firebaseUrl;
-      }
-      // If Drive upload fails but we have Firebase URL, continue anyway
-    }
+    const imageUrl = _handleDriveBackupUpload(
+      badgeData.badgeName,
+      badgeData.imageBase64,
+      badgeData.imageMimeType,
+      badgeData.imageUrl
+    );
 
     // Append new badge row
     badgesSheet.appendRow([
@@ -4779,22 +4793,13 @@ function updateBadge(badgeId, badgeData) {
     }
 
     // Use Firebase Storage URL if provided, keep existing if not
-    let imageUrl = badgeData.imageUrl !== undefined ? badgeData.imageUrl : badgesData[badgeRow - 1][6];
-
-    // Also save backup to Google Drive if base64 data is provided
-    if (badgeData.imageBase64 && badgeData.imageMimeType) {
-      const uploadResult = uploadBadgeImage(
-        badgeData.badgeName,
-        badgeData.imageBase64,
-        badgeData.imageMimeType
-      );
-
-      // Only use Drive URL if Firebase Storage URL wasn't provided
-      if (badgeData.imageUrl === undefined && uploadResult.status === 'success') {
-        imageUrl = uploadResult.firebaseUrl;
-      }
-      // If Drive upload fails but we have Firebase URL, continue anyway
-    }
+    const existingUrl = badgesData[badgeRow - 1][6];
+    const imageUrl = _handleDriveBackupUpload(
+      badgeData.badgeName,
+      badgeData.imageBase64,
+      badgeData.imageMimeType,
+      badgeData.imageUrl !== undefined ? badgeData.imageUrl : existingUrl
+    );
 
     // Update badge row
     badgesSheet.getRange(badgeRow, 1, 1, 7).setValues([[
