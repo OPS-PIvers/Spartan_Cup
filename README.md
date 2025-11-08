@@ -14,6 +14,7 @@ A gamified attendance and participation system for student events at Orono High 
 ✅ Photo submission for points
 ✅ Real-time leaderboards
 ✅ Admin dashboard for submission review
+✅ Badge management system (create, edit, delete badges with image upload)
 ✅ iOS Safari geolocation support (via Firebase wrapper)
 ✅ Dark mode theme
 ✅ Badge achievements system
@@ -37,10 +38,17 @@ A gamified attendance and participation system for student events at Orono High 
    clasp push
    ```
 
-3. **Deploy updates to Firebase (geolocation wrapper):**
+3. **Deploy updates to Firebase (geolocation wrapper & badge images):**
    ```bash
    firebase deploy --only hosting
    ```
+
+4. **Badge Image Deployment:**
+   - Create badges via Admin Dashboard → Badges tab
+   - Images are uploaded to Google Drive ("The Spartan Cup" → "Assets_Badges")
+   - Download images from Drive and add to `/public/badges/` folder
+   - Deploy to Firebase: `firebase deploy --only hosting`
+   - See [BADGE_DEPLOYMENT_GUIDE.md](BADGE_DEPLOYMENT_GUIDE.md) for detailed instructions
 
 ## Architecture
 
