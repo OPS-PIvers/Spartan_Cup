@@ -4562,3 +4562,385 @@ function calculateComplexBonuses() {
   // Future: Category-specific bonuses, achievement multipliers, etc.
 }
 
+// ==============================================================================
+// BADGE MANAGEMENT FUNCTIONS (ADMIN)
+// ==============================================================================
+
+/**
+ * Gets all badges from Config_Badges sheet for admin management.
+ * @return {Object} Response with badges array
+ */
+function getAllBadgesForAdmin() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    const badges = [];
+    for (let i = 1; i < badgesData.length; i++) {
+      badges.push({
+        badgeId: badgesData[i][0],
+        badgeName: badgesData[i][1],
+        category: badgesData[i][2],
+        triggerType: badgesData[i][3],
+        triggerValue: badgesData[i][4],
+        description: badgesData[i][5],
+        imageUrl: badgesData[i][6],
+        rowIndex: i + 1 // Store row index for updates
+      });
+    }
+
+    return {
+      status: 'success',
+      badges: badges
+    };
+  } catch (e) {
+    Logger.log('Error in getAllBadgesForAdmin: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error fetching badges: ' + e.message
+    };
+  }
+}
+
+/**
+ * Converts badge name to snake_case for Firebase URLs.
+ * @param {string} badgeName - Badge name (e.g., "First Timer")
+ * @return {string} snake_case version (e.g., "first_timer")
+ */
+function badgeNameToSnakeCase(badgeName) {
+  return badgeName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '_'); // Replace spaces with underscores
+}
+
+/**
+ * Uploads badge image to Google Drive and returns both Drive URL and Firebase URL.
+ * @param {string} badgeName - Badge name for filename generation
+ * @param {string} base64Image - Base64 encoded image data
+ * @param {string} mimeType - Image MIME type (e.g., 'image/svg+xml', 'image/png')
+ * @return {Object} Response with Drive URL and Firebase URL
+ */
+function uploadBadgeImage(badgeName, base64Image, mimeType) {
+  try {
+    // Get or create Assets_Badges folder
+    let parentFolder;
+    const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+    if (parentFolders.hasNext()) {
+      parentFolder = parentFolders.next();
+    } else {
+      parentFolder = DriveApp.createFolder('The Spartan Cup');
+    }
+
+    let badgesFolder;
+    const badgesFolders = parentFolder.getFoldersByName('Assets_Badges');
+    if (badgesFolders.hasNext()) {
+      badgesFolder = badgesFolders.next();
+    } else {
+      badgesFolder = parentFolder.createFolder('Assets_Badges');
+    }
+
+    // Generate filename from badge name
+    const snakeCaseName = badgeNameToSnakeCase(badgeName);
+    const extension = mimeType === 'image/svg+xml' ? '.svg' : (mimeType === 'image/jpeg' ? '.jpg' : '.png');
+    const filename = snakeCaseName + extension;
+
+    // Remove base64 prefix if present (e.g., "data:image/png;base64,")
+    const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+
+    // Decode base64 to blob
+    const decodedBytes = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decodedBytes, mimeType, filename);
+
+    // Check if file already exists and delete it
+    const existingFiles = badgesFolder.getFilesByName(filename);
+    while (existingFiles.hasNext()) {
+      existingFiles.next().setTrashed(true);
+    }
+
+    // Upload new file
+    const file = badgesFolder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Generate Firebase URL (this is where admin will deploy the image)
+    const firebaseUrl = BADGE_BASE_URL + filename;
+
+    return {
+      status: 'success',
+      driveUrl: file.getUrl(),
+      driveFileId: file.getId(),
+      firebaseUrl: firebaseUrl,
+      filename: filename,
+      message: 'Image uploaded to Google Drive. Remember to deploy to Firebase!'
+    };
+  } catch (e) {
+    Logger.log('Error in uploadBadgeImage: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error uploading image: ' + e.message
+    };
+  }
+}
+
+/**
+ * Helper function to handle Google Drive backup upload for badge images.
+ * @param {string} badgeName - Badge name for filename generation
+ * @param {string} imageBase64 - Base64 encoded image data
+ * @param {string} imageMimeType - Image MIME type
+ * @param {string} existingImageUrl - Existing image URL (optional)
+ * @return {string} Image URL to use (Firebase URL if provided, Drive backup URL if not)
+ */
+function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existingImageUrl) {
+  let imageUrl = existingImageUrl || '';
+
+  if (imageBase64 && imageMimeType) {
+    const uploadResult = uploadBadgeImage(badgeName, imageBase64, imageMimeType);
+
+    // Only use Drive URL if Firebase Storage URL wasn't provided
+    if (!imageUrl && uploadResult.status === 'success') {
+      imageUrl = uploadResult.firebaseUrl;
+    }
+    // If Drive upload fails but we have Firebase URL, continue anyway
+  }
+
+  return imageUrl;
+}
+
+/**
+ * Creates a new badge in Config_Badges sheet.
+ * @param {Object} badgeData - Badge details
+ * @return {Object} Response with status
+ */
+function createBadge(badgeData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+
+    // Generate badge ID
+    const existingData = badgesSheet.getDataRange().getValues();
+    let maxId = 0;
+    for (let i = 1; i < existingData.length; i++) {
+      const idNum = parseInt(existingData[i][0].replace('badge_', ''));
+      if (idNum > maxId) maxId = idNum;
+    }
+    const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
+
+    // Use Firebase Storage URL if provided, otherwise upload to Drive
+    const imageUrl = _handleDriveBackupUpload(
+      badgeData.badgeName,
+      badgeData.imageBase64,
+      badgeData.imageMimeType,
+      badgeData.imageUrl
+    );
+
+    // Append new badge row
+    badgesSheet.appendRow([
+      newBadgeId,
+      badgeData.badgeName,
+      badgeData.category,
+      badgeData.triggerType,
+      badgeData.triggerValue,
+      badgeData.description,
+      imageUrl
+    ]);
+
+    // Clear badge cache
+    CacheService.getScriptCache().remove('badge_map_cache');
+
+    return {
+      status: 'success',
+      message: 'Badge created successfully!',
+      badgeId: newBadgeId,
+      imageUrl: imageUrl
+    };
+  } catch (e) {
+    Logger.log('Error in createBadge: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error creating badge: ' + e.message
+    };
+  }
+}
+
+/**
+ * Updates an existing badge in Config_Badges sheet.
+ * @param {string} badgeId - Badge ID to update
+ * @param {Object} badgeData - Updated badge details
+ * @return {Object} Response with status
+ */
+function updateBadge(badgeId, badgeData) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Find badge row
+    let badgeRow = null;
+    for (let i = 1; i < badgesData.length; i++) {
+      if (badgesData[i][0] === badgeId) {
+        badgeRow = i + 1;
+        break;
+      }
+    }
+
+    if (!badgeRow) {
+      return {
+        status: 'error',
+        message: 'Badge not found'
+      };
+    }
+
+    // Use Firebase Storage URL if provided, keep existing if not
+    const existingUrl = badgesData[badgeRow - 1][6];
+    const imageUrl = _handleDriveBackupUpload(
+      badgeData.badgeName,
+      badgeData.imageBase64,
+      badgeData.imageMimeType,
+      badgeData.imageUrl !== undefined ? badgeData.imageUrl : existingUrl
+    );
+
+    // Update badge row
+    badgesSheet.getRange(badgeRow, 1, 1, 7).setValues([[
+      badgeId,
+      badgeData.badgeName,
+      badgeData.category,
+      badgeData.triggerType,
+      badgeData.triggerValue,
+      badgeData.description,
+      imageUrl
+    ]]);
+
+    // Clear badge cache
+    CacheService.getScriptCache().remove('badge_map_cache');
+
+    return {
+      status: 'success',
+      message: 'Badge updated successfully!',
+      imageUrl: imageUrl
+    };
+  } catch (e) {
+    Logger.log('Error in updateBadge: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error updating badge: ' + e.message
+    };
+  }
+}
+
+/**
+ * Deletes a badge from Config_Badges sheet.
+ * @param {string} badgeId - Badge ID to delete
+ * @return {Object} Response with status
+ */
+function deleteBadge(badgeId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Find badge row
+    let badgeRow = null;
+    for (let i = 1; i < badgesData.length; i++) {
+      if (badgesData[i][0] === badgeId) {
+        badgeRow = i + 1;
+        break;
+      }
+    }
+
+    if (!badgeRow) {
+      return {
+        status: 'error',
+        message: 'Badge not found'
+      };
+    }
+
+    // Delete row
+    badgesSheet.deleteRow(badgeRow);
+
+    // Clear badge cache
+    CacheService.getScriptCache().remove('badge_map_cache');
+
+    return {
+      status: 'success',
+      message: 'Badge deleted successfully!'
+    };
+  } catch (e) {
+    Logger.log('Error in deleteBadge: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error deleting badge: ' + e.message
+    };
+  }
+}
+
+/**
+ * Downloads a badge image from Google Drive for deployment to Firebase.
+ * @param {string} badgeId - Badge ID
+ * @return {Object} Response with file data
+ */
+function downloadBadgeForDeploy(badgeId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Find badge
+    let badgeName = null;
+    for (let i = 1; i < badgesData.length; i++) {
+      if (badgesData[i][0] === badgeId) {
+        badgeName = badgesData[i][1];
+        break;
+      }
+    }
+
+    if (!badgeName) {
+      return { status: 'error', message: 'Badge not found' };
+    }
+
+    // Find file in Drive
+    const snakeCaseName = badgeNameToSnakeCase(badgeName);
+    const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
+    if (!parentFolders.hasNext()) {
+      return { status: 'error', message: 'Drive folder not found' };
+    }
+
+    const parentFolder = parentFolders.next();
+    const badgesFolders = parentFolder.getFoldersByName('Assets_Badges');
+    if (!badgesFolders.hasNext()) {
+      return { status: 'error', message: 'Assets_Badges folder not found' };
+    }
+
+    const badgesFolder = badgesFolders.next();
+
+    // Try both .svg and .png
+    let file = null;
+    const svgFiles = badgesFolder.getFilesByName(snakeCaseName + '.svg');
+    if (svgFiles.hasNext()) {
+      file = svgFiles.next();
+    } else {
+      const pngFiles = badgesFolder.getFilesByName(snakeCaseName + '.png');
+      if (pngFiles.hasNext()) {
+        file = pngFiles.next();
+      }
+    }
+
+    if (!file) {
+      return { status: 'error', message: 'Badge image file not found in Drive' };
+    }
+
+    return {
+      status: 'success',
+      downloadUrl: file.getDownloadUrl(),
+      filename: file.getName()
+    };
+  } catch (e) {
+    Logger.log('Error in downloadBadgeForDeploy: ' + e.message);
+    return {
+      status: 'error',
+      message: 'Error downloading badge: ' + e.message
+    };
+  }
+}
+
