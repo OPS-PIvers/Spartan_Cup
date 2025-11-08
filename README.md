@@ -14,7 +14,7 @@ A gamified attendance and participation system for student events at Orono High 
 ✅ Photo submission for points
 ✅ Real-time leaderboards
 ✅ Admin dashboard for submission review
-✅ Badge management system (create, edit, delete badges with image upload)
+✅ Badge management system with automated Firebase Storage uploads
 ✅ iOS Safari geolocation support (via Firebase wrapper)
 ✅ Dark mode theme
 ✅ Badge achievements system
@@ -43,12 +43,16 @@ A gamified attendance and participation system for student events at Orono High 
    firebase deploy --only hosting
    ```
 
-4. **Badge Image Deployment:**
-   - Create badges via Admin Dashboard → Badges tab
-   - Images are uploaded to Google Drive ("The Spartan Cup" → "Assets_Badges")
-   - Download images from Drive and add to `/public/badges/` folder
-   - Deploy to Firebase: `firebase deploy --only hosting`
-   - See [BADGE_DEPLOYMENT_GUIDE.md](BADGE_DEPLOYMENT_GUIDE.md) for detailed instructions
+4. **Firebase Storage Setup (for automated badge uploads):**
+   - Enable Firebase Storage in Firebase Console
+   - Configure storage security rules
+   - Update Firebase config in `Index.html` with your API key
+   - Badge images auto-upload to Firebase Storage (no manual steps!)
+   - See [FIREBASE_STORAGE_SETUP.md](FIREBASE_STORAGE_SETUP.md) for setup guide
+
+5. **Legacy: Manual Badge Deployment (optional):**
+   - Alternative to Firebase Storage for badge images
+   - See [BADGE_DEPLOYMENT_GUIDE.md](BADGE_DEPLOYMENT_GUIDE.md) if needed
 
 ## Architecture
 

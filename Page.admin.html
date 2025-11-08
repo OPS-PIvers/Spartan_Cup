@@ -325,15 +325,11 @@
         </div>
       </form>
 
-      <!-- Deployment Instructions -->
-      <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
-        <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">📦 Deployment Instructions</p>
-        <ol class="text-xs text-blue-700 dark:text-blue-400 space-y-1 list-decimal list-inside">
-          <li>Upload image here (saved to Google Drive)</li>
-          <li>Download image from Drive: "The Spartan Cup" → "Assets_Badges"</li>
-          <li>Copy image to your local <code>/public/badges/</code> folder</li>
-          <li>Run: <code>firebase deploy --only hosting</code></li>
-        </ol>
+      <!-- Auto-Deployment Notice -->
+      <div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
+        <p class="text-xs font-semibold text-green-800 dark:text-green-300 mb-1">✨ Automated Upload</p>
+        <p class="text-xs text-green-700 dark:text-green-400">Badge images are automatically uploaded to Firebase Storage and immediately available. No manual deployment needed!</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">Backup copy saved to Google Drive: "The Spartan Cup" → "Assets_Badges"</p>
       </div>
     </div>
 
@@ -1428,7 +1424,7 @@
       });
     }
 
-    function saveBadge() {
+    async function saveBadge() {
       document.getElementById('loading-modal').classList.remove('hidden');
 
       const badgeName = document.getElementById('badge-name').value.trim();
@@ -1443,15 +1439,29 @@
         return;
       }
 
+      let firebaseImageUrl = null;
+
+      // Upload image to Firebase Storage if provided
+      if (badgeImageData) {
+        try {
+          firebaseImageUrl = await uploadToFirebaseStorage(badgeName, badgeImageData);
+        } catch (error) {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error uploading image to Firebase Storage: ' + error.message);
+          return;
+        }
+      }
+
       const badgeData = {
         badgeName: badgeName,
         category: category,
         triggerType: triggerType,
         triggerValue: triggerValue,
-        description: description
+        description: description,
+        imageUrl: firebaseImageUrl || '' // Use Firebase Storage URL
       };
 
-      // Add image data if available
+      // Also send image to Google Drive as backup
       if (badgeImageData) {
         badgeData.imageBase64 = badgeImageData.base64;
         badgeData.imageMimeType = badgeImageData.mimeType;
@@ -1460,7 +1470,7 @@
       const successHandler = (response) => {
         document.getElementById('loading-modal').classList.add('hidden');
         if (response.status === 'success') {
-          alert(response.message + '\\n\\nFirebase URL: ' + response.imageUrl + '\\n\\nRemember to deploy the image from Google Drive to Firebase!');
+          alert('✅ Badge saved successfully!\\n\\nImage URL: ' + (firebaseImageUrl || 'No image'));
           clearBadgeForm();
           loadBadgesList();
         } else {
@@ -1478,6 +1488,46 @@
       } else {
         google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
       }
+    }
+
+    // Upload image directly to Firebase Storage
+    async function uploadToFirebaseStorage(badgeName, imageData) {
+      // Convert badge name to snake_case for filename
+      const snakeCaseName = badgeName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '_');
+
+      // Determine file extension from MIME type
+      const extension = imageData.mimeType === 'image/svg+xml' ? '.svg' :
+                       imageData.mimeType === 'image/png' ? '.png' : '.jpg';
+      const filename = snakeCaseName + extension;
+
+      // Get Firebase Storage reference
+      const storage = firebase.storage();
+      const storageRef = storage.ref();
+      const badgeRef = storageRef.child('badges/' + filename);
+
+      // Convert base64 to blob
+      const base64Data = imageData.base64.replace(/^data:image\/[a-z+]+;base64,/, '');
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: imageData.mimeType });
+
+      // Upload to Firebase Storage
+      const snapshot = await badgeRef.put(blob, {
+        contentType: imageData.mimeType,
+        cacheControl: 'public, max-age=31536000' // Cache for 1 year
+      });
+
+      // Get public download URL
+      const downloadURL = await snapshot.ref.getDownloadURL();
+      return downloadURL;
     }
 
     function clearBadgeForm() {

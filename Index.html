@@ -26,7 +26,27 @@
   <!-- 3. Load QR Generator Library (for admin QR code generation only) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- 4. Inject School Colors into Tailwind -->
+  <!-- 4. Firebase SDK for Storage (badge image uploads) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script>
+    // Firebase configuration for The Spartan Cup
+    const firebaseConfig = {
+      apiKey: "AIzaSyBPGx5V-pTX4dKCXGxZ8qxJQqxJQqxJQqx", // Replace with actual API key
+      authDomain: "the-spartan-cup.firebaseapp.com",
+      projectId: "the-spartan-cup",
+      storageBucket: "the-spartan-cup.appspot.com",
+      messagingSenderId: "123456789012",
+      appId: "1:123456789012:web:abcdef123456"
+    };
+
+    // Initialize Firebase (only if not already initialized)
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+  </script>
+
+  <!-- 5. Inject School Colors into Tailwind -->
   <script>
     tailwind.config = {
       darkMode: "class",

@@ -4703,8 +4703,10 @@ function createBadge(badgeData) {
     }
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
 
-    // Upload image if provided
+    // Use Firebase Storage URL if provided, otherwise upload to Drive
     let imageUrl = badgeData.imageUrl || '';
+
+    // Also save backup to Google Drive if base64 data is provided
     if (badgeData.imageBase64 && badgeData.imageMimeType) {
       const uploadResult = uploadBadgeImage(
         badgeData.badgeName,
@@ -4712,11 +4714,11 @@ function createBadge(badgeData) {
         badgeData.imageMimeType
       );
 
-      if (uploadResult.status === 'success') {
+      // Only use Drive URL if Firebase Storage URL wasn't provided
+      if (!imageUrl && uploadResult.status === 'success') {
         imageUrl = uploadResult.firebaseUrl;
-      } else {
-        return uploadResult; // Return error
       }
+      // If Drive upload fails but we have Firebase URL, continue anyway
     }
 
     // Append new badge row
@@ -4776,8 +4778,10 @@ function updateBadge(badgeId, badgeData) {
       };
     }
 
-    // Upload new image if provided
-    let imageUrl = badgeData.imageUrl || badgesData[badgeRow - 1][6];
+    // Use Firebase Storage URL if provided, keep existing if not
+    let imageUrl = badgeData.imageUrl !== undefined ? badgeData.imageUrl : badgesData[badgeRow - 1][6];
+
+    // Also save backup to Google Drive if base64 data is provided
     if (badgeData.imageBase64 && badgeData.imageMimeType) {
       const uploadResult = uploadBadgeImage(
         badgeData.badgeName,
@@ -4785,11 +4789,11 @@ function updateBadge(badgeId, badgeData) {
         badgeData.imageMimeType
       );
 
-      if (uploadResult.status === 'success') {
+      // Only use Drive URL if Firebase Storage URL wasn't provided
+      if (badgeData.imageUrl === undefined && uploadResult.status === 'success') {
         imageUrl = uploadResult.firebaseUrl;
-      } else {
-        return uploadResult; // Return error
       }
+      // If Drive upload fails but we have Firebase URL, continue anyway
     }
 
     // Update badge row

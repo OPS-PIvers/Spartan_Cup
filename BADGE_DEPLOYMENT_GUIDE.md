@@ -1,14 +1,30 @@
 # Badge Image Deployment Guide
 
-This guide explains how to deploy badge images from Google Drive to Firebase Hosting after creating them in the Admin Dashboard.
+## IMPORTANT: Automated Deployment Now Available!
 
-## Overview
+**Firebase Storage** has replaced the manual deployment process. Badge images are now **automatically uploaded** and immediately available.
 
-When you create or edit a badge in the Admin Dashboard:
-1. The image is uploaded to **Google Drive** (folder: "The Spartan Cup" → "Assets_Badges")
-2. The filename is automatically converted to **snake_case** (e.g., "First Timer" → "first_timer.svg")
-3. The Firebase URL is automatically generated and saved in the Config_Badges sheet
-4. You manually deploy the image to Firebase Hosting
+**New Process (Automated):**
+1. Upload image in Admin Dashboard → Badges tab
+2. Image automatically uploads to Firebase Storage
+3. Image is immediately available (no manual steps!)
+4. Backup copy saved to Google Drive
+
+**See [FIREBASE_STORAGE_SETUP.md](FIREBASE_STORAGE_SETUP.md) for setup instructions.**
+
+---
+
+## Legacy Manual Deployment Guide (Firebase Hosting)
+
+**Note:** This manual process is no longer required if you've configured Firebase Storage. This documentation is kept for reference only.
+
+### Overview (Legacy Method)
+
+When you created or edited a badge in the Admin Dashboard (old method):
+1. The image was uploaded to **Google Drive** (folder: "The Spartan Cup" → "Assets_Badges")
+2. The filename was automatically converted to **snake_case** (e.g., "First Timer" → "first_timer.svg")
+3. The Firebase Hosting URL was automatically generated and saved in the Config_Badges sheet
+4. You manually deployed the image to Firebase Hosting
 
 ## Step-by-Step Deployment Process
 
