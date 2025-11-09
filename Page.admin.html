@@ -1722,7 +1722,12 @@
       let triggerValue;
 
       if (config.needsPercentage) {
-        const percentage = parseInt(document.getElementById('badge-percentage-input').value);
+        const percentageInputValue = document.getElementById('badge-percentage-input').value.trim();
+        if (!percentageInputValue) {
+          showBadgeError('Please enter a percentage value for this badge type');
+          return;
+        }
+        const percentage = parseInt(percentageInputValue);
         if (isNaN(percentage) || percentage < 1 || percentage > 100) {
           showBadgeError('Please enter a valid percentage (1-100)');
           return;
@@ -1741,9 +1746,14 @@
           triggerValue = percentage / 100;
         }
       } else if (config.needsValue) {
-        const value = parseInt(document.getElementById('badge-value-input').value);
+        const valueInputValue = document.getElementById('badge-value-input').value.trim();
+        if (!valueInputValue) {
+          showBadgeError('Please enter a value for this badge type');
+          return;
+        }
+        const value = parseInt(valueInputValue);
         if (isNaN(value) || value < 1) {
-          showBadgeError('Please enter a valid number');
+          showBadgeError('Please enter a valid number (must be at least 1)');
           return;
         }
 
@@ -1781,44 +1791,55 @@
         category: category,
         triggerType: triggerType,
         triggerValue: triggerValue,
-        description: description,
-        imageUrl: firebaseImageUrl || '' // Use Firebase Storage URL
+        description: description
       };
 
-      // Also send image to Google Drive as backup
+      // Only include image data if a new image was provided
       if (badgeImageData) {
         badgeData.imageBase64 = badgeImageData.base64;
         badgeData.imageMimeType = badgeImageData.mimeType;
+        if (firebaseImageUrl) {
+          badgeData.imageUrl = firebaseImageUrl; // Use Firebase Storage URL for new image
+        }
       }
 
       // Wrap server call in Promise to make it awaitable
       return new Promise((resolve, reject) => {
+        const operation = editingBadgeId ? 'update' : 'create';
+        console.log('[saveBadge] Starting ' + operation + ' operation with badgeData:', badgeData);
+
         const successHandler = (response) => {
+          console.log('[saveBadge] Server response:', response);
           document.getElementById('loading-modal').classList.add('hidden');
-          if (response.status === 'success') {
-            alert('✅ Badge saved successfully!\\n\\nImage URL: ' + (firebaseImageUrl || 'No image'));
+          if (response && response.status === 'success') {
+            alert('✅ Badge saved successfully!' + (operation === 'update' ? '\\n(Update)' : '\\n(New Badge)'));
             clearBadgeForm();
             loadBadgesList();
             resolve(response);
           } else {
-            alert('Error: ' + response.message);
-            reject(new Error(response.message || 'Unknown server error'));
+            const errorMsg = response && response.message ? response.message : 'Unknown server error. Check browser console and Apps Script logs.';
+            console.error('[saveBadge] Server returned error:', errorMsg);
+            alert('❌ Failed to save badge:\\n\\n' + errorMsg);
+            reject(new Error(errorMsg));
           }
         };
 
         const failureHandler = (error) => {
+          console.error('[saveBadge] Server communication failed:', error);
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error communicating with server: ' + error);
+          alert('❌ Error communicating with server:\\n\\n' + error + '\\n\\nCheck the Apps Script logs for details.');
           reject(new Error('Server communication error: ' + error));
         };
 
         try {
+          console.log('[saveBadge] Calling ' + operation + 'Badge()');
           if (editingBadgeId) {
             google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateBadge(editingBadgeId, badgeData);
           } else {
             google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
           }
         } catch (error) {
+          console.error('[saveBadge] Client-side exception:', error);
           document.getElementById('loading-modal').classList.add('hidden');
           reject(error);
         }

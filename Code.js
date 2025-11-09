@@ -4771,6 +4771,7 @@ function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existin
  */
 function createBadge(badgeData) {
   try {
+    Logger.log('[createBadge] Received badgeData: ' + JSON.stringify(badgeData));
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const badgesSheet = ss.getSheetByName('Config_Badges');
 
@@ -4782,6 +4783,7 @@ function createBadge(badgeData) {
       if (idNum > maxId) maxId = idNum;
     }
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
+    Logger.log('[createBadge] Generated badge ID: ' + newBadgeId);
 
     // Use Firebase Storage URL if provided, otherwise upload to Drive
     const imageUrl = _handleDriveBackupUpload(
@@ -4790,9 +4792,10 @@ function createBadge(badgeData) {
       badgeData.imageMimeType,
       badgeData.imageUrl
     );
+    Logger.log('[createBadge] Image URL result: ' + imageUrl);
 
     // Append new badge row
-    badgesSheet.appendRow([
+    const rowData = [
       newBadgeId,
       badgeData.badgeName,
       badgeData.category,
@@ -4800,7 +4803,10 @@ function createBadge(badgeData) {
       badgeData.triggerValue,
       badgeData.description,
       imageUrl
-    ]);
+    ];
+    Logger.log('[createBadge] Row data to append: ' + JSON.stringify(rowData));
+    badgesSheet.appendRow(rowData);
+    Logger.log('[createBadge] Row appended successfully');
 
     // Clear badge cache
     CacheService.getScriptCache().remove('badge_map_cache');
@@ -4812,7 +4818,7 @@ function createBadge(badgeData) {
       imageUrl: imageUrl
     };
   } catch (e) {
-    Logger.log('Error in createBadge: ' + e.message);
+    Logger.log('[createBadge] ERROR: ' + e.message + ' | Stack: ' + e.stack);
     return {
       status: 'error',
       message: 'Error creating badge: ' + e.message
@@ -4828,6 +4834,7 @@ function createBadge(badgeData) {
  */
 function updateBadge(badgeId, badgeData) {
   try {
+    Logger.log('[updateBadge] Received badgeId: ' + badgeId + ' | badgeData: ' + JSON.stringify(badgeData));
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
@@ -4842,23 +4849,27 @@ function updateBadge(badgeId, badgeData) {
     }
 
     if (!badgeRow) {
+      Logger.log('[updateBadge] Badge not found: ' + badgeId);
       return {
         status: 'error',
         message: 'Badge not found'
       };
     }
+    Logger.log('[updateBadge] Found badge at row: ' + badgeRow);
 
-    // Use Firebase Storage URL if provided, keep existing if not
+    // Use new Firebase Storage URL if new image provided, otherwise keep existing
     const existingUrl = badgesData[badgeRow - 1][6];
+    Logger.log('[updateBadge] Existing image URL: ' + existingUrl);
     const imageUrl = _handleDriveBackupUpload(
       badgeData.badgeName,
       badgeData.imageBase64,
       badgeData.imageMimeType,
-      badgeData.imageUrl !== undefined ? badgeData.imageUrl : existingUrl
+      badgeData.imageBase64 ? badgeData.imageUrl : existingUrl
     );
+    Logger.log('[updateBadge] Final image URL: ' + imageUrl);
 
     // Update badge row
-    badgesSheet.getRange(badgeRow, 1, 1, 7).setValues([[
+    const rowData = [
       badgeId,
       badgeData.badgeName,
       badgeData.category,
@@ -4866,7 +4877,10 @@ function updateBadge(badgeId, badgeData) {
       badgeData.triggerValue,
       badgeData.description,
       imageUrl
-    ]]);
+    ];
+    Logger.log('[updateBadge] Row data to update: ' + JSON.stringify(rowData));
+    badgesSheet.getRange(badgeRow, 1, 1, 7).setValues([rowData]);
+    Logger.log('[updateBadge] Row updated successfully');
 
     // Clear badge cache
     CacheService.getScriptCache().remove('badge_map_cache');
@@ -4877,7 +4891,7 @@ function updateBadge(badgeId, badgeData) {
       imageUrl: imageUrl
     };
   } catch (e) {
-    Logger.log('Error in updateBadge: ' + e.message);
+    Logger.log('[updateBadge] ERROR: ' + e.message + ' | Stack: ' + e.stack);
     return {
       status: 'error',
       message: 'Error updating badge: ' + e.message
