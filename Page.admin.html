@@ -1554,9 +1554,27 @@
       }
     }
 
-    document.getElementById('badge-form').addEventListener('submit', (e) => {
+    let isSubmittingBadge = false;
+
+    document.getElementById('badge-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      saveBadge();
+
+      // Prevent multiple concurrent submissions
+      if (isSubmittingBadge) {
+        alert('Please wait while the badge is being saved...');
+        return;
+      }
+
+      isSubmittingBadge = true;
+      try {
+        await saveBadge();
+      } catch (error) {
+        console.error('Badge submission error:', error);
+        alert('An unexpected error occurred: ' + error.message);
+        document.getElementById('loading-modal').classList.add('hidden');
+      } finally {
+        isSubmittingBadge = false;
+      }
     });
 
     document.getElementById('badge-cancel-btn').addEventListener('click', () => {
@@ -1622,16 +1640,16 @@
 
       badges.forEach((badge) => {
         const card = document.createElement('div');
-        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex gap-3';
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 sm:gap-3';
 
         // Badge image
         const imgDiv = document.createElement('div');
-        imgDiv.className = 'w-16 h-16 flex-shrink-0';
+        imgDiv.className = 'w-16 h-16 flex-shrink-0 mx-auto sm:mx-0';
         imgDiv.innerHTML = `<img src="${badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg'}" alt="${badge.badgeName}" class="w-full h-full object-cover rounded-lg" onerror="this.src='https://the-spartan-cup.web.app/badges/default-badge.svg'">`;
 
         // Badge details
         const detailsDiv = document.createElement('div');
-        detailsDiv.className = 'flex-1';
+        detailsDiv.className = 'flex-1 sm:flex-1';
 
         // Format trigger display
         let triggerDisplay = '';
@@ -1656,15 +1674,15 @@
 
         // Action buttons
         const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'flex flex-col gap-2';
+        actionsDiv.className = 'flex gap-2 sm:flex-col sm:gap-2 justify-center sm:justify-start';
 
         const editButton = document.createElement('button');
-        editButton.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600';
+        editButton.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex-1 sm:flex-none';
         editButton.textContent = 'Edit';
         editButton.addEventListener('click', () => editBadge(badge));
 
         const deleteButton = document.createElement('button');
-        deleteButton.className = 'px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600';
+        deleteButton.className = 'px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 flex-1 sm:flex-none';
         deleteButton.textContent = 'Delete';
         deleteButton.addEventListener('click', () => deleteBadgeConfirm(badge.badgeId, badge.badgeName));
 
@@ -1773,27 +1791,38 @@
         badgeData.imageMimeType = badgeImageData.mimeType;
       }
 
-      const successHandler = (response) => {
-        document.getElementById('loading-modal').classList.add('hidden');
-        if (response.status === 'success') {
-          alert('✅ Badge saved successfully!\\n\\nImage URL: ' + (firebaseImageUrl || 'No image'));
-          clearBadgeForm();
-          loadBadgesList();
-        } else {
-          alert('Error: ' + response.message);
+      // Wrap server call in Promise to make it awaitable
+      return new Promise((resolve, reject) => {
+        const successHandler = (response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            alert('✅ Badge saved successfully!\\n\\nImage URL: ' + (firebaseImageUrl || 'No image'));
+            clearBadgeForm();
+            loadBadgesList();
+            resolve(response);
+          } else {
+            alert('Error: ' + response.message);
+            reject(new Error(response.message || 'Unknown server error'));
+          }
+        };
+
+        const failureHandler = (error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error communicating with server: ' + error);
+          reject(new Error('Server communication error: ' + error));
+        };
+
+        try {
+          if (editingBadgeId) {
+            google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateBadge(editingBadgeId, badgeData);
+          } else {
+            google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
+          }
+        } catch (error) {
+          document.getElementById('loading-modal').classList.add('hidden');
+          reject(error);
         }
-      };
-
-      const failureHandler = (error) => {
-        document.getElementById('loading-modal').classList.add('hidden');
-        alert('Error communicating with server: ' + error);
-      };
-
-      if (editingBadgeId) {
-        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateBadge(editingBadgeId, badgeData);
-      } else {
-        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
-      }
+      });
     }
 
     // Upload image directly to Firebase Storage
