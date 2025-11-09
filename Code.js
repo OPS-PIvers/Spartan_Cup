@@ -4746,7 +4746,7 @@ function uploadBadgeImage(badgeName, base64Image, mimeType) {
  * @param {string} imageBase64 - Base64 encoded image data
  * @param {string} imageMimeType - Image MIME type
  * @param {string} existingImageUrl - Existing image URL (optional)
- * @return {string} Image URL to use (Firebase URL if provided, Drive backup URL if not)
+ * @return {string} Image URL to use (Drive URL if image uploaded, Firebase URL if provided, existing if updating without new image)
  */
 function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existingImageUrl) {
   let imageUrl = existingImageUrl || '';
@@ -4754,11 +4754,14 @@ function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existin
   if (imageBase64 && imageMimeType) {
     const uploadResult = uploadBadgeImage(badgeName, imageBase64, imageMimeType);
 
-    // Only use Drive URL if Firebase Storage URL wasn't provided
-    if (!imageUrl && uploadResult.status === 'success') {
-      imageUrl = uploadResult.firebaseUrl;
+    if (uploadResult.status === 'success') {
+      // Use actual Drive URL which is immediately accessible
+      imageUrl = uploadResult.driveUrl;
+      Logger.log('[_handleDriveBackupUpload] Using Drive URL: ' + imageUrl);
+    } else {
+      // If upload failed, keep existing URL if available
+      Logger.log('[_handleDriveBackupUpload] Upload failed: ' + uploadResult.message);
     }
-    // If Drive upload fails but we have Firebase URL, continue anyway
   }
 
   return imageUrl;
@@ -4772,8 +4775,31 @@ function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existin
 function createBadge(badgeData) {
   try {
     Logger.log('[createBadge] Received badgeData: ' + JSON.stringify(badgeData));
+
+    // Validate sheet exists
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const badgesSheet = ss.getSheetByName('Config_Badges');
+    if (!badgesSheet) {
+      Logger.log('[createBadge] ERROR: Config_Badges sheet not found');
+      return { status: 'error', message: 'Config_Badges sheet not found' };
+    }
+
+    // Validate required fields
+    if (!badgeData.badgeName || !badgeData.badgeName.trim()) {
+      return { status: 'error', message: 'Badge name is required' };
+    }
+    if (!badgeData.category || !badgeData.category.trim()) {
+      return { status: 'error', message: 'Category is required' };
+    }
+    if (!badgeData.triggerType || !badgeData.triggerType.trim()) {
+      return { status: 'error', message: 'Trigger type is required' };
+    }
+    if (badgeData.triggerValue === null || badgeData.triggerValue === undefined || badgeData.triggerValue === '') {
+      return { status: 'error', message: 'Trigger value is required' };
+    }
+    if (!badgeData.description || !badgeData.description.trim()) {
+      return { status: 'error', message: 'Description is required' };
+    }
 
     // Generate badge ID
     const existingData = badgesSheet.getDataRange().getValues();
@@ -4785,7 +4811,7 @@ function createBadge(badgeData) {
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
     Logger.log('[createBadge] Generated badge ID: ' + newBadgeId);
 
-    // Use Firebase Storage URL if provided, otherwise upload to Drive
+    // Handle image upload if provided
     const imageUrl = _handleDriveBackupUpload(
       badgeData.badgeName,
       badgeData.imageBase64,
@@ -4797,16 +4823,16 @@ function createBadge(badgeData) {
     // Append new badge row
     const rowData = [
       newBadgeId,
-      badgeData.badgeName,
-      badgeData.category,
-      badgeData.triggerType,
+      badgeData.badgeName.trim(),
+      badgeData.category.trim(),
+      badgeData.triggerType.trim(),
       badgeData.triggerValue,
-      badgeData.description,
+      badgeData.description.trim(),
       imageUrl
     ];
     Logger.log('[createBadge] Row data to append: ' + JSON.stringify(rowData));
     badgesSheet.appendRow(rowData);
-    Logger.log('[createBadge] Row appended successfully');
+    Logger.log('[createBadge] Row appended successfully to Config_Badges');
 
     // Clear badge cache
     CacheService.getScriptCache().remove('badge_map_cache');
@@ -4835,8 +4861,32 @@ function createBadge(badgeData) {
 function updateBadge(badgeId, badgeData) {
   try {
     Logger.log('[updateBadge] Received badgeId: ' + badgeId + ' | badgeData: ' + JSON.stringify(badgeData));
+
+    // Validate sheet exists
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const badgesSheet = ss.getSheetByName('Config_Badges');
+    if (!badgesSheet) {
+      Logger.log('[updateBadge] ERROR: Config_Badges sheet not found');
+      return { status: 'error', message: 'Config_Badges sheet not found' };
+    }
+
+    // Validate required fields
+    if (!badgeData.badgeName || !badgeData.badgeName.trim()) {
+      return { status: 'error', message: 'Badge name is required' };
+    }
+    if (!badgeData.category || !badgeData.category.trim()) {
+      return { status: 'error', message: 'Category is required' };
+    }
+    if (!badgeData.triggerType || !badgeData.triggerType.trim()) {
+      return { status: 'error', message: 'Trigger type is required' };
+    }
+    if (badgeData.triggerValue === null || badgeData.triggerValue === undefined || badgeData.triggerValue === '') {
+      return { status: 'error', message: 'Trigger value is required' };
+    }
+    if (!badgeData.description || !badgeData.description.trim()) {
+      return { status: 'error', message: 'Description is required' };
+    }
+
     const badgesData = badgesSheet.getDataRange().getValues();
 
     // Find badge row
@@ -4857,7 +4907,7 @@ function updateBadge(badgeId, badgeData) {
     }
     Logger.log('[updateBadge] Found badge at row: ' + badgeRow);
 
-    // Use new Firebase Storage URL if new image provided, otherwise keep existing
+    // Use new image URL if new image provided, otherwise keep existing
     const existingUrl = badgesData[badgeRow - 1][6];
     Logger.log('[updateBadge] Existing image URL: ' + existingUrl);
     const imageUrl = _handleDriveBackupUpload(
@@ -4871,16 +4921,16 @@ function updateBadge(badgeId, badgeData) {
     // Update badge row
     const rowData = [
       badgeId,
-      badgeData.badgeName,
-      badgeData.category,
-      badgeData.triggerType,
+      badgeData.badgeName.trim(),
+      badgeData.category.trim(),
+      badgeData.triggerType.trim(),
       badgeData.triggerValue,
-      badgeData.description,
+      badgeData.description.trim(),
       imageUrl
     ];
     Logger.log('[updateBadge] Row data to update: ' + JSON.stringify(rowData));
     badgesSheet.getRange(badgeRow, 1, 1, 7).setValues([rowData]);
-    Logger.log('[updateBadge] Row updated successfully');
+    Logger.log('[updateBadge] Row updated successfully to Config_Badges');
 
     // Clear badge cache
     CacheService.getScriptCache().remove('badge_map_cache');
