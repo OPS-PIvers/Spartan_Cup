@@ -1479,10 +1479,12 @@
       const template = e.target.value;
 
       if (!template) {
-        // Hide all dynamic fields
+        // Hide all dynamic fields and remove required attributes
         document.getElementById('activity-field').classList.add('hidden');
         document.getElementById('value-field').classList.add('hidden');
         document.getElementById('percentage-field').classList.add('hidden');
+        document.getElementById('badge-value-input').removeAttribute('required');
+        document.getElementById('badge-percentage-input').removeAttribute('required');
         document.getElementById('badge-preview').classList.add('hidden');
         document.getElementById('template-help').classList.add('hidden');
         return;
@@ -1506,17 +1508,21 @@
 
       if (config.needsValue) {
         document.getElementById('value-field').classList.remove('hidden');
+        document.getElementById('badge-value-input').setAttribute('required', 'required');
         document.getElementById('value-label').textContent = config.valueLabel;
         document.getElementById('value-help').textContent = config.valueHelp;
         document.getElementById('badge-value-input').placeholder = config.valuePlaceholder;
       } else {
         document.getElementById('value-field').classList.add('hidden');
+        document.getElementById('badge-value-input').removeAttribute('required');
       }
 
       if (config.needsPercentage) {
         document.getElementById('percentage-field').classList.remove('hidden');
+        document.getElementById('badge-percentage-input').setAttribute('required', 'required');
       } else {
         document.getElementById('percentage-field').classList.add('hidden');
+        document.getElementById('badge-percentage-input').removeAttribute('required');
       }
 
       updateBadgePreview();
@@ -1895,10 +1901,12 @@
       document.getElementById('badge-id-display').textContent = 'Auto-generated';
       document.querySelector('#badge-form button[type="submit"]').textContent = 'Create Badge';
 
-      // Hide dynamic fields
+      // Hide dynamic fields and remove required attributes
       document.getElementById('activity-field').classList.add('hidden');
       document.getElementById('value-field').classList.add('hidden');
       document.getElementById('percentage-field').classList.add('hidden');
+      document.getElementById('badge-value-input').removeAttribute('required');
+      document.getElementById('badge-percentage-input').removeAttribute('required');
       document.getElementById('badge-preview').classList.add('hidden');
       document.getElementById('template-help').classList.add('hidden');
     }
