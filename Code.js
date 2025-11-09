@@ -4748,23 +4748,25 @@ function uploadBadgeImage(badgeName, base64Image, mimeType) {
  * @param {string} existingImageUrl - Existing image URL (optional)
  * @return {string} Image URL to use (Drive URL if image uploaded, Firebase URL if provided, existing if updating without new image)
  */
-function _handleDriveBackupUpload(badgeName, imageBase64, imageMimeType, existingImageUrl) {
-  let imageUrl = existingImageUrl || '';
+function _handleImageUrl(firebaseImageUrl, existingImageUrl) {
+  // Frontend uploads to Firebase Storage and sends the download URL
+  // Backend just uses what the frontend provides
 
-  if (imageBase64 && imageMimeType) {
-    const uploadResult = uploadBadgeImage(badgeName, imageBase64, imageMimeType);
-
-    if (uploadResult.status === 'success') {
-      // Use actual Drive URL which is immediately accessible
-      imageUrl = uploadResult.driveUrl;
-      Logger.log('[_handleDriveBackupUpload] Using Drive URL: ' + imageUrl);
-    } else {
-      // If upload failed, keep existing URL if available
-      Logger.log('[_handleDriveBackupUpload] Upload failed: ' + uploadResult.message);
-    }
+  // If new image URL provided from Firebase, use it
+  if (firebaseImageUrl) {
+    Logger.log('[_handleImageUrl] Using Firebase Storage URL: ' + firebaseImageUrl);
+    return firebaseImageUrl;
   }
 
-  return imageUrl;
+  // Otherwise use existing URL (for updates without new image)
+  if (existingImageUrl) {
+    Logger.log('[_handleImageUrl] Using existing image URL: ' + existingImageUrl);
+    return existingImageUrl;
+  }
+
+  // No image URL
+  Logger.log('[_handleImageUrl] No image URL provided');
+  return '';
 }
 
 /**
@@ -4811,13 +4813,8 @@ function createBadge(badgeData) {
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
     Logger.log('[createBadge] Generated badge ID: ' + newBadgeId);
 
-    // Handle image upload if provided
-    const imageUrl = _handleDriveBackupUpload(
-      badgeData.badgeName,
-      badgeData.imageBase64,
-      badgeData.imageMimeType,
-      badgeData.imageUrl
-    );
+    // Handle image URL (frontend already uploaded to Firebase Storage)
+    const imageUrl = _handleImageUrl(badgeData.imageUrl, null);
     Logger.log('[createBadge] Image URL result: ' + imageUrl);
 
     // Append new badge row
@@ -4907,15 +4904,10 @@ function updateBadge(badgeId, badgeData) {
     }
     Logger.log('[updateBadge] Found badge at row: ' + badgeRow);
 
-    // Use new image URL if new image provided, otherwise keep existing
+    // Use new image URL if provided, otherwise keep existing (frontend already uploaded to Firebase)
     const existingUrl = badgesData[badgeRow - 1][6];
     Logger.log('[updateBadge] Existing image URL: ' + existingUrl);
-    const imageUrl = _handleDriveBackupUpload(
-      badgeData.badgeName,
-      badgeData.imageBase64,
-      badgeData.imageMimeType,
-      badgeData.imageBase64 ? badgeData.imageUrl : existingUrl
-    );
+    const imageUrl = _handleImageUrl(badgeData.imageUrl, existingUrl);
     Logger.log('[updateBadge] Final image URL: ' + imageUrl);
 
     // Update badge row
