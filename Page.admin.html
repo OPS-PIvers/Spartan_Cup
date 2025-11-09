@@ -350,10 +350,6 @@
           <p id="badge-image-filename" class="hidden text-xs text-gray-600 dark:text-gray-400"></p>
         </div>
 
-        <!-- Hidden fields for backend -->
-        <input type="hidden" id="badge-trigger-type">
-        <input type="hidden" id="badge-trigger-value">
-
         <!-- Submit/Cancel -->
         <div class="flex gap-2">
           <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">
@@ -1682,6 +1678,12 @@
       });
     }
 
+    // Helper function to show error and hide loading modal
+    function showBadgeError(message) {
+      document.getElementById('loading-modal').classList.add('hidden');
+      alert(message);
+    }
+
     async function saveBadge() {
       document.getElementById('loading-modal').classList.remove('hidden');
 
@@ -1691,8 +1693,7 @@
       const description = document.getElementById('badge-description').value.trim();
 
       if (!template || !badgeName || !category || !description) {
-        document.getElementById('loading-modal').classList.add('hidden');
-        alert('Please fill in all required fields');
+        showBadgeError('Please fill in all required fields');
         return;
       }
 
@@ -1705,8 +1706,7 @@
       if (config.needsPercentage) {
         const percentage = parseInt(document.getElementById('badge-percentage-input').value);
         if (isNaN(percentage) || percentage < 1 || percentage > 100) {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Please enter a valid percentage (1-100)');
+          showBadgeError('Please enter a valid percentage (1-100)');
           return;
         }
 
@@ -1714,8 +1714,7 @@
           // Activity percentage badge - format: "ACTIVITY_CODE:0.XX"
           const activityCode = document.getElementById('badge-activity-code').value;
           if (!activityCode) {
-            document.getElementById('loading-modal').classList.add('hidden');
-            alert('Please select a sport/activity');
+            showBadgeError('Please select a sport/activity');
             return;
           }
           triggerValue = `${activityCode}:${(percentage / 100).toFixed(2)}`;
@@ -1726,8 +1725,7 @@
       } else if (config.needsValue) {
         const value = parseInt(document.getElementById('badge-value-input').value);
         if (isNaN(value) || value < 1) {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Please enter a valid number');
+          showBadgeError('Please enter a valid number');
           return;
         }
 
@@ -1735,8 +1733,7 @@
           // Activity count badge - format: "ACTIVITY_CODE:COUNT"
           const activityCode = document.getElementById('badge-activity-code').value;
           if (!activityCode) {
-            document.getElementById('loading-modal').classList.add('hidden');
-            alert('Please select a sport/activity');
+            showBadgeError('Please select a sport/activity');
             return;
           }
           triggerValue = `${activityCode}:${value}`;
@@ -1756,8 +1753,7 @@
         try {
           firebaseImageUrl = await uploadToFirebaseStorage(badgeName, badgeImageData);
         } catch (error) {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error uploading image to Firebase Storage: ' + error.message);
+          showBadgeError('Error uploading image to Firebase Storage: ' + error.message);
           return;
         }
       }
@@ -1857,54 +1853,44 @@
       document.getElementById('template-help').classList.add('hidden');
     }
 
+    // Reverse lookup: triggerType -> template name
+    // Built dynamically from badgeTemplates to ensure consistency
+    const triggerTypeToTemplate = {};
+    Object.keys(badgeTemplates).forEach(templateName => {
+      const triggerType = badgeTemplates[templateName].triggerType;
+      triggerTypeToTemplate[triggerType] = templateName;
+    });
+    // Add legacy mappings
+    triggerTypeToTemplate['points_threshold'] = 'season_points';
+    triggerTypeToTemplate['season_points'] = 'season_points';
+
     function editBadge(badge) {
       document.getElementById('badge-id-display').textContent = badge.badgeId;
       document.getElementById('badge-name').value = badge.badgeName;
       document.getElementById('badge-category').value = badge.category;
       document.getElementById('badge-description').value = badge.description;
 
-      // Determine template from trigger type
-      let template = '';
-      if (badge.triggerType === 'event_count') {
-        template = 'event_count';
-        document.getElementById('badge-value-input').value = badge.triggerValue;
-      } else if (badge.triggerType === 'Points_Season') {
-        template = 'season_points';
-        document.getElementById('badge-value-input').value = badge.triggerValue;
-      } else if (badge.triggerType === 'Activity_Pct') {
-        template = 'activity_pct';
-        if (typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, pct] = badge.triggerValue.split(':');
-          document.getElementById('badge-activity-code').value = activityCode;
-          document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
-        }
-      } else if (badge.triggerType === 'Activity_Event_Count') {
-        template = 'activity_count';
-        if (typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, count] = badge.triggerValue.split(':');
-          document.getElementById('badge-activity-code').value = activityCode;
-          document.getElementById('badge-value-input').value = count;
-        }
-      } else if (badge.triggerType === 'Distinct_Sports') {
-        template = 'distinct_sports';
-        document.getElementById('badge-value-input').value = badge.triggerValue;
-      } else if (badge.triggerType === 'Events_In_7_Days') {
-        template = 'weekly_streak';
-        document.getElementById('badge-value-input').value = badge.triggerValue;
+      // Reverse lookup: find template from trigger type
+      const template = triggerTypeToTemplate[badge.triggerType] || 'manual';
+
+      if (!triggerTypeToTemplate[badge.triggerType]) {
+        alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
+      }
+
+      // Populate form fields based on trigger type
+      if (badge.triggerType === 'Activity_Pct' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCode, pct] = badge.triggerValue.split(':');
+        document.getElementById('badge-activity-code').value = activityCode;
+        document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
+      } else if (badge.triggerType === 'Activity_Event_Count' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCode, count] = badge.triggerValue.split(':');
+        document.getElementById('badge-activity-code').value = activityCode;
+        document.getElementById('badge-value-input').value = count;
       } else if (badge.triggerType === 'Home_Game_Pct') {
-        template = 'home_game_pct';
         document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
-      } else if (badge.triggerType === 'manual') {
-        template = 'manual';
-      } else {
-        // Legacy support - try to map old trigger types
-        if (badge.triggerType === 'points_threshold' || badge.triggerType === 'season_points') {
-          template = 'season_points';
-          document.getElementById('badge-value-input').value = badge.triggerValue;
-        } else {
-          alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
-          template = 'manual';
-        }
+      } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
+        // Numeric trigger value (event_count, Points_Season, Distinct_Sports, etc.)
+        document.getElementById('badge-value-input').value = badge.triggerValue;
       }
 
       // Set template (this will trigger the change handler)

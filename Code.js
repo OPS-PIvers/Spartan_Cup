@@ -4126,6 +4126,13 @@ function calculateBadges(email) {
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
 
+    // PERFORMANCE: Fetch sheet data ONCE outside the loop to avoid redundant reads
+    // These sheets are used by multiple badge trigger types
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+    const eventSheet = ss.getSheetByName('Events');
+    const eventData = eventSheet.getDataRange().getValues();
+
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
       const badgeId = badgesData[i][0];
@@ -4151,8 +4158,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Submission_Count' || triggerType === 'Submission_Count_Week_1') {
         // Count verified submissions for this student - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
         let submissionCount = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) submissionCount++;
@@ -4161,8 +4166,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Events_In_7_Days') {
         // Count events attended in last 7 days - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         let recentCount = 0;
         for (let j = 1; j < verifiedData.length; j++) {
@@ -4177,10 +4180,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Distinct_Sports') {
         // Count unique sports/activities attended - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
 
         // Build event to activity map
         const eventToActivity = {};
@@ -4207,11 +4206,6 @@ function calculateBadges(email) {
         const requiredPercentage = parseFloat(percentageStr);
 
         if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
-
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
 
         // Count total events for this activity
         let totalActivityEvents = 0;
@@ -4246,11 +4240,6 @@ function calculateBadges(email) {
 
         if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
 
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
-
         // Build map of event IDs to activity codes
         const eventToActivity = {};
         for (let j = 1; j < eventData.length; j++) {
@@ -4272,10 +4261,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Home_Game_Pct') {
         // Percentage of home games attended - must have valid trigger value (0-1)
         if (typeof triggerValue !== 'number' || triggerValue < 0 || triggerValue > 1) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
 
         // Build event map
         const eventMap = {};
