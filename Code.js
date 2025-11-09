@@ -4126,6 +4126,13 @@ function calculateBadges(email) {
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
 
+    // PERFORMANCE: Fetch sheet data ONCE outside the loop to avoid redundant reads
+    // These sheets are used by multiple badge trigger types
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+    const eventSheet = ss.getSheetByName('Events');
+    const eventData = eventSheet.getDataRange().getValues();
+
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
       const badgeId = badgesData[i][0];
@@ -4151,8 +4158,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Submission_Count' || triggerType === 'Submission_Count_Week_1') {
         // Count verified submissions for this student - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
         let submissionCount = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) submissionCount++;
@@ -4161,8 +4166,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Events_In_7_Days') {
         // Count events attended in last 7 days - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         let recentCount = 0;
         for (let j = 1; j < verifiedData.length; j++) {
@@ -4177,10 +4180,6 @@ function calculateBadges(email) {
       } else if (triggerType === 'Distinct_Sports') {
         // Count unique sports/activities attended - must have valid trigger value
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
 
         // Build event to activity map
         const eventToActivity = {};
@@ -4198,13 +4197,70 @@ function calculateBadges(email) {
           }
         }
         shouldEarn = distinctActivities.size >= triggerValue;
+      } else if (triggerType === 'Activity_Pct') {
+        // Percentage of a specific activity's games attended
+        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of basketball games
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, percentageStr] = triggerValue.split(':');
+        const requiredPercentage = parseFloat(percentageStr);
+
+        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
+
+        // Count total events for this activity
+        let totalActivityEvents = 0;
+        const activityEventIds = new Set();
+        for (let j = 1; j < eventData.length; j++) {
+          if (eventData[j][1] === activityCode) { // Activity_Code column
+            totalActivityEvents++;
+            activityEventIds.add(eventData[j][0]); // Event_ID
+          }
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (activityEventIds.has(eventId)) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
+        shouldEarn = percentage >= requiredPercentage;
+      } else if (triggerType === 'Activity_Event_Count') {
+        // Count of events attended for a specific activity
+        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, countStr] = triggerValue.split(':');
+        const requiredCount = parseInt(countStr);
+
+        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
+
+        // Build map of event IDs to activity codes
+        const eventToActivity = {};
+        for (let j = 1; j < eventData.length; j++) {
+          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (eventToActivity[eventId] === activityCode) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        shouldEarn = attendedActivityEvents >= requiredCount;
       } else if (triggerType === 'Home_Game_Pct') {
         // Percentage of home games attended - must have valid trigger value (0-1)
         if (typeof triggerValue !== 'number' || triggerValue < 0 || triggerValue > 1) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
-        const eventSheet = ss.getSheetByName('Events');
-        const eventData = eventSheet.getDataRange().getValues();
 
         // Build event map
         const eventMap = {};
