@@ -889,6 +889,7 @@ function setupSpreadsheet() {
     'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
+    'Badge_Awards': ['Award_ID', 'Timestamp', 'Email', 'Display_Name', 'Badge_ID', 'Badge_Name', 'Badge_Image_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
     'Config_Points': ['Setting_Name', 'Points_Value', 'Description']
@@ -2033,80 +2034,97 @@ function createHtmlFiles() {
       }
     }
   </script>`,
-    'Page.fanfeed.html': `<div class="p-4 pt-6">
+    'Page.fanfeed.html': `<div class="p-4 pb-20">
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
       <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos from your classmates!</p>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
     </div>
 
-    <div id="fanfeed-container" class="space-y-3">
-      <p class="text-center text-gray-500 py-8">Loading photos...</p>
+    <div id="fanfeed-container" class="space-y-4">
+      <p class="text-center text-gray-500 py-8">Loading feed...</p>
     </div>
   </div>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       loadFanFeed();
-      // Refresh every 10 seconds
-      setInterval(loadFanFeed, 10000);
+      // Refresh every 30 seconds
+      setInterval(loadFanFeed, 30000);
     });
 
     function loadFanFeed() {
       const container = document.getElementById('fanfeed-container');
-      container.innerHTML = '<p class="text-center text-gray-500 py-4">Loading...</p>';
 
       google.script.run.withSuccessHandler((response) => {
         if (response.status === 'error') {
-          container.innerHTML = '<p class="text-center text-red-600">Error loading feed</p>';
+          container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + response.message + '</p>';
           return;
         }
 
-        const photos = response.photos || [];
-        if (photos.length === 0) {
-          container.innerHTML = '<p class="text-center text-gray-500 py-8">No approved photos yet. Scan an event code to get started!</p>';
+        const items = response.items || [];
+        if (items.length === 0) {
+          container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No activity in the last ' + (response.daysShown || 7) + ' days. Check in at events to see them here!</p>';
           return;
         }
 
         container.innerHTML = '';
-        photos.forEach(photo => {
-          const card = document.createElement('div');
-          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
-          card.innerHTML = \`
-            <img src="\${photo.photoUrl}" alt="Event photo" class="w-full h-64 object-cover">
+        items.forEach(item => {
+          if (item.type === 'photo') {
+            // Photo card
+            const card = document.createElement('div');
+            card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
+            card.innerHTML = \`
+              <img src="\${item.photoUrl}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
 
-            <div class="p-4">
-              <div class="flex items-center justify-between mb-2">
-                <div>
-                  <p class="font-bold text-[#111318] dark:text-white">\${photo.eventName}</p>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">\${photo.studentEmail}</p>
+              <div class="p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="font-bold text-[#111318] dark:text-white">\${item.eventName}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">\${item.studentName}</p>
+                  </div>
+                </div>
+
+                <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                  <span class="material-symbols-outlined text-xs align-middle">schedule</span>
+                  \${new Date(item.timestamp).toLocaleDateString()} \${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                </p>
+              </div>
+            \`;
+            container.appendChild(card);
+          } else if (item.type === 'badge') {
+            // Badge award card
+            const card = document.createElement('div');
+            card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
+            card.innerHTML = \`
+              <div class="p-4">
+                <div class="flex items-center gap-4">
+                  <div class="flex-shrink-0">
+                    <img src="\${item.badgeImageUrl}"
+                         onerror="this.src='\${APP_DATA.badgeBaseUrl}default-badge.svg'; this.onerror=null;"
+                         alt="\${item.badgeName}"
+                         class="w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600">
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="material-symbols-outlined text-amber-600 dark:text-amber-400">emoji_events</span>
+                      <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
+                    </div>
+                    <p class="text-lg font-bold text-[#111318] dark:text-white">\${item.badgeName}</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">\${item.studentName}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      <span class="material-symbols-outlined text-xs align-middle">schedule</span>
+                      \${new Date(item.timestamp).toLocaleDateString()} \${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                    </p>
+                  </div>
                 </div>
               </div>
-
-              <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                <span class="material-symbols-outlined text-xs align-middle">schedule</span>
-                \${new Date(photo.timestamp).toLocaleDateString()}
-              </p>
-
-              <div class="flex gap-2">
-                <div class="flex-1 flex items-center justify-center gap-1 bg-gray-100 dark:bg-gray-700/50 rounded py-2 px-3">
-                  <span class="material-symbols-outlined text-sm">favorite</span>
-                  <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">\${photo.likes || 0}</span>
-                </div>
-                <button onclick="toggleLike('\${photo.submissionId}')" class="flex-1 flex items-center justify-center gap-1 bg-primary/10 dark:bg-primary/20 rounded py-2 px-3 active:scale-95 transition-transform">
-                  <span class="material-symbols-outlined text-sm">favorite_border</span>
-                  <span class="text-sm font-semibold text-primary dark:text-blue-300">Like</span>
-                </button>
-              </div>
-            </div>
-          \`;
-          container.appendChild(card);
+            \`;
+            container.appendChild(card);
+          }
         });
+      }).withFailureHandler((error) => {
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + error.message + '</p>';
       }).getFanFeed();
-    }
-
-    function toggleLike(submissionId) {
-      // This can be extended to implement actual like functionality
-      // console.log('Liked submission:', submissionId);
     }
   </script>`,
     'Page.scanner.html': `<div class="page fixed inset-0 z-50 bg-background-dark text-white">
@@ -4627,6 +4645,27 @@ function calculateBadges(email) {
 
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
+
+        // Log badge award to Badge_Awards sheet for fan feed
+        const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+        if (badgeAwardsSheet) {
+          const awardId = 'AWARD-' + Utilities.getUuid();
+          const timestamp = new Date();
+          const displayName = studentData[studentRow - 1][1]; // Display_Name from Student_Profiles
+          const badgeName = badgesData[i][1]; // Badge_Name
+          const badgeImageUrl = badgesData[i][6]; // Badge_Image_URL
+
+          badgeAwardsSheet.appendRow([
+            awardId,
+            timestamp,
+            email,
+            displayName,
+            badgeId,
+            badgeName,
+            badgeImageUrl
+          ]);
+        }
+
         // Send notification for new badge
         notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
       }
@@ -4863,19 +4902,22 @@ function getEventList(category) {
 }
 
 /**
- * Fetches approved photos for the fan feed (recent 50 photos, sorted by date).
- * @return {Array} Array of approved submission photos with metadata
+ * Fetches approved photos and recent badge awards for the fan feed.
+ * Shows recent photos and badge awards from the last 7 days.
+ * @param {number} daysBack - Number of days to look back for feed items (default: 7)
+ * @return {Object} Object with status and array of feed items (photos and badge awards)
  */
-function getFanFeed() {
+function getFanFeed(daysBack = 7) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const cutoffDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 
-    // Get verified submissions
+    // Get verified submissions (photos)
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     const verifiedData = verifiedSheet.getDataRange().getValues();
 
     // Get event details map
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
@@ -4885,19 +4927,35 @@ function getFanFeed() {
       };
     }
 
-    const photos = [];
+    // Get student names map
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+    const studentMap = {};
+    for (let i = 1; i < studentData.length; i++) {
+      studentMap[studentData[i][0]] = studentData[i][1]; // Email -> Display_Name
+    }
+
+    const feedItems = [];
+
+    // Add photos from verified submissions
     for (let i = 1; i < verifiedData.length; i++) {
+      const timestamp = new Date(verifiedData[i][2]); // Timestamp_Approved
+
+      // Filter by date
+      if (timestamp < cutoffDate) continue;
+
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      // Photo URL is in column 10 (0-indexed as 10) - added when approving
       const photoUrl = verifiedData[i][10];
 
       // Skip if no photo URL
       if (!photoUrl) continue;
 
-      photos.push({
+      feedItems.push({
+        type: 'photo',
         submissionId: verifiedData[i][0],
-        timestamp: verifiedData[i][2], // Timestamp_Approved
+        timestamp: timestamp,
         studentEmail: verifiedData[i][3],
+        studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
         photoUrl: photoUrl,
@@ -4905,13 +4963,38 @@ function getFanFeed() {
       });
     }
 
-    // Sort by date (most recent first) and limit to 50
-    photos.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const recentPhotos = photos.slice(0, 50);
+    // Add badge awards
+    const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+    if (badgeAwardsSheet) {
+      const badgeAwardsData = badgeAwardsSheet.getDataRange().getValues();
+
+      for (let i = 1; i < badgeAwardsData.length; i++) {
+        const timestamp = new Date(badgeAwardsData[i][1]); // Timestamp
+
+        // Filter by date
+        if (timestamp < cutoffDate) continue;
+
+        feedItems.push({
+          type: 'badge',
+          awardId: badgeAwardsData[i][0],
+          timestamp: timestamp,
+          studentEmail: badgeAwardsData[i][2],
+          studentName: badgeAwardsData[i][3], // Display_Name
+          badgeId: badgeAwardsData[i][4],
+          badgeName: badgeAwardsData[i][5],
+          badgeImageUrl: badgeAwardsData[i][6]
+        });
+      }
+    }
+
+    // Sort by timestamp (most recent first) and limit to 50 items
+    feedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const recentItems = feedItems.slice(0, 50);
 
     return {
       status: "success",
-      photos: recentPhotos
+      items: recentItems,
+      daysShown: daysBack
     };
 
   } catch (e) {
