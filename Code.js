@@ -2046,6 +2046,18 @@ function createHtmlFiles() {
   </div>
 
   <script>
+    /**
+     * Escapes HTML to prevent XSS attacks
+     * @param {string} str - String to escape
+     * @return {string} Escaped string safe for innerHTML
+     */
+    function escapeHTML(str) {
+      if (!str) return '';
+      const p = document.createElement('p');
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadFanFeed();
       // Refresh every 30 seconds
@@ -2057,7 +2069,7 @@ function createHtmlFiles() {
 
       google.script.run.withSuccessHandler((response) => {
         if (response.status === 'error') {
-          container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + response.message + '</p>';
+          container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
           return;
         }
 
@@ -2074,13 +2086,13 @@ function createHtmlFiles() {
             const card = document.createElement('div');
             card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
             card.innerHTML = \`
-              <img src="\${item.photoUrl}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
+              <img src="\${escapeHTML(item.photoUrl)}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
 
               <div class="p-4">
                 <div class="flex items-center justify-between mb-2">
                   <div>
-                    <p class="font-bold text-[#111318] dark:text-white">\${item.eventName}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">\${item.studentName}</p>
+                    <p class="font-bold text-[#111318] dark:text-white">\${escapeHTML(item.eventName)}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">\${escapeHTML(item.studentName)}</p>
                   </div>
                 </div>
 
@@ -2099,9 +2111,9 @@ function createHtmlFiles() {
               <div class="p-4">
                 <div class="flex items-center gap-4">
                   <div class="flex-shrink-0">
-                    <img src="\${item.badgeImageUrl}"
+                    <img src="\${escapeHTML(item.badgeImageUrl)}"
                          onerror="this.src='\${APP_DATA.badgeBaseUrl}default-badge.svg'; this.onerror=null;"
-                         alt="\${item.badgeName}"
+                         alt="\${escapeHTML(item.badgeName)}"
                          class="w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600">
                   </div>
                   <div class="flex-1">
@@ -2109,8 +2121,8 @@ function createHtmlFiles() {
                       <span class="material-symbols-outlined text-amber-600 dark:text-amber-400">emoji_events</span>
                       <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
                     </div>
-                    <p class="text-lg font-bold text-[#111318] dark:text-white">\${item.badgeName}</p>
-                    <p class="text-sm text-gray-700 dark:text-gray-300">\${item.studentName}</p>
+                    <p class="text-lg font-bold text-[#111318] dark:text-white">\${escapeHTML(item.badgeName)}</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">\${escapeHTML(item.studentName)}</p>
                     <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       <span class="material-symbols-outlined text-xs align-middle">schedule</span>
                       \${new Date(item.timestamp).toLocaleDateString()} \${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
@@ -2123,7 +2135,7 @@ function createHtmlFiles() {
           }
         });
       }).withFailureHandler((error) => {
-        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + error.message + '</p>';
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
       }).getFanFeed();
     }
   </script>`,
@@ -4175,20 +4187,31 @@ function calculateBadges(email) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Get student profile
+    // Get student profile with header-based column indexing
     const studentSheet = ss.getSheetByName('Student_Profiles');
     const studentData = studentSheet.getDataRange().getValues();
+    const studentHeaders = studentData[0];
+
+    // Dynamically locate column indices
+    const studentColIndices = {
+      email: studentHeaders.indexOf('Email'),
+      displayName: studentHeaders.indexOf('Display_Name'),
+      seasonPoints: studentHeaders.indexOf('Total_Points_Season'),
+      allTimePoints: studentHeaders.indexOf('Total_Points_AllTime'),
+      badgesEarned: studentHeaders.indexOf('Badges_Earned')
+    };
 
     let studentRow = null;
     let studentProfile = null;
 
     for (let i = 1; i < studentData.length; i++) {
-      if (studentData[i][0] === email) {
+      if (studentData[i][studentColIndices.email] === email) {
         studentRow = i + 1;
         studentProfile = {
-          seasonPoints: studentData[i][2] || 0,
-          allTimePoints: studentData[i][3] || 0,
-          earnedBadges: studentData[i][4] ? JSON.parse(studentData[i][4]) : []
+          seasonPoints: studentData[i][studentColIndices.seasonPoints] || 0,
+          allTimePoints: studentData[i][studentColIndices.allTimePoints] || 0,
+          earnedBadges: studentData[i][studentColIndices.badgesEarned] ? JSON.parse(studentData[i][studentColIndices.badgesEarned]) : [],
+          displayName: studentData[i][studentColIndices.displayName] || email
         };
         break;
       }
@@ -4196,9 +4219,21 @@ function calculateBadges(email) {
 
     if (!studentProfile) return;
 
-    // Get all badges
+    // Get all badges with header-based column indexing
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
+    const badgeHeaders = badgesData[0];
+
+    // Dynamically locate badge column indices
+    const badgeColIndices = {
+      badgeId: badgeHeaders.indexOf('Badge_ID'),
+      badgeName: badgeHeaders.indexOf('Badge_Name'),
+      category: badgeHeaders.indexOf('Category'),
+      triggerType: badgeHeaders.indexOf('Trigger_Type'),
+      triggerValue: badgeHeaders.indexOf('Trigger_Value'),
+      description: badgeHeaders.indexOf('Description'),
+      badgeImageUrl: badgeHeaders.indexOf('Badge_Image_URL')
+    };
 
     // PERFORMANCE: Fetch sheet data ONCE outside the loop to avoid redundant reads
     // These sheets are used by multiple badge trigger types
@@ -4220,9 +4255,9 @@ function calculateBadges(email) {
 
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
-      const badgeId = badgesData[i][0];
-      const triggerType = badgesData[i][3];
-      const triggerValue = badgesData[i][4];
+      const badgeId = badgesData[i][badgeColIndices.badgeId];
+      const triggerType = badgesData[i][badgeColIndices.triggerType];
+      const triggerValue = badgesData[i][badgeColIndices.triggerValue];
 
       // Skip if badge ID is empty
       if (!badgeId) continue;
@@ -4651,9 +4686,9 @@ function calculateBadges(email) {
         if (badgeAwardsSheet) {
           const awardId = 'AWARD-' + Utilities.getUuid();
           const timestamp = new Date();
-          const displayName = studentData[studentRow - 1][1]; // Display_Name from Student_Profiles
-          const badgeName = badgesData[i][1]; // Badge_Name
-          const badgeImageUrl = badgesData[i][6]; // Badge_Image_URL
+          const displayName = studentProfile.displayName;
+          const badgeName = badgesData[i][badgeColIndices.badgeName];
+          const badgeImageUrl = badgesData[i][badgeColIndices.badgeImageUrl];
 
           badgeAwardsSheet.appendRow([
             awardId,
@@ -4667,12 +4702,12 @@ function calculateBadges(email) {
         }
 
         // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+        notifyBadgeEarned(email, badgesData[i][badgeColIndices.badgeName]);
       }
     }
 
-    // Update Student_Profiles with new badges
-    studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
+    // Update Student_Profiles with new badges using dynamic column index
+    studentSheet.getRange(studentRow, studentColIndices.badgesEarned + 1).setValue(JSON.stringify(studentProfile.earnedBadges));
 
   } catch (e) {
     // Logger.log('Error in calculateBadges: ' + e.message);
