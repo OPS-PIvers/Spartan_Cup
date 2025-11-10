@@ -111,7 +111,7 @@ def main():
             sys.exit(1)
         cell = sys.argv[3]
         value = sys.argv[4]
-        worksheet.update(cell, value)
+        worksheet.update(values=[[value]], range_name=cell)
         print(f"Successfully updated {cell} in {sheet_name}", file=sys.stderr)
 
     elif operation == 'update_range':

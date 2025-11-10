@@ -4511,6 +4511,68 @@ function calculateBadges(email) {
 
         const totalBadgesEarned = studentProfile.earnedBadges.length;
         shouldEarn = totalBadgesEarned >= triggerValue;
+      } else if (triggerType === 'Weekday_Coverage') {
+        // Weekday Warrior - Attended events on all 5 weekdays (M-F)
+        // Trigger value is expected to be 5 (for 5 weekdays)
+        if (typeof triggerValue !== 'number' || triggerValue !== 5) continue;
+
+        // Build map of event IDs to dates
+        const eventDates = {};
+        for (let j = 1; j < eventData.length; j++) {
+          const eventId = eventData[j][0];
+          const eventDate = eventData[j][3]; // Date column
+          if (eventId && eventDate) {
+            eventDates[eventId] = new Date(eventDate);
+          }
+        }
+
+        // Track which weekdays (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri) have been attended
+        const weekdaysAttended = new Set();
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            const eventDate = eventDates[eventId];
+            if (eventDate) {
+              const dayOfWeek = eventDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+              // Only count Monday (1) through Friday (5)
+              if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                weekdaysAttended.add(dayOfWeek);
+              }
+            }
+          }
+        }
+
+        // Award badge if attended all 5 weekdays
+        shouldEarn = weekdaysAttended.size >= 5;
+      } else if (triggerType === 'Specific_Activities') {
+        // Arts Patron or similar - Attended specific required activities
+        // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,ACTIVITY_CODE3"
+        // Example: "ACT,BAND,SING" means must attend all 3 activities
+        if (typeof triggerValue !== 'string' || !triggerValue) continue;
+
+        const requiredActivities = triggerValue.split(',').map(code => code.trim());
+        if (requiredActivities.length === 0) continue;
+
+        // Build event to activity map
+        const eventToActivity = {};
+        for (let j = 1; j < eventData.length; j++) {
+          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+        }
+
+        // Track which required activities have been attended
+        const activitiesAttended = new Set();
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            const activity = eventToActivity[eventId];
+            if (activity && requiredActivities.includes(activity)) {
+              activitiesAttended.add(activity);
+            }
+          }
+        }
+
+        // Award badge if attended ALL required activities
+        shouldEarn = activitiesAttended.size >= requiredActivities.length;
       }
 
       // Legacy support for old trigger type names

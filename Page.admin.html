@@ -299,6 +299,8 @@
             <option value="career_events">🎯 Career Events - Attend X total events (lifetime)</option>
             <option value="career_seasons">🗓️ Multi-Season - Participate in X different seasons</option>
             <option value="career_badges">🏅 Badge Collector - Earn X total badges</option>
+            <option value="weekday_coverage">📅 Weekday Warrior - Attend events on all weekdays (M-F)</option>
+            <option value="specific_activities">🎭 Specific Activities - Attend specific sports/activities</option>
             <option value="manual">✋ Manual Award - Custom admin-awarded badge</option>
           </select>
           <p id="template-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
@@ -1593,6 +1595,30 @@
         help: 'Awarded when student has earned X total badges (badge collector achievement)',
         previewFn: (val) => `Student earns ${val} or more total badges`
       },
+      weekday_coverage: {
+        category: 'Participation',
+        triggerType: 'Weekday_Coverage',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Number of Weekdays',
+        valueHelp: 'Always use 5 for all weekdays (M-F)',
+        valuePlaceholder: '5',
+        help: 'Awarded when student attends events on all 5 weekdays (Monday through Friday)',
+        previewFn: (val) => `Student attends events on ${val} different weekdays (M-F)`
+      },
+      specific_activities: {
+        category: 'Variety',
+        triggerType: 'Specific_Activities',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Activity Codes (comma-separated)',
+        valueHelp: 'Enter activity codes separated by commas (e.g., ACT,BAND,SING)',
+        valuePlaceholder: 'e.g., ACT,BAND,SING',
+        help: 'Awarded when student attends ALL specified activities. Use activity codes from your Activities_Data sheet.',
+        previewFn: (val) => `Student attends events for all these activities: ${val.split(',').join(', ')}`
+      },
       manual: {
         category: 'Special',
         triggerType: 'manual',
@@ -1797,6 +1823,11 @@
           triggerDisplay = `${count} ${activityCode} events`;
         } else if (badge.triggerType === 'Home_Game_Pct') {
           triggerDisplay = `${Math.round(badge.triggerValue * 100)}% of home games`;
+        } else if (badge.triggerType === 'Weekday_Coverage') {
+          triggerDisplay = `All ${badge.triggerValue} weekdays (M-F)`;
+        } else if (badge.triggerType === 'Specific_Activities') {
+          const activities = typeof badge.triggerValue === 'string' ? badge.triggerValue.split(',').join(', ') : badge.triggerValue;
+          triggerDisplay = `Activities: ${activities}`;
         } else {
           triggerDisplay = `${badge.triggerType}: ${badge.triggerValue}`;
         }
@@ -1887,23 +1918,36 @@
           showBadgeError('Please enter a value for this badge type');
           return;
         }
-        const value = parseInt(valueInputValue);
-        if (isNaN(value) || value < 1) {
-          showBadgeError('Please enter a valid number (must be at least 1)');
-          return;
-        }
 
-        if (config.needsActivity) {
-          // Activity count badge - format: "ACTIVITY_CODE:COUNT"
-          const activityCode = document.getElementById('badge-activity-code').value;
-          if (!activityCode) {
-            showBadgeError('Please select a sport/activity');
+        // Special handling for Specific_Activities (comma-separated string)
+        if (triggerType === 'Specific_Activities') {
+          // Validate that it's a comma-separated list of activity codes
+          const activityCodes = valueInputValue.split(',').map(code => code.trim()).filter(code => code.length > 0);
+          if (activityCodes.length === 0) {
+            showBadgeError('Please enter at least one activity code');
             return;
           }
-          triggerValue = `${activityCode}:${value}`;
+          triggerValue = activityCodes.join(',');
         } else {
           // Regular numeric value
-          triggerValue = value;
+          const value = parseInt(valueInputValue);
+          if (isNaN(value) || value < 1) {
+            showBadgeError('Please enter a valid number (must be at least 1)');
+            return;
+          }
+
+          if (config.needsActivity) {
+            // Activity count badge - format: "ACTIVITY_CODE:COUNT"
+            const activityCode = document.getElementById('badge-activity-code').value;
+            if (!activityCode) {
+              showBadgeError('Please select a sport/activity');
+              return;
+            }
+            triggerValue = `${activityCode}:${value}`;
+          } else {
+            // Regular numeric value
+            triggerValue = value;
+          }
         }
       } else {
         // Manual award - no trigger value
@@ -2075,6 +2119,9 @@
         const [activityCode, count] = badge.triggerValue.split(':');
         document.getElementById('badge-activity-code').value = activityCode;
         document.getElementById('badge-value-input').value = count;
+      } else if (badge.triggerType === 'Specific_Activities' && typeof badge.triggerValue === 'string') {
+        // Comma-separated activity codes
+        document.getElementById('badge-value-input').value = badge.triggerValue;
       } else if (badge.triggerType === 'Home_Game_Pct') {
         document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
       } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
