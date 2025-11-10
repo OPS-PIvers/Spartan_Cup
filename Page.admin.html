@@ -316,16 +316,16 @@
         </div>
 
         <!-- Value Input (dynamic based on template) -->
-        <div id="value-field">
+        <div id="value-field" class="hidden">
           <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1" id="value-label">Value</label>
-          <input id="badge-value-input" type="number" placeholder="e.g., 5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required min="0">
+          <input id="badge-value-input" type="number" placeholder="e.g., 5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="0">
           <p id="value-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
         </div>
 
         <!-- Percentage Input (for percentage badges) -->
         <div id="percentage-field" class="hidden">
           <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Percentage Required (%)</label>
-          <input id="badge-percentage-input" type="number" placeholder="e.g., 25 for 25%" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required min="1" max="100">
+          <input id="badge-percentage-input" type="number" placeholder="e.g., 25 for 25%" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="1" max="100">
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter as whole number (1-100)</p>
         </div>
 
@@ -1353,6 +1353,23 @@
     let badgeImageData = null;
     let activitiesData = [];
 
+    // Cache DOM element references for better performance
+    const badgeFormElements = {
+      activityField: document.getElementById('activity-field'),
+      valueField: document.getElementById('value-field'),
+      percentageField: document.getElementById('percentage-field'),
+      badgeValueInput: document.getElementById('badge-value-input'),
+      badgePercentageInput: document.getElementById('badge-percentage-input'),
+      badgePreview: document.getElementById('badge-preview'),
+      templateHelp: document.getElementById('template-help'),
+      badgeTemplate: document.getElementById('badge-template'),
+      badgeCategory: document.getElementById('badge-category'),
+      valueLabel: document.getElementById('value-label'),
+      valueHelp: document.getElementById('value-help'),
+      badgeActivityCode: document.getElementById('badge-activity-code'),
+      previewText: document.getElementById('preview-text')
+    };
+
     // Load activities when badge tab is opened
     function loadActivitiesForBadges() {
       google.script.run.withSuccessHandler((response) => {
@@ -1364,15 +1381,25 @@
     }
 
     function populateBadgeActivityDropdown() {
-      const select = document.getElementById('badge-activity-code');
-      select.innerHTML = '<option value="">Select Sport/Activity</option>';
+      badgeFormElements.badgeActivityCode.innerHTML = '<option value="">Select Sport/Activity</option>';
 
       activitiesData.forEach(activity => {
         const option = document.createElement('option');
         option.value = activity.activityCode;
         option.textContent = `${activity.activityName} (${activity.activityCode})`;
-        select.appendChild(option);
+        badgeFormElements.badgeActivityCode.appendChild(option);
       });
+    }
+
+    // Helper function to reset/hide all dynamic badge fields
+    function resetBadgeDynamicFields() {
+      badgeFormElements.activityField.classList.add('hidden');
+      badgeFormElements.valueField.classList.add('hidden');
+      badgeFormElements.percentageField.classList.add('hidden');
+      badgeFormElements.badgeValueInput.required = false;
+      badgeFormElements.badgePercentageInput.required = false;
+      badgeFormElements.badgePreview.classList.add('hidden');
+      badgeFormElements.templateHelp.classList.add('hidden');
     }
 
     // Template configuration
@@ -1475,72 +1502,65 @@
     };
 
     // Template change handler
-    document.getElementById('badge-template').addEventListener('change', (e) => {
+    badgeFormElements.badgeTemplate.addEventListener('change', (e) => {
       const template = e.target.value;
 
       if (!template) {
-        // Hide all dynamic fields and remove required attributes
-        document.getElementById('activity-field').classList.add('hidden');
-        document.getElementById('value-field').classList.add('hidden');
-        document.getElementById('percentage-field').classList.add('hidden');
-        document.getElementById('badge-value-input').removeAttribute('required');
-        document.getElementById('badge-percentage-input').removeAttribute('required');
-        document.getElementById('badge-preview').classList.add('hidden');
-        document.getElementById('template-help').classList.add('hidden');
+        resetBadgeDynamicFields();
         return;
       }
 
       const config = badgeTemplates[template];
 
       // Show help text
-      document.getElementById('template-help').textContent = config.help;
-      document.getElementById('template-help').classList.remove('hidden');
+      badgeFormElements.templateHelp.textContent = config.help;
+      badgeFormElements.templateHelp.classList.remove('hidden');
 
       // Auto-fill category
-      document.getElementById('badge-category').value = config.category;
+      badgeFormElements.badgeCategory.value = config.category;
 
       // Show/hide fields based on template
       if (config.needsActivity) {
-        document.getElementById('activity-field').classList.remove('hidden');
+        badgeFormElements.activityField.classList.remove('hidden');
       } else {
-        document.getElementById('activity-field').classList.add('hidden');
+        badgeFormElements.activityField.classList.add('hidden');
       }
 
       if (config.needsValue) {
-        document.getElementById('value-field').classList.remove('hidden');
-        document.getElementById('badge-value-input').setAttribute('required', 'required');
-        document.getElementById('value-label').textContent = config.valueLabel;
-        document.getElementById('value-help').textContent = config.valueHelp;
-        document.getElementById('badge-value-input').placeholder = config.valuePlaceholder;
+        badgeFormElements.valueField.classList.remove('hidden');
+        badgeFormElements.badgeValueInput.required = true;
+        badgeFormElements.valueLabel.textContent = config.valueLabel;
+        badgeFormElements.valueHelp.textContent = config.valueHelp;
+        badgeFormElements.badgeValueInput.placeholder = config.valuePlaceholder;
       } else {
-        document.getElementById('value-field').classList.add('hidden');
-        document.getElementById('badge-value-input').removeAttribute('required');
+        badgeFormElements.valueField.classList.add('hidden');
+        badgeFormElements.badgeValueInput.required = false;
       }
 
       if (config.needsPercentage) {
-        document.getElementById('percentage-field').classList.remove('hidden');
-        document.getElementById('badge-percentage-input').setAttribute('required', 'required');
+        badgeFormElements.percentageField.classList.remove('hidden');
+        badgeFormElements.badgePercentageInput.required = true;
       } else {
-        document.getElementById('percentage-field').classList.add('hidden');
-        document.getElementById('badge-percentage-input').removeAttribute('required');
+        badgeFormElements.percentageField.classList.add('hidden');
+        badgeFormElements.badgePercentageInput.required = false;
       }
 
       updateBadgePreview();
     });
 
     // Update preview when inputs change
-    document.getElementById('badge-value-input').addEventListener('input', updateBadgePreview);
-    document.getElementById('badge-percentage-input').addEventListener('input', updateBadgePreview);
-    document.getElementById('badge-activity-code').addEventListener('change', updateBadgePreview);
+    badgeFormElements.badgeValueInput.addEventListener('input', updateBadgePreview);
+    badgeFormElements.badgePercentageInput.addEventListener('input', updateBadgePreview);
+    badgeFormElements.badgeActivityCode.addEventListener('change', updateBadgePreview);
 
     function updateBadgePreview() {
-      const template = document.getElementById('badge-template').value;
+      const template = badgeFormElements.badgeTemplate.value;
       if (!template) return;
 
       const config = badgeTemplates[template];
-      const value = parseInt(document.getElementById('badge-value-input').value);
-      const percentage = parseInt(document.getElementById('badge-percentage-input').value);
-      const activityCode = document.getElementById('badge-activity-code').value;
+      const value = parseInt(badgeFormElements.badgeValueInput.value);
+      const percentage = parseInt(badgeFormElements.badgePercentageInput.value);
+      const activityCode = badgeFormElements.badgeActivityCode.value;
 
       let previewText = '';
 
@@ -1553,10 +1573,10 @@
       }
 
       if (previewText) {
-        document.getElementById('preview-text').textContent = previewText;
-        document.getElementById('badge-preview').classList.remove('hidden');
+        badgeFormElements.previewText.textContent = previewText;
+        badgeFormElements.badgePreview.classList.remove('hidden');
       } else {
-        document.getElementById('badge-preview').classList.add('hidden');
+        badgeFormElements.badgePreview.classList.add('hidden');
       }
     }
 
@@ -1711,9 +1731,9 @@
     async function saveBadge() {
       document.getElementById('loading-modal').classList.remove('hidden');
 
-      const template = document.getElementById('badge-template').value;
+      const template = badgeFormElements.badgeTemplate.value;
       const badgeName = document.getElementById('badge-name').value.trim();
-      const category = document.getElementById('badge-category').value;
+      const category = badgeFormElements.badgeCategory.value;
       const description = document.getElementById('badge-description').value.trim();
 
       if (!template || !badgeName || !category || !description) {
@@ -1728,7 +1748,7 @@
       let triggerValue;
 
       if (config.needsPercentage) {
-        const percentageInputValue = document.getElementById('badge-percentage-input').value.trim();
+        const percentageInputValue = badgeFormElements.badgePercentageInput.value.trim();
         if (!percentageInputValue) {
           showBadgeError('Please enter a percentage value for this badge type');
           return;
@@ -1741,7 +1761,7 @@
 
         if (config.needsActivity) {
           // Activity percentage badge - format: "ACTIVITY_CODE:0.XX"
-          const activityCode = document.getElementById('badge-activity-code').value;
+          const activityCode = badgeFormElements.badgeActivityCode.value;
           if (!activityCode) {
             showBadgeError('Please select a sport/activity');
             return;
@@ -1752,7 +1772,7 @@
           triggerValue = percentage / 100;
         }
       } else if (config.needsValue) {
-        const valueInputValue = document.getElementById('badge-value-input').value.trim();
+        const valueInputValue = badgeFormElements.badgeValueInput.value.trim();
         if (!valueInputValue) {
           showBadgeError('Please enter a value for this badge type');
           return;
@@ -1765,7 +1785,7 @@
 
         if (config.needsActivity) {
           // Activity count badge - format: "ACTIVITY_CODE:COUNT"
-          const activityCode = document.getElementById('badge-activity-code').value;
+          const activityCode = badgeFormElements.badgeActivityCode.value;
           if (!activityCode) {
             showBadgeError('Please select a sport/activity');
             return;
@@ -1901,14 +1921,8 @@
       document.getElementById('badge-id-display').textContent = 'Auto-generated';
       document.querySelector('#badge-form button[type="submit"]').textContent = 'Create Badge';
 
-      // Hide dynamic fields and remove required attributes
-      document.getElementById('activity-field').classList.add('hidden');
-      document.getElementById('value-field').classList.add('hidden');
-      document.getElementById('percentage-field').classList.add('hidden');
-      document.getElementById('badge-value-input').removeAttribute('required');
-      document.getElementById('badge-percentage-input').removeAttribute('required');
-      document.getElementById('badge-preview').classList.add('hidden');
-      document.getElementById('template-help').classList.add('hidden');
+      // Reset all dynamic fields using helper function
+      resetBadgeDynamicFields();
     }
 
     // Reverse lookup: triggerType -> template name
@@ -1925,7 +1939,7 @@
     function editBadge(badge) {
       document.getElementById('badge-id-display').textContent = badge.badgeId;
       document.getElementById('badge-name').value = badge.badgeName;
-      document.getElementById('badge-category').value = badge.category;
+      badgeFormElements.badgeCategory.value = badge.category;
       document.getElementById('badge-description').value = badge.description;
 
       // Reverse lookup: find template from trigger type
@@ -1938,22 +1952,22 @@
       // Populate form fields based on trigger type
       if (badge.triggerType === 'Activity_Pct' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
         const [activityCode, pct] = badge.triggerValue.split(':');
-        document.getElementById('badge-activity-code').value = activityCode;
-        document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
+        badgeFormElements.badgeActivityCode.value = activityCode;
+        badgeFormElements.badgePercentageInput.value = Math.round(parseFloat(pct) * 100);
       } else if (badge.triggerType === 'Activity_Event_Count' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
         const [activityCode, count] = badge.triggerValue.split(':');
-        document.getElementById('badge-activity-code').value = activityCode;
-        document.getElementById('badge-value-input').value = count;
+        badgeFormElements.badgeActivityCode.value = activityCode;
+        badgeFormElements.badgeValueInput.value = count;
       } else if (badge.triggerType === 'Home_Game_Pct') {
-        document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
+        badgeFormElements.badgePercentageInput.value = Math.round(badge.triggerValue * 100);
       } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
         // Numeric trigger value (event_count, Points_Season, Distinct_Sports, etc.)
-        document.getElementById('badge-value-input').value = badge.triggerValue;
+        badgeFormElements.badgeValueInput.value = badge.triggerValue;
       }
 
       // Set template (this will trigger the change handler)
-      document.getElementById('badge-template').value = template;
-      document.getElementById('badge-template').dispatchEvent(new Event('change'));
+      badgeFormElements.badgeTemplate.value = template;
+      badgeFormElements.badgeTemplate.dispatchEvent(new Event('change'));
 
       if (badge.imageUrl) {
         document.getElementById('badge-image-preview').src = badge.imageUrl;
