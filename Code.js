@@ -772,9 +772,36 @@ function onOpen() {
     .addItem('5. Clear Cache (Development)', 'clearAllCaches')
     .addSeparator()
     .addItem('6. Populate Sample Badges', 'populateSampleBadges')
+    .addItem('Set Data Validation', 'setDataValidation')
     .addItem('7. Award Retroactive Badges (Run Once)', 'awardRetroactiveBadges')
     .addItem('8. End Season & Award Final Badges', 'processSeasonEndBadges')
     .addToUi();
+}
+
+function setDataValidation() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Config_Badges');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Sheet "Config_Badges" not found.');
+    return;
+  }
+
+  // Set data validation for Category column (C)
+  const categoryRange = sheet.getRange('C2:C');
+  const categoryRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Points', 'Participation', 'Variety', 'Loyalty', 'Special', 'Career', 'Achievement', 'Activity'], true)
+      .setAllowInvalid(false)
+      .build();
+  categoryRange.setDataValidation(categoryRule);
+
+  // Set data validation for Trigger_Type column (D)
+  const triggerTypeRange = sheet.getRange('D2:D');
+  const triggerTypeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Points_Season', 'Submission_Count', 'Submission_Count_Week_1', 'Events_In_7_Days', 'Distinct_Sports', 'Activity_Pct', 'Activity_Event_Count', 'Home_Game_Pct', 'Activity_Pct_Season', 'Activity_Pct_Lifetime', 'Activity_Event_Count_Season', 'Season_Placement', 'AllTime_Placement_Reached', 'Career_Events_Attended', 'Career_Seasons_Participated', 'Career_Badges_Earned', 'Weekday_Coverage', 'Specific_Activities', 'manual', 'activity_pct_season', 'activity_count_season', 'career_seasons', 'alltime_placement', 'career_badges', 'career_events'], true)
+      .setAllowInvalid(false)
+      .build();
+  triggerTypeRange.setDataValidation(triggerTypeRule);
+
+  SpreadsheetApp.getUi().alert('Data validation rules have been set for Category and Trigger_Type columns in Config_Badges.');
 }
 
 /**
@@ -998,6 +1025,34 @@ function updateActiveEventStatus() {
   } catch (e) {
     Logger.log(`Error in updateActiveEventStatus: ${e.message}`);
   }
+}
+
+/**
+ * Adds dropdown data validation to Config_Badges sheet columns.
+ * Column C (Category): Points, Participation, Variety, Loyalty, Special, Career, Achievement
+ * Column D (Trigger_Type): All implemented trigger types
+ */
+function setupBadgeDropdowns() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const badgesSheet = ss.getSheetByName('Config_Badges');
+
+  if (!badgesSheet) {
+    SpreadsheetApp.getUi().alert('Error: Config_Badges sheet not found. Please run First-Time Setup first.');
+    return;
+  }
+
+
+
+
+
+  // Get the last row with data (or use a large number to cover future rows)
+  const lastRow = Math.max(badgesSheet.getLastRow(), 100);
+
+
+
+
+
+
 }
 
 /**
@@ -4399,34 +4454,6 @@ function calculateBadges(email) {
           if (activitySeasonMap[eventActivityCode] === activeSeason) {
             eventToActivity[eventData[j][0]] = eventActivityCode; // Event_ID -> Activity_Code
           }
-        }
-
-        // Count attended events for this activity
-        let attendedActivityEvents = 0;
-        for (let j = 1; j < verifiedData.length; j++) {
-          if (verifiedData[j][3] === email) {
-            const eventId = verifiedData[j][4];
-            if (eventToActivity[eventId] === activityCode) {
-              attendedActivityEvents++;
-            }
-          }
-        }
-
-        shouldEarn = attendedActivityEvents >= requiredCount;
-      } else if (triggerType === 'Activity_Event_Count_Lifetime') {
-        // Count of events attended for a specific activity ACROSS ALL SEASONS (LIFETIME)
-        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:10" for 10 volleyball events EVER
-        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
-
-        const [activityCode, countStr] = triggerValue.split(':');
-        const requiredCount = parseInt(countStr);
-
-        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
-
-        // Build map of event IDs to activity codes (all seasons)
-        const eventToActivity = {};
-        for (let j = 1; j < eventData.length; j++) {
-          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
         }
 
         // Count attended events for this activity
