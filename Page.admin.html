@@ -318,14 +318,14 @@
         <!-- Value Input (dynamic based on template) -->
         <div id="value-field">
           <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1" id="value-label">Value</label>
-          <input id="badge-value-input" type="number" placeholder="e.g., 5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required min="0">
+          <input id="badge-value-input" type="number" placeholder="e.g., 5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="0">
           <p id="value-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
         </div>
 
         <!-- Percentage Input (for percentage badges) -->
         <div id="percentage-field" class="hidden">
           <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Percentage Required (%)</label>
-          <input id="badge-percentage-input" type="number" placeholder="e.g., 25 for 25%" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required min="1" max="100">
+          <input id="badge-percentage-input" type="number" placeholder="e.g., 25 for 25%" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="1" max="100">
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter as whole number (1-100)</p>
         </div>
 
@@ -1500,8 +1500,10 @@
       // Show/hide fields based on template
       if (config.needsActivity) {
         document.getElementById('activity-field').classList.remove('hidden');
+        document.getElementById('badge-activity-code').required = true;
       } else {
         document.getElementById('activity-field').classList.add('hidden');
+        document.getElementById('badge-activity-code').required = false;
       }
 
       if (config.needsValue) {
@@ -1509,14 +1511,18 @@
         document.getElementById('value-label').textContent = config.valueLabel;
         document.getElementById('value-help').textContent = config.valueHelp;
         document.getElementById('badge-value-input').placeholder = config.valuePlaceholder;
+        document.getElementById('badge-value-input').required = true;
       } else {
         document.getElementById('value-field').classList.add('hidden');
+        document.getElementById('badge-value-input').required = false;
       }
 
       if (config.needsPercentage) {
         document.getElementById('percentage-field').classList.remove('hidden');
+        document.getElementById('badge-percentage-input').required = true;
       } else {
         document.getElementById('percentage-field').classList.add('hidden');
+        document.getElementById('badge-percentage-input').required = false;
       }
 
       updateBadgePreview();
@@ -1895,10 +1901,13 @@
       document.getElementById('badge-id-display').textContent = 'Auto-generated';
       document.querySelector('#badge-form button[type="submit"]').textContent = 'Create Badge';
 
-      // Hide dynamic fields
+      // Hide dynamic fields and clear required attributes
       document.getElementById('activity-field').classList.add('hidden');
+      document.getElementById('badge-activity-code').required = false;
       document.getElementById('value-field').classList.add('hidden');
+      document.getElementById('badge-value-input').required = false;
       document.getElementById('percentage-field').classList.add('hidden');
+      document.getElementById('badge-percentage-input').required = false;
       document.getElementById('badge-preview').classList.add('hidden');
       document.getElementById('template-help').classList.add('hidden');
     }
