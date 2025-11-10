@@ -65,5 +65,10 @@ node_modules/
 # dotenv environment variables file
 .env
 
+# Google Service Account credentials
+credentials.json
+service_account.json
+*_service_account.json
+
 # dataconnect generated files
 .dataconnect

@@ -773,6 +773,7 @@ function onOpen() {
     .addSeparator()
     .addItem('6. Populate Sample Badges', 'populateSampleBadges')
     .addItem('7. Award Retroactive Badges (Run Once)', 'awardRetroactiveBadges')
+    .addItem('8. End Season & Award Final Badges', 'processSeasonEndBadges')
     .addToUi();
 }
 
@@ -4133,6 +4134,17 @@ function calculateBadges(email) {
     const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
 
+    // Get active season for season-scoped badges
+    const activeSeason = getActiveSeason();
+
+    // Build activity-to-season map for filtering
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+    const activitySeasonMap = {};
+    for (let j = 1; j < activitiesData.length; j++) {
+      activitySeasonMap[activitiesData[j][0]] = activitiesData[j][2]; // Activity_Code -> Season
+    }
+
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
       const badgeId = badgesData[i][0];
@@ -4291,6 +4303,214 @@ function calculateBadges(email) {
 
         const percentage = totalHomeGames > 0 ? attendedHomeGames / totalHomeGames : 0;
         shouldEarn = percentage >= triggerValue;
+      } else if (triggerType === 'Activity_Pct_Season') {
+        // Percentage of a specific activity's games attended WITHIN THE CURRENT SEASON
+        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of basketball games THIS SEASON
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, percentageStr] = triggerValue.split(':');
+        const requiredPercentage = parseFloat(percentageStr);
+
+        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
+
+        // Check if this activity belongs to the current season
+        if (activitySeasonMap[activityCode] !== activeSeason) {
+          // Activity not in current season, badge cannot be earned yet
+          continue;
+        }
+
+        // Count total events for this activity in the current season
+        let totalActivityEvents = 0;
+        const activityEventIds = new Set();
+        for (let j = 1; j < eventData.length; j++) {
+          const eventActivityCode = eventData[j][1]; // Activity_Code column
+          if (eventActivityCode === activityCode && activitySeasonMap[eventActivityCode] === activeSeason) {
+            totalActivityEvents++;
+            activityEventIds.add(eventData[j][0]); // Event_ID
+          }
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (activityEventIds.has(eventId)) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
+        shouldEarn = percentage >= requiredPercentage;
+      } else if (triggerType === 'Activity_Pct_Lifetime') {
+        // Percentage of a specific activity's games attended ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.50" for 50% of ALL basketball games ever
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, percentageStr] = triggerValue.split(':');
+        const requiredPercentage = parseFloat(percentageStr);
+
+        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
+
+        // Count total events for this activity across ALL seasons
+        let totalActivityEvents = 0;
+        const activityEventIds = new Set();
+        for (let j = 1; j < eventData.length; j++) {
+          if (eventData[j][1] === activityCode) { // Activity_Code column
+            totalActivityEvents++;
+            activityEventIds.add(eventData[j][0]); // Event_ID
+          }
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (activityEventIds.has(eventId)) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
+        shouldEarn = percentage >= requiredPercentage;
+      } else if (triggerType === 'Activity_Event_Count_Season') {
+        // Count of events attended for a specific activity WITHIN THE CURRENT SEASON
+        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events THIS SEASON
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, countStr] = triggerValue.split(':');
+        const requiredCount = parseInt(countStr);
+
+        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
+
+        // Check if this activity belongs to the current season
+        if (activitySeasonMap[activityCode] !== activeSeason) {
+          // Activity not in current season, badge cannot be earned yet
+          continue;
+        }
+
+        // Build map of event IDs to activity codes for current season only
+        const eventToActivity = {};
+        for (let j = 1; j < eventData.length; j++) {
+          const eventActivityCode = eventData[j][1]; // Activity_Code column
+          if (activitySeasonMap[eventActivityCode] === activeSeason) {
+            eventToActivity[eventData[j][0]] = eventActivityCode; // Event_ID -> Activity_Code
+          }
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (eventToActivity[eventId] === activityCode) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        shouldEarn = attendedActivityEvents >= requiredCount;
+      } else if (triggerType === 'Activity_Event_Count_Lifetime') {
+        // Count of events attended for a specific activity ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:10" for 10 volleyball events EVER
+        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
+
+        const [activityCode, countStr] = triggerValue.split(':');
+        const requiredCount = parseInt(countStr);
+
+        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
+
+        // Build map of event IDs to activity codes (all seasons)
+        const eventToActivity = {};
+        for (let j = 1; j < eventData.length; j++) {
+          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+        }
+
+        // Count attended events for this activity
+        let attendedActivityEvents = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            if (eventToActivity[eventId] === activityCode) {
+              attendedActivityEvents++;
+            }
+          }
+        }
+
+        shouldEarn = attendedActivityEvents >= requiredCount;
+      } else if (triggerType === 'Season_Placement') {
+        // Season placement badges (1st, 2nd, 3rd place in season)
+        // These are ONLY awarded at season end by processSeasonEndBadges() function
+        // Skip during regular badge calculations
+        continue;
+      } else if (triggerType === 'AllTime_Placement_Reached') {
+        // All-time leaderboard placement achievement (e.g., "Reached Top 10")
+        // Trigger value is the rank threshold (e.g., 10 for "Top 10")
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+
+        // Calculate current all-time rank
+        const allTimeRankings = [];
+        for (let j = 1; j < studentData.length; j++) {
+          allTimeRankings.push({
+            email: studentData[j][0],
+            allTimePoints: studentData[j][3] || 0
+          });
+        }
+        allTimeRankings.sort((a, b) => b.allTimePoints - a.allTimePoints);
+
+        // Find student's current rank
+        let currentRank = 0;
+        for (let j = 0; j < allTimeRankings.length; j++) {
+          if (allTimeRankings[j].email === email) {
+            currentRank = j + 1;
+            break;
+          }
+        }
+
+        // Award if student has reached or surpassed the required rank
+        // (lower rank number = better placement, so <= check)
+        shouldEarn = currentRank > 0 && currentRank <= triggerValue;
+      } else if (triggerType === 'Career_Events_Attended') {
+        // Lifetime event attendance milestone (total events across all seasons)
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+
+        let totalEventsAttended = 0;
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) totalEventsAttended++;
+        }
+
+        shouldEarn = totalEventsAttended >= triggerValue;
+      } else if (triggerType === 'Career_Seasons_Participated') {
+        // Multi-season participation achievement (attended events in X different seasons)
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+
+        // Count distinct seasons the student has attended events in
+        const seasonsParticipated = new Set();
+        for (let j = 1; j < verifiedData.length; j++) {
+          if (verifiedData[j][3] === email) {
+            const eventId = verifiedData[j][4];
+            // Find the activity for this event
+            for (let k = 1; k < eventData.length; k++) {
+              if (eventData[k][0] === eventId) {
+                const activityCode = eventData[k][1];
+                const season = activitySeasonMap[activityCode];
+                if (season) seasonsParticipated.add(season);
+                break;
+              }
+            }
+          }
+        }
+
+        shouldEarn = seasonsParticipated.size >= triggerValue;
+      } else if (triggerType === 'Career_Badges_Earned') {
+        // Badge collector achievement (earned X total badges)
+        if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
+
+        const totalBadgesEarned = studentProfile.earnedBadges.length;
+        shouldEarn = totalBadgesEarned >= triggerValue;
       }
 
       // Legacy support for old trigger type names
@@ -4378,6 +4598,129 @@ function awardRetroactiveBadges() {
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ Error awarding retroactive badges:\n\n' + e.message);
     Logger.log('Error in awardRetroactiveBadges: ' + e.message);
+  }
+}
+
+/**
+ * Processes season-end badges for all students.
+ * This function should be run when a season concludes to:
+ * 1. Award Season_Placement badges to top 3 students
+ * 2. Recalculate all badges with season-specific data
+ * 3. Optionally archive season results
+ * Can be run from the Admin menu: "7. End Season & Award Final Badges"
+ */
+function processSeasonEndBadges() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Get current season for display
+    const activeSeason = getActiveSeason();
+
+    // Calculate final season rankings
+    const seasonRankings = [];
+    for (let i = 1; i < studentData.length; i++) {
+      if (!studentData[i][0]) continue; // Skip empty rows
+      seasonRankings.push({
+        email: studentData[i][0],
+        name: studentData[i][1],
+        seasonPoints: studentData[i][2] || 0,
+        rowIndex: i
+      });
+    }
+
+    // Sort by season points (descending)
+    seasonRankings.sort((a, b) => b.seasonPoints - a.seasonPoints);
+
+    // Find all Season_Placement badges
+    const placementBadges = [];
+    for (let i = 1; i < badgesData.length; i++) {
+      const badgeId = badgesData[i][0];
+      const badgeName = badgesData[i][1];
+      const triggerType = badgesData[i][3];
+      const triggerValue = badgesData[i][4];
+
+      if (triggerType === 'Season_Placement' && badgeId) {
+        placementBadges.push({
+          badgeId: badgeId,
+          badgeName: badgeName,
+          placement: triggerValue // 1 for 1st place, 2 for 2nd, 3 for 3rd
+        });
+      }
+    }
+
+    // Award placement badges to top students
+    let placementBadgesAwarded = 0;
+    for (const badge of placementBadges) {
+      const placement = badge.placement;
+      if (placement >= 1 && placement <= seasonRankings.length) {
+        const topStudent = seasonRankings[placement - 1]; // 0-indexed
+        const studentRowIndex = topStudent.rowIndex;
+
+        // Get student's current badges
+        const currentBadges = studentData[studentRowIndex][4] ? JSON.parse(studentData[studentRowIndex][4]) : [];
+
+        // Award badge if not already earned
+        if (!currentBadges.includes(badge.badgeId)) {
+          currentBadges.push(badge.badgeId);
+          studentSheet.getRange(studentRowIndex + 1, 5).setValue(JSON.stringify(currentBadges));
+          placementBadgesAwarded++;
+
+          // Send notification
+          notifyBadgeEarned(topStudent.email, badge.badgeName);
+        }
+      }
+    }
+
+    // Recalculate all other badges for all students (to catch season-completion badges)
+    let studentsProcessed = 0;
+    let otherBadgesAwarded = 0;
+
+    for (let i = 1; i < studentData.length; i++) {
+      const email = studentData[i][0];
+      if (!email) continue; // Skip empty rows
+
+      // Get current badge count
+      const beforeBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+      const beforeCount = beforeBadges.length;
+
+      // Recalculate badges
+      calculateBadges(email);
+
+      // Check how many badges were added
+      const updatedData = studentSheet.getDataRange().getValues();
+      const afterBadges = updatedData[i][4] ? JSON.parse(updatedData[i][4]) : [];
+      const afterCount = afterBadges.length;
+
+      studentsProcessed++;
+      otherBadgesAwarded += (afterCount - beforeCount);
+    }
+
+    // Build top 3 summary for display
+    let top3Summary = '';
+    for (let i = 0; i < Math.min(3, seasonRankings.length); i++) {
+      const rank = i + 1;
+      const student = seasonRankings[i];
+      const medal = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : '🥉');
+      top3Summary += `${medal} ${rank}. ${student.name} - ${student.seasonPoints} pts\n`;
+    }
+
+    // Show completion message
+    SpreadsheetApp.getUi().alert(
+      `✅ ${activeSeason} Season End - Badges Awarded!\n\n` +
+      '📊 Final Season Rankings:\n' + top3Summary + '\n' +
+      '🏆 Placement Badges Awarded: ' + placementBadgesAwarded + '\n' +
+      '⭐ Other Season Badges Awarded: ' + otherBadgesAwarded + '\n' +
+      '👥 Students Processed: ' + studentsProcessed + '\n\n' +
+      'All students have been awarded their final season badges!'
+    );
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Error processing season-end badges:\n\n' + e.message);
+    Logger.log('Error in processSeasonEndBadges: ' + e.message);
   }
 }
 

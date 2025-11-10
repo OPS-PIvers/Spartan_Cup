@@ -285,11 +285,20 @@
             <option value="">Select a Badge Template</option>
             <option value="event_count">📊 Event Count - Attend X events total</option>
             <option value="season_points">⭐ Season Points - Earn X points this season</option>
-            <option value="activity_pct">🏀 Activity Percentage - Attend X% of specific sport games</option>
-            <option value="activity_count">🎯 Activity Event Count - Attend X events of specific sport</option>
+            <option value="activity_pct">🏀 Activity Percentage - Attend X% of specific sport games (all seasons)</option>
+            <option value="activity_count">🎯 Activity Event Count - Attend X events of specific sport (all seasons)</option>
+            <option value="activity_pct_season">🏆 Activity % (Season Only) - Attend X% of sport games THIS SEASON</option>
+            <option value="activity_pct_lifetime">🌟 Activity % (Lifetime) - Attend X% of sport games LIFETIME</option>
+            <option value="activity_count_season">📅 Activity Count (Season Only) - Attend X events THIS SEASON</option>
+            <option value="activity_count_lifetime">💎 Activity Count (Lifetime) - Attend X events LIFETIME</option>
             <option value="distinct_sports">🎨 Distinct Sports - Attend X different sports/activities</option>
             <option value="weekly_streak">🔥 Weekly Streak - Attend X events in 7 days</option>
             <option value="home_game_pct">🏠 Home Games Percentage - Attend X% of all home games</option>
+            <option value="season_placement">🥇 Season Placement - Award 1st/2nd/3rd place at season end</option>
+            <option value="alltime_placement">👑 All-Time Rank Achievement - Reach Top X on lifetime leaderboard</option>
+            <option value="career_events">🎯 Career Events - Attend X total events (lifetime)</option>
+            <option value="career_seasons">🗓️ Multi-Season - Participate in X different seasons</option>
+            <option value="career_badges">🏅 Badge Collector - Earn X total badges</option>
             <option value="manual">✋ Manual Award - Custom admin-awarded badge</option>
           </select>
           <p id="template-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
@@ -1462,6 +1471,127 @@
         needsActivity: false,
         help: 'Awarded when student attends X% of all home games (across all sports)',
         previewFn: (pct) => `Student attends ${pct}% or more of all home games`
+      },
+      activity_pct_season: {
+        category: 'Participation',
+        triggerType: 'Activity_Pct_Season',
+        needsValue: false,
+        needsPercentage: true,
+        needsActivity: true,
+        help: 'Awarded when student attends X% of a specific sport games IN CURRENT SEASON ONLY',
+        previewFn: (pct, activityCode) => {
+          const activity = activitiesData.find(a => a.activityCode === activityCode);
+          const activityName = activity ? activity.activityName : activityCode;
+          return `Student attends ${pct}% or more of ${activityName} games THIS SEASON`;
+        }
+      },
+      activity_pct_lifetime: {
+        category: 'Career',
+        triggerType: 'Activity_Pct_Lifetime',
+        needsValue: false,
+        needsPercentage: true,
+        needsActivity: true,
+        help: 'Awarded when student attends X% of a specific sport games ACROSS ALL SEASONS (LIFETIME)',
+        previewFn: (pct, activityCode) => {
+          const activity = activitiesData.find(a => a.activityCode === activityCode);
+          const activityName = activity ? activity.activityName : activityCode;
+          return `Student attends ${pct}% or more of ${activityName} games (lifetime)`;
+        }
+      },
+      activity_count_season: {
+        category: 'Participation',
+        triggerType: 'Activity_Event_Count_Season',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: true,
+        valueLabel: 'Number of Events',
+        valueHelp: 'How many events of this activity in current season?',
+        valuePlaceholder: 'e.g., 3',
+        help: 'Awarded when student attends X events of a specific sport IN CURRENT SEASON ONLY',
+        previewFn: (val, activityCode) => {
+          const activity = activitiesData.find(a => a.activityCode === activityCode);
+          const activityName = activity ? activity.activityName : activityCode;
+          return `Student attends ${val} or more ${activityName} events THIS SEASON`;
+        }
+      },
+      activity_count_lifetime: {
+        category: 'Career',
+        triggerType: 'Activity_Event_Count_Lifetime',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: true,
+        valueLabel: 'Number of Events',
+        valueHelp: 'How many events of this activity across all time?',
+        valuePlaceholder: 'e.g., 10',
+        help: 'Awarded when student attends X events of a specific sport ACROSS ALL SEASONS (LIFETIME)',
+        previewFn: (val, activityCode) => {
+          const activity = activitiesData.find(a => a.activityCode === activityCode);
+          const activityName = activity ? activity.activityName : activityCode;
+          return `Student attends ${val} or more ${activityName} events (lifetime)`;
+        }
+      },
+      season_placement: {
+        category: 'Achievement',
+        triggerType: 'Season_Placement',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Placement (1=First, 2=Second, 3=Third)',
+        valueHelp: 'Which place? (1, 2, or 3)',
+        valuePlaceholder: 'e.g., 1',
+        help: 'Awarded at SEASON END to student who finishes in this placement. Use Admin menu to process season-end badges.',
+        previewFn: (val) => {
+          const place = val === 1 ? '1st' : (val === 2 ? '2nd' : (val === 3 ? '3rd' : val + 'th'));
+          return `Student finishes in ${place} place at end of season`;
+        }
+      },
+      alltime_placement: {
+        category: 'Career',
+        triggerType: 'AllTime_Placement_Reached',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'All-Time Rank Threshold',
+        valueHelp: 'Rank to reach (e.g., 10 for "Top 10")',
+        valuePlaceholder: 'e.g., 10',
+        help: 'Awarded when student reaches this rank on all-time leaderboard (awarded once, not removed if rank drops)',
+        previewFn: (val) => `Student reaches Top ${val} on all-time leaderboard`
+      },
+      career_events: {
+        category: 'Career',
+        triggerType: 'Career_Events_Attended',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Total Events (Lifetime)',
+        valueHelp: 'How many total events attended?',
+        valuePlaceholder: 'e.g., 50',
+        help: 'Awarded when student attends X total events ACROSS ALL SEASONS (LIFETIME)',
+        previewFn: (val) => `Student attends ${val} or more total events (lifetime)`
+      },
+      career_seasons: {
+        category: 'Career',
+        triggerType: 'Career_Seasons_Participated',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Number of Seasons',
+        valueHelp: 'How many different seasons participated?',
+        valuePlaceholder: 'e.g., 3',
+        help: 'Awarded when student has attended events in X different seasons',
+        previewFn: (val) => `Student participates in ${val} or more different seasons`
+      },
+      career_badges: {
+        category: 'Career',
+        triggerType: 'Career_Badges_Earned',
+        needsValue: true,
+        needsPercentage: false,
+        needsActivity: false,
+        valueLabel: 'Number of Badges',
+        valueHelp: 'How many total badges collected?',
+        valuePlaceholder: 'e.g., 10',
+        help: 'Awarded when student has earned X total badges (badge collector achievement)',
+        previewFn: (val) => `Student earns ${val} or more total badges`
       },
       manual: {
         category: 'Special',

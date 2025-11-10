@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-This is a flat, single-folder Google Apps Script project with no subdirectories:
+The project combines Google Apps Script files (flat structure required by GAS) with organized documentation and assets:
 
 ```
 Spartan_Cup/
@@ -34,7 +34,36 @@ Spartan_Cup/
 ├── Page.*.html             # Modular page components (scanner, profile, history, etc.)
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
-└── README.md               # Project documentation
+├── firebase.json           # Firebase configuration
+├── storage.rules           # Firebase Storage security rules
+├── cors.json               # CORS configuration for Firebase Storage
+├── README.md               # Main project documentation
+├── CLAUDE.md               # This file - AI assistant instructions
+├── docs/                   # Documentation folder
+│   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide
+│   ├── BADGE_DEPLOYMENT_GUIDE.md   # Badge deployment reference
+│   ├── FIREBASE_STORAGE_SETUP.md   # Firebase Storage setup
+│   ├── FIREBASE_STORAGE_CLI_SETUP.md # Firebase CLI setup
+│   ├── ios_icon_image.md           # iOS icon configuration
+│   ├── templates/                   # Template files
+│   │   └── firebase-wrapper-index.html  # Firebase wrapper template
+│   └── archive/                     # Archived/historical documentation
+│       ├── DEPLOYMENT_COMPLETE.md
+│       ├── BADGE_SYSTEM_IMPROVEMENTS.md
+│       ├── IMPLEMENTATION_CHECKLIST.md
+│       └── GEMINI.md
+├── assets/                 # Image and media assets
+│   ├── The Spartan Cup_logo_FINAL.svg
+│   ├── The_Spartan_Cup-QR.svg
+│   ├── spartan_cup_FINAL.png
+│   └── spartan_cup_QR.png
+├── scripts/                # Python utility scripts
+│   ├── read_sheet.py       # Read Google Sheets data
+│   └── write_sheet.py      # Write Google Sheets data
+├── public/                 # Firebase Hosting public directory
+│   └── index.html          # Geolocation wrapper (deployed to Firebase)
+├── credentials.json        # Google service account credentials (in .gitignore)
+└── .env                    # Environment configuration (in .gitignore)
 ```
 
 ## Architecture
@@ -86,7 +115,56 @@ firebase deploy --only hosting
 2. Grant location permission when prompted
 3. Browser should redirect to GAS app with location params in URL
 
-See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for complete setup instructions.
+See [docs/FIREBASE_STORAGE_SETUP.md](docs/FIREBASE_STORAGE_SETUP.md) for Firebase Storage setup and the wrapper template in [docs/templates/firebase-wrapper-index.html](docs/templates/firebase-wrapper-index.html).
+
+### Direct Google Sheets Access (Python Scripts)
+
+The project includes Python scripts for reading and writing to Google Sheets directly via service account authentication. This allows Claude Code and CLI users to query and modify sheet data without going through the Apps Script API.
+
+**Setup Status:**
+- Service account: `claude-code@spartan-cup.iam.gserviceaccount.com`
+- Credentials: `credentials.json` (in .gitignore)
+- Spreadsheet ID configured in `.env`
+
+**Reading from Sheets:**
+```bash
+# Read as CSV (default)
+python3 scripts/read_sheet.py Student_Profiles
+
+# Read as JSON
+python3 scripts/read_sheet.py Events json
+
+# Read as formatted table
+python3 scripts/read_sheet.py Config_Badges table
+```
+
+**Writing to Sheets:**
+```bash
+# Append a new row
+python3 scripts/write_sheet.py Student_Profiles append "email@example.com,Name,100,Gold"
+
+# Update a specific cell
+python3 scripts/write_sheet.py Events update A2 "New Value"
+
+# Update a range
+python3 scripts/write_sheet.py Config_Badges update_range "A2:C2" "Badge,Description,Points"
+
+# Clear a sheet (use with caution!)
+python3 scripts/write_sheet.py Test_Sheet clear
+```
+
+**Available Sheet Tabs:**
+- Student_Profiles
+- Events
+- Submissions_Pending
+- Submissions_Verified
+- Config_Badges
+- Config_Admins
+- Config_Points
+- Config_Active_Season
+- Activities_Data
+
+**Note:** The service account must have Editor access to the spreadsheet. See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for complete setup instructions.
 
 ### Testing
 

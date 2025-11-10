@@ -48,11 +48,15 @@ A gamified attendance and participation system for student events at Orono High 
    - Configure storage security rules
    - Update Firebase config in `Index.html` with your API key
    - Badge images auto-upload to Firebase Storage (no manual steps!)
-   - See [FIREBASE_STORAGE_SETUP.md](FIREBASE_STORAGE_SETUP.md) for setup guide
+   - See [docs/FIREBASE_STORAGE_SETUP.md](docs/FIREBASE_STORAGE_SETUP.md) for setup guide
 
-5. **Legacy: Manual Badge Deployment (optional):**
+5. **Google Sheets API Setup (for direct sheet access):**
+   - Python scripts for reading/writing sheet data
+   - See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for setup guide
+
+6. **Legacy: Manual Badge Deployment (optional):**
    - Alternative to Firebase Storage for badge images
-   - See [BADGE_DEPLOYMENT_GUIDE.md](BADGE_DEPLOYMENT_GUIDE.md) if needed
+   - See [docs/BADGE_DEPLOYMENT_GUIDE.md](docs/BADGE_DEPLOYMENT_GUIDE.md) if needed
 
 ## Architecture
 
@@ -83,7 +87,7 @@ The app uses a Firebase Hosting wrapper to solve iOS Safari's geolocation blocki
 3. Wrapper redirects to GAS with location params
 4. GAS app displays location-verified interface
 
-See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for technical details.
+The geolocation wrapper is deployed to Firebase Hosting. See the wrapper template in [docs/templates/firebase-wrapper-index.html](docs/templates/firebase-wrapper-index.html).
 
 ### Navigation Safety
 Google Apps Script requires user activation for navigation. Never use `confirm()` dialogs or `setTimeout()` before navigation—use custom modals instead. See [CLAUDE.md](CLAUDE.md#important-implementation-notes) for details.
@@ -154,10 +158,13 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 
 ## References
 
-- [Firebase Setup Guide](FIREBASE_SETUP_GUIDE.md)
-- [Firebase Migration Plan](FIREBASE_MIGRATION_PLAN.md)
-- [Implementation Checklist](IMPLEMENTATION_CHECKLIST.md)
-- [Claude Development Notes](CLAUDE.md)
+- [Firebase Storage Setup](docs/FIREBASE_STORAGE_SETUP.md) - Badge image storage configuration
+- [Google Sheets API Setup](docs/SHEETS_API_SETUP.md) - Direct sheet access via Python scripts
+- [Claude Development Notes](CLAUDE.md) - AI assistant instructions
+- [iOS Icon Setup](docs/ios_icon_image.md) - Home screen icon configuration
+
+### Archived Documentation
+- [Deployment History](docs/archive/) - Historical deployment notes and checklists
 
 ## License
 
