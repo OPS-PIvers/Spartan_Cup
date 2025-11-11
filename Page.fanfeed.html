@@ -75,14 +75,21 @@
           // Badge award card
           const card = document.createElement('div');
           card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
+
+          // Create badge image with safe fallback handling
+          const badgeImg = document.createElement('img');
+          badgeImg.src = item.badgeImageUrl;
+          badgeImg.alt = escapeHTML(item.badgeName);
+          badgeImg.className = 'w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600';
+          badgeImg.onerror = function() {
+            this.src = APP_DATA.badgeBaseUrl + 'default-badge.svg';
+            this.onerror = null;
+          };
+
           card.innerHTML = `
             <div class="p-4">
               <div class="flex items-center gap-4">
-                <div class="flex-shrink-0">
-                  <img src="${item.badgeImageUrl}"
-                       onerror="this.src='${APP_DATA.badgeBaseUrl}default-badge.svg'; this.onerror=null;"
-                       alt="${escapeHTML(item.badgeName)}"
-                       class="w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600">
+                <div class="flex-shrink-0 badge-img-container">
                 </div>
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-1">
@@ -99,6 +106,11 @@
               </div>
             </div>
           `;
+
+          // Append badge image to its container
+          const imgContainer = card.querySelector('.badge-img-container');
+          imgContainer.appendChild(badgeImg);
+
           container.appendChild(card);
         }
       });
