@@ -4219,6 +4219,9 @@ function calculateBadges(email) {
 
     if (!studentProfile) return;
 
+    // Track badges that were already earned before this call
+    const previouslyEarnedBadges = new Set(studentProfile.earnedBadges);
+
     // Get all badges with header-based column indexing
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
@@ -4681,28 +4684,31 @@ function calculateBadges(email) {
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
 
-        // Log badge award to Badge_Awards sheet for fan feed
-        const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
-        if (badgeAwardsSheet) {
-          const awardId = 'AWARD-' + Utilities.getUuid();
-          const timestamp = new Date();
-          const displayName = studentProfile.displayName;
-          const badgeName = badgesData[i][badgeColIndices.badgeName];
-          const badgeImageUrl = badgesData[i][badgeColIndices.badgeImageUrl];
+        // Only log to Badge_Awards if this is a NEWLY earned badge (not previously earned)
+        // This prevents duplicate entries when retroactive badge functions re-run calculateBadges()
+        if (!previouslyEarnedBadges.has(badgeId)) {
+          const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+          if (badgeAwardsSheet) {
+            const awardId = 'AWARD-' + Utilities.getUuid();
+            const timestamp = new Date();
+            const displayName = studentProfile.displayName;
+            const badgeName = badgesData[i][badgeColIndices.badgeName];
+            const badgeImageUrl = badgesData[i][badgeColIndices.badgeImageUrl];
 
-          badgeAwardsSheet.appendRow([
-            awardId,
-            timestamp,
-            email,
-            displayName,
-            badgeId,
-            badgeName,
-            badgeImageUrl
-          ]);
+            badgeAwardsSheet.appendRow([
+              awardId,
+              timestamp,
+              email,
+              displayName,
+              badgeId,
+              badgeName,
+              badgeImageUrl
+            ]);
+          }
+
+          // Send notification for new badge (only for newly earned badges)
+          notifyBadgeEarned(email, badgesData[i][badgeColIndices.badgeName]);
         }
-
-        // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][badgeColIndices.badgeName]);
       }
     }
 
@@ -4947,78 +4953,113 @@ function getFanFeed(daysBack = 7) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const cutoffDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 
-    // Get verified submissions (photos)
+    // Get verified submissions (photos) with header-based indexing
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     const verifiedData = verifiedSheet.getDataRange().getValues();
+    const verifiedHeaders = verifiedData[0];
+    const verifiedColIndices = {
+      submissionId: verifiedHeaders.indexOf('Submission_ID'),
+      timestampApproved: verifiedHeaders.indexOf('Timestamp_Approved'),
+      email: verifiedHeaders.indexOf('Email'),
+      eventId: verifiedHeaders.indexOf('Event_ID'),
+      photoUrl: verifiedHeaders.indexOf('Photo_URL')
+    };
 
-    // Get event details map
+    // Get event details map with header-based indexing
     const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
+    const eventHeaders = eventData[0];
+    const eventColIndices = {
+      eventId: eventHeaders.indexOf('Event_ID'),
+      activityCode: eventHeaders.indexOf('Activity_Code'),
+      eventName: eventHeaders.indexOf('Event_Name')
+    };
+
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1]
+      eventMap[eventData[i][eventColIndices.eventId]] = {
+        eventName: eventData[i][eventColIndices.eventName],
+        sportArt: eventData[i][eventColIndices.activityCode]
       };
     }
 
-    // Get student names map
+    // Get student names map with header-based indexing
     const studentSheet = ss.getSheetByName('Student_Profiles');
     const studentData = studentSheet.getDataRange().getValues();
+    const studentHeaders = studentData[0];
+    const studentColIndices = {
+      email: studentHeaders.indexOf('Email'),
+      displayName: studentHeaders.indexOf('Display_Name')
+    };
+
     const studentMap = {};
     for (let i = 1; i < studentData.length; i++) {
-      studentMap[studentData[i][0]] = studentData[i][1]; // Email -> Display_Name
+      studentMap[studentData[i][studentColIndices.email]] = studentData[i][studentColIndices.displayName];
     }
 
     const feedItems = [];
 
     // Add photos from verified submissions
     for (let i = 1; i < verifiedData.length; i++) {
-      const timestamp = new Date(verifiedData[i][2]); // Timestamp_Approved
+      const timestamp = new Date(verifiedData[i][verifiedColIndices.timestampApproved]);
 
       // Filter by date
       if (timestamp < cutoffDate) continue;
 
-      const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      const photoUrl = verifiedData[i][10];
+      const eventInfo = eventMap[verifiedData[i][verifiedColIndices.eventId]] || { eventName: 'Event', sportArt: 'Event' };
+      const photoUrl = verifiedData[i][verifiedColIndices.photoUrl];
 
       // Skip if no photo URL
       if (!photoUrl) continue;
 
       feedItems.push({
         type: 'photo',
-        submissionId: verifiedData[i][0],
+        submissionId: verifiedData[i][verifiedColIndices.submissionId],
         timestamp: timestamp,
-        studentEmail: verifiedData[i][3],
-        studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
+        studentEmail: verifiedData[i][verifiedColIndices.email],
+        studentName: studentMap[verifiedData[i][verifiedColIndices.email]] || verifiedData[i][verifiedColIndices.email],
         eventName: eventInfo.eventName,
-        eventId: verifiedData[i][4],
+        eventId: verifiedData[i][verifiedColIndices.eventId],
         photoUrl: photoUrl,
         likes: 0 // Default likes count; persistence tracked in PropertiesService if needed
       });
     }
 
-    // Add badge awards
+    // Add badge awards with header-based indexing
     const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
     if (badgeAwardsSheet) {
       const badgeAwardsData = badgeAwardsSheet.getDataRange().getValues();
 
-      for (let i = 1; i < badgeAwardsData.length; i++) {
-        const timestamp = new Date(badgeAwardsData[i][1]); // Timestamp
+      // Only process if there's data (more than just headers)
+      if (badgeAwardsData.length > 1) {
+        const badgeAwardHeaders = badgeAwardsData[0];
+        const badgeAwardColIndices = {
+          awardId: badgeAwardHeaders.indexOf('Award_ID'),
+          timestamp: badgeAwardHeaders.indexOf('Timestamp'),
+          email: badgeAwardHeaders.indexOf('Email'),
+          displayName: badgeAwardHeaders.indexOf('Display_Name'),
+          badgeId: badgeAwardHeaders.indexOf('Badge_ID'),
+          badgeName: badgeAwardHeaders.indexOf('Badge_Name'),
+          badgeImageUrl: badgeAwardHeaders.indexOf('Badge_Image_URL')
+        };
 
-        // Filter by date
-        if (timestamp < cutoffDate) continue;
+        for (let i = 1; i < badgeAwardsData.length; i++) {
+          const timestamp = new Date(badgeAwardsData[i][badgeAwardColIndices.timestamp]);
 
-        feedItems.push({
-          type: 'badge',
-          awardId: badgeAwardsData[i][0],
-          timestamp: timestamp,
-          studentEmail: badgeAwardsData[i][2],
-          studentName: badgeAwardsData[i][3], // Display_Name
-          badgeId: badgeAwardsData[i][4],
-          badgeName: badgeAwardsData[i][5],
-          badgeImageUrl: badgeAwardsData[i][6]
-        });
+          // Filter by date
+          if (timestamp < cutoffDate) continue;
+
+          feedItems.push({
+            type: 'badge',
+            awardId: badgeAwardsData[i][badgeAwardColIndices.awardId],
+            timestamp: timestamp,
+            studentEmail: badgeAwardsData[i][badgeAwardColIndices.email],
+            studentName: badgeAwardsData[i][badgeAwardColIndices.displayName],
+            badgeId: badgeAwardsData[i][badgeAwardColIndices.badgeId],
+            badgeName: badgeAwardsData[i][badgeAwardColIndices.badgeName],
+            badgeImageUrl: badgeAwardsData[i][badgeAwardColIndices.badgeImageUrl]
+          });
+        }
       }
     }
 
