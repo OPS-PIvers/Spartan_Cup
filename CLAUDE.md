@@ -185,7 +185,7 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 2. **Submission Workflow:** Submissions follow: Pending → Verified (by admin) → Archived. The verification system prevents duplicate approvals.
 
-3. **Admin Access:** Based on email whitelist. Check `ADMIN_EMAILS` in Code.js for current admins.
+3. **Admin Access:** Based on email whitelist in the **Config_Admins** sheet. Add user email addresses to this sheet to grant admin dashboard access. The `getUserIsAdmin()` function checks this sheet (with caching) for both UI visibility and backend permission enforcement.
 
 4. **Dark Mode:** Implemented via Tailwind's `dark:` classes and CSS variables. Toggle is planned in settings page.
 
@@ -237,6 +237,6 @@ From in-code comments, these features need completion:
 - **Submissions_Pending:** User submissions awaiting admin review
 - **Submissions_Verified:** Approved submissions with calculated points
 - **Config_Badges:** Badge definitions, point thresholds, icons
-- **Config_Admins:** Email whitelist for administrative access
+- **Config_Admins:** Email whitelist for administrative access (single source of truth). Format: Column A = email address, Column B = role (e.g., "Admin", "Moderator")
 
 Check Code.js for the exact column names and data structure used in each tab.

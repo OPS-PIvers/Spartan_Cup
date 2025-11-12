@@ -81,28 +81,14 @@ function getUserDisplayName() {
 }
 
 /**
- * Gets the current user's admin status from Student_Profiles isAdmin column (J).
+ * Checks if the current user has admin access.
+ * Reads from Config_Admins sheet (same source as backend admin checks).
  * @return {boolean} True if user is an admin, false otherwise
  */
 function getUserIsAdmin() {
   const email = Session.getActiveUser().getEmail();
-
-  try {
-    const studentData = getStudentProfilesData();
-
-    // Find user and get isAdmin status from column J (index 9)
-    for (let i = 1; i < studentData.length; i++) {
-      if (studentData[i][0] === email) {
-        // Column J contains the isAdmin formula result (TRUE/FALSE or boolean)
-        const isAdminValue = studentData[i][9];
-        return isAdminValue === true || isAdminValue === 'TRUE' || isAdminValue === 'True';
-      }
-    }
-  } catch (e) {
-    // Logger.log('Error reading user admin status: ' + e.message);
-  }
-
-  return false; // Default to false if not found
+  const adminEmails = getAdminEmails(); // Uses Config_Admins sheet with caching
+  return adminEmails.includes(email.toLowerCase());
 }
 
 /**
@@ -539,7 +525,6 @@ function getProfileData() {
     const studentData = studentSheet.getDataRange().getValues();
 
     let userProfile = null;
-    let userRowIndex = -1;
 
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === email) {
@@ -549,10 +534,8 @@ function getProfileData() {
           seasonPoints: studentData[i][2] || 0,
           allTimePoints: studentData[i][3] || 0,
           badgesEarned: studentData[i][4] ? JSON.parse(studentData[i][4]) : [],
-          disqualified: studentData[i][7] || false,
-          isAdmin: studentData[i][9] === true || studentData[i][9] === 'TRUE' || studentData[i][9] === 'True' // Column J (index 9)
+          disqualified: studentData[i][7] || false
         };
-        userRowIndex = i;
         break;
       }
     }
@@ -577,8 +560,7 @@ function getProfileData() {
         seasonPoints: 0,
         allTimePoints: 0,
         badgesEarned: [],
-        disqualified: false,
-        isAdmin: newRow[9] === true || newRow[9] === 'TRUE' || newRow[9] === 'True' // Column J (index 9)
+        disqualified: false
       };
 
       // Update studentData with the new row included for leaderboard building
@@ -737,7 +719,7 @@ function getProfileData() {
       leaderboard: topSeasonLeaderboard, // Default to season; will swap on toggle
       allTimeLeaderboard: topAllTimeLeaderboard,
       history: history,
-      isAdmin: userProfile.isAdmin // Return admin status from Student_Profiles column J
+      isAdmin: getUserIsAdmin() // Return admin status from Config_Admins sheet
     };
 
   } catch (e) {
@@ -5484,6 +5466,183 @@ function downloadBadgeForDeploy(badgeId) {
     return {
       status: 'error',
       message: 'Error downloading badge: ' + e.message
+    };
+  }
+}
+
+// =====================================================================
+// SEASON PRIZES MANAGEMENT (Admin Dashboard)
+// =====================================================================
+
+/**
+ * Gets all season prizes from Active_Season_Prizes sheet.
+ * @return {Object} Response with prizes array
+ */
+function getAllSeasonPrizes() {
+  try {
+    Logger.log('[getAllSeasonPrizes] Starting');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
+
+    if (!prizesSheet) {
+      Logger.log('[getAllSeasonPrizes] ERROR: Active_Season_Prizes sheet not found');
+      return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
+    }
+
+    const data = prizesSheet.getDataRange().getValues();
+    Logger.log('[getAllSeasonPrizes] Found ' + (data.length - 1) + ' prizes');
+
+    // Skip header row, map to objects with row indices
+    const prizes = [];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0]) { // Only include rows with data in column A
+        prizes.push({
+          rowIndex: i + 1, // 1-indexed for sheet operations
+          rank: data[i][0],
+          description: data[i][1] || ''
+        });
+      }
+    }
+
+    return {
+      status: 'success',
+      prizes: prizes
+    };
+  } catch (e) {
+    Logger.log('[getAllSeasonPrizes] ERROR: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: 'error',
+      message: 'Error fetching prizes: ' + e.message
+    };
+  }
+}
+
+/**
+ * Creates a new prize in Active_Season_Prizes sheet.
+ * @param {string} rank - Prize rank/placement (e.g., "1st Place", "Most Spirited")
+ * @param {string} description - Prize description
+ * @return {Object} Response with status
+ */
+function createPrize(rank, description) {
+  try {
+    Logger.log('[createPrize] Rank: ' + rank + ' | Description: ' + description);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
+
+    if (!prizesSheet) {
+      return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
+    }
+
+    // Validate required fields
+    if (!rank || !rank.trim()) {
+      return { status: 'error', message: 'Rank/placement is required' };
+    }
+    if (!description || !description.trim()) {
+      return { status: 'error', message: 'Prize description is required' };
+    }
+
+    // Append new row
+    prizesSheet.appendRow([rank.trim(), description.trim()]);
+    Logger.log('[createPrize] Prize added successfully');
+
+    return {
+      status: 'success',
+      message: 'Prize created successfully!'
+    };
+  } catch (e) {
+    Logger.log('[createPrize] ERROR: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: 'error',
+      message: 'Error creating prize: ' + e.message
+    };
+  }
+}
+
+/**
+ * Updates an existing prize in Active_Season_Prizes sheet.
+ * @param {number} rowIndex - Row index (1-based) to update
+ * @param {string} rank - Updated rank/placement
+ * @param {string} description - Updated prize description
+ * @return {Object} Response with status
+ */
+function updatePrize(rowIndex, rank, description) {
+  try {
+    Logger.log('[updatePrize] Row: ' + rowIndex + ' | Rank: ' + rank + ' | Description: ' + description);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
+
+    if (!prizesSheet) {
+      return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
+    }
+
+    // Validate required fields
+    if (!rank || !rank.trim()) {
+      return { status: 'error', message: 'Rank/placement is required' };
+    }
+    if (!description || !description.trim()) {
+      return { status: 'error', message: 'Prize description is required' };
+    }
+
+    // Validate row index
+    const lastRow = prizesSheet.getLastRow();
+    if (rowIndex < 2 || rowIndex > lastRow) {
+      return { status: 'error', message: 'Invalid row index' };
+    }
+
+    // Update the row
+    prizesSheet.getRange(rowIndex, 1, 1, 2).setValues([[rank.trim(), description.trim()]]);
+    Logger.log('[updatePrize] Prize updated successfully');
+
+    return {
+      status: 'success',
+      message: 'Prize updated successfully!'
+    };
+  } catch (e) {
+    Logger.log('[updatePrize] ERROR: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: 'error',
+      message: 'Error updating prize: ' + e.message
+    };
+  }
+}
+
+/**
+ * Deletes a prize from Active_Season_Prizes sheet.
+ * @param {number} rowIndex - Row index (1-based) to delete
+ * @return {Object} Response with status
+ */
+function deletePrize(rowIndex) {
+  try {
+    Logger.log('[deletePrize] Deleting row: ' + rowIndex);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
+
+    if (!prizesSheet) {
+      return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
+    }
+
+    // Validate row index (must be > 1 to protect header)
+    const lastRow = prizesSheet.getLastRow();
+    if (rowIndex < 2 || rowIndex > lastRow) {
+      return { status: 'error', message: 'Invalid row index or cannot delete header row' };
+    }
+
+    // Delete the row
+    prizesSheet.deleteRow(rowIndex);
+    Logger.log('[deletePrize] Prize deleted successfully');
+
+    return {
+      status: 'success',
+      message: 'Prize deleted successfully!'
+    };
+  } catch (e) {
+    Logger.log('[deletePrize] ERROR: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: 'error',
+      message: 'Error deleting prize: ' + e.message
     };
   }
 }

@@ -9,17 +9,20 @@
 <div class="page p-4 flex flex-col">
   <!-- Tab Navigation -->
   <div class="flex gap-1 mb-4 overflow-x-auto">
-    <button id="tab-review-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-primary text-white transition-all active-tab whitespace-nowrap">
+    <button id="tab-review-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
       Review
     </button>
-    <button id="tab-events-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all whitespace-nowrap">
+    <button id="tab-events-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
       Events
     </button>
-    <button id="tab-season-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all whitespace-nowrap">
+    <button id="tab-season-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
       Season
     </button>
-    <button id="tab-badges-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all whitespace-nowrap">
+    <button id="tab-badges-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
       Badges
+    </button>
+    <button id="tab-prizes-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
+      Prizes
     </button>
   </div>
 
@@ -389,6 +392,60 @@
     </div>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- TAB 5: SEASON PRIZES MANAGEMENT -->
+  <!-- ===================================================================== -->
+  <div id="tab-prizes" class="flex-1 flex flex-col hidden overflow-y-auto">
+    <!-- Prize Form -->
+    <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-green-600 mb-4">
+      <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">Add/Edit Season Prize</h2>
+
+      <form id="prize-form" class="space-y-3">
+        <!-- Rank/Placement -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white">Rank/Placement *</label>
+          <input
+            id="prize-rank"
+            type="text"
+            placeholder="e.g., 1st Place, Most Spirited, Best Fan"
+            required
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+        </div>
+
+        <!-- Prize Description -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white">Prize Description *</label>
+          <textarea
+            id="prize-description"
+            rows="3"
+            placeholder="e.g., $100 Gift Card, Championship Trophy, etc."
+            required
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          ></textarea>
+        </div>
+
+        <!-- Submit/Cancel -->
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700">
+            Create Prize
+          </button>
+          <button type="button" id="prize-cancel-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold">
+            Clear
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Prizes List -->
+    <div class="flex-shrink-0">
+      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">All Season Prizes</h3>
+      <div id="prizes-list" class="space-y-3">
+        <div class="text-center py-6 text-gray-500">Loading prizes...</div>
+      </div>
+    </div>
+  </div>
+
   <style>
     @keyframes slide-right {
       to {
@@ -432,10 +489,12 @@
     const eventsTab = document.getElementById('tab-events');
     const seasonTab = document.getElementById('tab-season');
     const badgesTab = document.getElementById('tab-badges');
+    const prizesTab = document.getElementById('tab-prizes');
     const reviewBtn = document.getElementById('tab-review-btn');
     const eventsBtn = document.getElementById('tab-events-btn');
     const seasonBtn = document.getElementById('tab-season-btn');
     const badgesBtn = document.getElementById('tab-badges-btn');
+    const prizesBtn = document.getElementById('tab-prizes-btn');
 
     // Centralized tab switching function
     function switchTab(tabName) {
@@ -444,13 +503,15 @@
       eventsTab.classList.add('hidden');
       seasonTab.classList.add('hidden');
       badgesTab.classList.add('hidden');
+      prizesTab.classList.add('hidden');
 
-      // Reset all button styles
-      const allButtons = [reviewBtn, eventsBtn, seasonBtn, badgesBtn];
+      // Reset all button styles - remove active classes and add inactive classes
+      const allButtons = [reviewBtn, eventsBtn, seasonBtn, badgesBtn, prizesBtn];
       allButtons.forEach(btn => {
-        btn.classList.remove('active-tab');
-        btn.style.backgroundColor = '';
-        btn.style.color = '';
+        // Remove active state classes
+        btn.classList.remove('active-tab', 'bg-primary', 'text-white');
+        // Add inactive state classes
+        btn.classList.add('bg-gray-300', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
       });
 
       // Show selected tab and style its button
@@ -476,15 +537,20 @@
             loadBadgesList();
             loadActivitiesForBadges();
           }
+        },
+        'prizes': {
+          tab: prizesTab,
+          btn: prizesBtn,
+          onShow: loadPrizesList
         }
       };
 
       const selected = tabConfig[tabName];
       if (selected) {
         selected.tab.classList.remove('hidden');
-        selected.btn.classList.add('active-tab');
-        selected.btn.style.backgroundColor = '#1b3b87';
-        selected.btn.style.color = 'white';
+        // Remove inactive classes and add active classes
+        selected.btn.classList.remove('bg-gray-300', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
+        selected.btn.classList.add('active-tab', 'bg-primary', 'text-white');
 
         // Call tab-specific load function if defined
         if (selected.onShow) {
@@ -527,6 +593,8 @@
     let isProcessing = false;  // Prevent multiple simultaneous swipes
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Initialize the Review tab as active
+      switchTab('review');
       loadAdminQueue();
       setupGestureHandlers();
     });
@@ -1144,12 +1212,18 @@
       google.script.run.withSuccessHandler((activeSeason) => {
         seasons.forEach((season) => {
           const isActive = season === activeSeason;
+
+          // Create container div for season item
+          const container = document.createElement('div');
+          container.className = `flex gap-2 items-center w-full ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border-2 border-blue-500' : ''}`;
+
+          // Create main season button (for selecting to manage)
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = `w-full px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
+          button.className = `flex-1 px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
             isActive
-              ? 'bg-primary text-white shadow-lg border-2 border-primary'
-              : 'bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-gray-300 border-2 border-transparent hover:border-primary hover:bg-blue-50 dark:hover:bg-gray-600'
+              ? 'bg-primary text-white shadow-lg'
+              : 'bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
           }`;
 
           if (isActive) {
@@ -1162,7 +1236,22 @@
             selectSeasonForManagement(season);
           });
 
-          list.appendChild(button);
+          container.appendChild(button);
+
+          // Add "Set Active" button for non-active seasons
+          if (!isActive) {
+            const setActiveBtn = document.createElement('button');
+            setActiveBtn.type = 'button';
+            setActiveBtn.className = 'px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-sm transition-all active:scale-95 whitespace-nowrap';
+            setActiveBtn.textContent = 'Set Active';
+            setActiveBtn.addEventListener('click', (e) => {
+              e.stopPropagation(); // Prevent triggering the main button
+              setSeasonActive(season);
+            });
+            container.appendChild(setActiveBtn);
+          }
+
+          list.appendChild(container);
         });
       }).getActiveSeason();
     }
@@ -1176,6 +1265,39 @@
       google.script.run.withSuccessHandler((activities) => {
         populateActivitiesList(activities || []);
       }).getActivitiesWithSeasonStatus(season);
+    }
+
+    /**
+     * Sets the specified season as the active season
+     * @param {string} season - The season name to activate
+     */
+    function setSeasonActive(season) {
+      const messageEl = document.getElementById('season-update-message');
+      messageEl.textContent = `Setting ${season} as active...`;
+      messageEl.className = 'text-sm text-blue-600 dark:text-blue-400 mt-4 text-center';
+      messageEl.classList.remove('hidden');
+
+      google.script.run
+        .withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            messageEl.textContent = `✓ ${response.message}`;
+            messageEl.className = 'text-sm text-green-600 dark:text-green-400 mt-4 text-center';
+
+            // Refresh the season management UI to reflect the change
+            setTimeout(() => {
+              loadSeasonManagement();
+              messageEl.classList.add('hidden');
+            }, 1500);
+          } else {
+            messageEl.textContent = `✗ Error: ${response.message}`;
+            messageEl.className = 'text-sm text-red-600 dark:text-red-400 mt-4 text-center';
+          }
+        })
+        .withFailureHandler((error) => {
+          messageEl.textContent = `✗ Network error: ${error.message}`;
+          messageEl.className = 'text-sm text-red-600 dark:text-red-400 mt-4 text-center';
+        })
+        .setActiveSeason(season);
     }
 
     function populateActivitiesList(activities) {
@@ -1367,6 +1489,10 @@
 
     badgesBtn.addEventListener('click', () => {
       switchTab('badges');
+    });
+
+    prizesBtn.addEventListener('click', () => {
+      switchTab('prizes');
     });
 
     // Badge form submission
@@ -2155,6 +2281,151 @@
           alert('Error: ' + error);
         }).deleteBadge(badgeId);
       }
+    }
+
+    // =====================================================================
+    // TAB 5: SEASON PRIZES MANAGEMENT
+    // =====================================================================
+
+    // Prize form submission
+    let editingPrizeRowIndex = null;
+
+    document.getElementById('prize-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const rank = document.getElementById('prize-rank').value.trim();
+      const description = document.getElementById('prize-description').value.trim();
+
+      if (!rank || !description) {
+        alert('Please fill in all fields');
+        return;
+      }
+
+      // Show loading
+      document.getElementById('loading-modal').classList.remove('hidden');
+
+      if (editingPrizeRowIndex) {
+        // Update existing prize
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            alert(response.message);
+            clearPrizeForm();
+            loadPrizesList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error: ' + error);
+        }).updatePrize(editingPrizeRowIndex, rank, description);
+      } else {
+        // Create new prize
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            alert(response.message);
+            clearPrizeForm();
+            loadPrizesList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error: ' + error);
+        }).createPrize(rank, description);
+      }
+    });
+
+    // Cancel/Clear button
+    document.getElementById('prize-cancel-btn').addEventListener('click', () => {
+      clearPrizeForm();
+    });
+
+    function clearPrizeForm() {
+      document.getElementById('prize-form').reset();
+      document.querySelector('#prize-form button[type="submit"]').textContent = 'Create Prize';
+      editingPrizeRowIndex = null;
+    }
+
+    // Load prizes list
+    function loadPrizesList() {
+      document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-gray-500">Loading prizes...</div>';
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          populatePrizesList(response.prizes);
+        } else {
+          document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error: ' + response.message + '</div>';
+        }
+      }).withFailureHandler((error) => {
+        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + error + '</div>';
+      }).getAllSeasonPrizes();
+    }
+
+    function populatePrizesList(prizes) {
+      const prizesList = document.getElementById('prizes-list');
+
+      if (!prizes || prizes.length === 0) {
+        prizesList.innerHTML = '<div class="text-center py-6 text-gray-500">No prizes yet. Create one above!</div>';
+        return;
+      }
+
+      prizesList.innerHTML = prizes.map(prize => `
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="flex justify-between items-start mb-2">
+            <h4 class="font-bold text-lg text-[#111318] dark:text-white">${escapeHtml(prize.rank)}</h4>
+            <div class="flex gap-2">
+              <button onclick="editPrize(${prize.rowIndex}, '${escapeForJs(prize.rank)}', '${escapeForJs(prize.description)}')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                Edit
+              </button>
+              <button onclick="deletePrizeConfirm(${prize.rowIndex}, '${escapeForJs(prize.rank)}')" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                Delete
+              </button>
+            </div>
+          </div>
+          <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(prize.description)}</p>
+        </div>
+      `).join('');
+    }
+
+    function editPrize(rowIndex, rank, description) {
+      document.getElementById('prize-rank').value = rank;
+      document.getElementById('prize-description').value = description;
+      document.querySelector('#prize-form button[type="submit"]').textContent = 'Update Prize';
+      editingPrizeRowIndex = rowIndex;
+
+      // Scroll to form
+      document.getElementById('prize-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deletePrizeConfirm(rowIndex, rank) {
+      if (confirm(`Delete prize "${rank}"?\\n\\nThis will remove the prize from the season.`)) {
+        document.getElementById('loading-modal').classList.remove('hidden');
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            alert(response.message);
+            loadPrizesList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error: ' + error);
+        }).deletePrize(rowIndex);
+      }
+    }
+
+    // Helper functions for escaping HTML and JS strings
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function escapeForJs(text) {
+      return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
   </script>
 </div>
