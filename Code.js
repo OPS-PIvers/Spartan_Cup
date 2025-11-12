@@ -1328,8 +1328,7 @@ function initializeConfigPoints() {
       ['Base_Points_With_Theme', 75, 'Points for attending event with theme dress'],
       ['Base_Points_Without_Theme', 50, 'Points for attending event without theme dress'],
       ['Theme_Bonus', 25, 'Additional points for dressing according to theme'],
-      ['Spotlight_Game_Multiplier', 1.5, 'Points multiplier for spotlight games'],
-      ['Home_Game_Bonus', 10, 'Bonus points for home games'],
+      ['Spotlight_Game_Multiplier', 1.5, 'Points multiplier for spotlight games']
     ];
 
     defaults.forEach(row => {
@@ -1378,8 +1377,7 @@ function getPointsConfig() {
       'Base_Points_With_Theme': 75,
       'Base_Points_Without_Theme': 50,
       'Theme_Bonus': 25,
-      'Spotlight_Game_Multiplier': 1.5,
-      'Home_Game_Bonus': 10
+      'Spotlight_Game_Multiplier': 1.5
     };
   }
 }
@@ -1461,24 +1459,108 @@ function openPointsConfigDialog() {
  */
 function updatePointsConfig(config) {
   try {
+    // Admin check
+    if (!getUserIsAdmin()) {
+      return { status: 'error', message: 'Unauthorized: Admin access required' };
+    }
+
+    // Validate all values are numbers and non-negative
+    for (const [key, value] of Object.entries(config)) {
+      if (typeof value !== 'number' || isNaN(value)) {
+        return { status: 'error', message: `Invalid value for ${key}: must be a number` };
+      }
+      if (value < 0) {
+        return { status: 'error', message: `Invalid value for ${key}: must be non-negative` };
+      }
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const pointsSheet = ss.getSheetByName('Config_Points');
     const data = pointsSheet.getDataRange().getValues();
 
     // Update each row based on setting name
+    let updatedCount = 0;
     for (let i = 1; i < data.length; i++) {
       const settingName = data[i][0];
       if (config[settingName] !== undefined) {
         pointsSheet.getRange(i + 1, 2).setValue(config[settingName]);
+        updatedCount++;
       }
     }
 
     // Clear cache so new values are picked up
     CacheService.getScriptCache().remove('points_config');
 
-    SpreadsheetApp.getUi().alert('✅ Points configuration updated successfully!');
+    Logger.log(`Points config updated: ${updatedCount} values changed by ${Session.getActiveUser().getEmail()}`);
+
+    // For menu-based dialog (backward compatibility)
+    if (typeof SpreadsheetApp.getUi === 'function') {
+      try {
+        SpreadsheetApp.getUi().alert('✅ Points configuration updated successfully!');
+      } catch (uiError) {
+        // UI alert not available in web app context, that's ok
+      }
+    }
+
+    return { status: 'success', message: `Updated ${updatedCount} point values` };
   } catch (e) {
-    SpreadsheetApp.getUi().alert('❌ Error updating config: ' + e.message);
+    Logger.log('Error updating points config: ' + e.message);
+
+    // For menu-based dialog (backward compatibility)
+    if (typeof SpreadsheetApp.getUi === 'function') {
+      try {
+        SpreadsheetApp.getUi().alert('❌ Error updating config: ' + e.message);
+      } catch (uiError) {
+        // UI alert not available in web app context, that's ok
+      }
+    }
+
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Resets points configuration to default values.
+ * @return {Object} Status object with success/error
+ */
+function resetPointsToDefaults() {
+  try {
+    // Admin check
+    if (!getUserIsAdmin()) {
+      return { status: 'error', message: 'Unauthorized: Admin access required' };
+    }
+
+    // Default point values (same as initializeConfigPoints)
+    const defaults = {
+      'Base_Points_With_Theme': 75,
+      'Base_Points_Without_Theme': 50,
+      'Theme_Bonus': 25,
+      'Spotlight_Game_Multiplier': 1.5
+    };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const pointsSheet = ss.getSheetByName('Config_Points');
+    const data = pointsSheet.getDataRange().getValues();
+
+    // Update each row to default value
+    let resetCount = 0;
+    for (let i = 1; i < data.length; i++) {
+      const settingName = data[i][0];
+      if (defaults[settingName] !== undefined) {
+        pointsSheet.getRange(i + 1, 2).setValue(defaults[settingName]);
+        resetCount++;
+      }
+    }
+
+    // Clear cache so new values are picked up
+    CacheService.getScriptCache().remove('points_config');
+
+    Logger.log(`Points config reset to defaults: ${resetCount} values reset by ${Session.getActiveUser().getEmail()}`);
+
+    return { status: 'success', message: `Reset ${resetCount} point values to defaults` };
+  } catch (e) {
+    Logger.log('Error resetting points config: ' + e.message);
+    return { status: 'error', message: e.message };
   }
 }
 
