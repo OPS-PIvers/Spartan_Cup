@@ -6,7 +6,7 @@
   - Swipe-based review interface for submission approval/denial
   - Event management (CRUD) for Config_Event_Codes sheet
 -->
-<div class="page p-4 pb-24 flex flex-col h-screen">
+<div class="page p-4 flex flex-col">
   <!-- Tab Navigation -->
   <div class="flex gap-1 mb-4 overflow-x-auto">
     <button id="tab-review-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm bg-primary text-white transition-all active-tab whitespace-nowrap">
@@ -26,7 +26,7 @@
   <!-- ===================================================================== -->
   <!-- TAB 1: REVIEW SUBMISSIONS -->
   <!-- ===================================================================== -->
-  <div id="tab-review" class="flex-1 flex flex-col">
+  <div id="tab-review" class="flex-1 flex flex-col overflow-y-auto">
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary mb-4">
       <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
@@ -164,7 +164,7 @@
     </div>
 
     <!-- Events List -->
-    <div class="flex-shrink-0 pb-20">
+    <div class="flex-shrink-0">
       <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">Active Events</h3>
       <div id="events-list" class="space-y-2">
         <div class="text-center py-6 text-gray-500">Loading events...</div>
@@ -175,7 +175,7 @@
   <!-- ===================================================================== -->
   <!-- TAB 3: SEASON MANAGEMENT -->
   <!-- ===================================================================== -->
-  <div id="tab-season" class="flex-1 flex flex-col hidden overflow-y-auto pb-20">
+  <div id="tab-season" class="flex-1 flex flex-col hidden overflow-y-auto">
     <!-- Season Header -->
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-purple-600 mb-4">
       <h2 class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">Season Management</h2>
@@ -267,7 +267,7 @@
   <!-- ===================================================================== -->
   <!-- TAB 4: BADGE MANAGEMENT -->
   <!-- ===================================================================== -->
-  <div id="tab-badges" class="flex-1 flex flex-col hidden overflow-y-auto pb-20">
+  <div id="tab-badges" class="flex-1 flex flex-col hidden overflow-y-auto">
     <!-- Badge Form -->
     <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-amber-600 mb-4 flex-shrink-0">
       <h2 class="text-xl font-bold text-amber-600 dark:text-amber-400 mb-3">Add/Edit Badge</h2>
@@ -381,7 +381,7 @@
     </div>
 
     <!-- Badges List -->
-    <div class="flex-shrink-0 pb-20">
+    <div class="flex-shrink-0">
       <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">All Badges</h3>
       <div id="badges-list" class="space-y-3">
         <div class="text-center py-6 text-gray-500">Loading badges...</div>
@@ -430,49 +430,79 @@
     // =====================================================================
     const reviewTab = document.getElementById('tab-review');
     const eventsTab = document.getElementById('tab-events');
+    const seasonTab = document.getElementById('tab-season');
+    const badgesTab = document.getElementById('tab-badges');
     const reviewBtn = document.getElementById('tab-review-btn');
     const eventsBtn = document.getElementById('tab-events-btn');
+    const seasonBtn = document.getElementById('tab-season-btn');
+    const badgesBtn = document.getElementById('tab-badges-btn');
+
+    // Centralized tab switching function
+    function switchTab(tabName) {
+      // Hide all tabs
+      reviewTab.classList.add('hidden');
+      eventsTab.classList.add('hidden');
+      seasonTab.classList.add('hidden');
+      badgesTab.classList.add('hidden');
+
+      // Reset all button styles
+      const allButtons = [reviewBtn, eventsBtn, seasonBtn, badgesBtn];
+      allButtons.forEach(btn => {
+        btn.classList.remove('active-tab');
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+      });
+
+      // Show selected tab and style its button
+      const tabConfig = {
+        'review': {
+          tab: reviewTab,
+          btn: reviewBtn
+        },
+        'events': {
+          tab: eventsTab,
+          btn: eventsBtn,
+          onShow: loadEventsList
+        },
+        'season': {
+          tab: seasonTab,
+          btn: seasonBtn,
+          onShow: loadSeasonManagement
+        },
+        'badges': {
+          tab: badgesTab,
+          btn: badgesBtn,
+          onShow: () => {
+            loadBadgesList();
+            loadActivitiesForBadges();
+          }
+        }
+      };
+
+      const selected = tabConfig[tabName];
+      if (selected) {
+        selected.tab.classList.remove('hidden');
+        selected.btn.classList.add('active-tab');
+        selected.btn.style.backgroundColor = '#1b3b87';
+        selected.btn.style.color = 'white';
+
+        // Call tab-specific load function if defined
+        if (selected.onShow) {
+          selected.onShow();
+        }
+      }
+    }
 
     reviewBtn.addEventListener('click', () => {
-      reviewTab.classList.remove('hidden');
-      eventsTab.classList.add('hidden');
-      reviewBtn.classList.add('active-tab');
-      reviewBtn.style.backgroundColor = '#1b3b87';
-      reviewBtn.style.color = 'white';
-      eventsBtn.classList.remove('active-tab');
-      eventsBtn.style.backgroundColor = '';
-      eventsBtn.style.color = '';
+      switchTab('review');
     });
 
     eventsBtn.addEventListener('click', () => {
-      reviewTab.classList.add('hidden');
-      eventsTab.classList.remove('hidden');
-      eventsBtn.classList.add('active-tab');
-      eventsBtn.style.backgroundColor = '#1b3b87';
-      eventsBtn.style.color = 'white';
-      reviewBtn.classList.remove('active-tab');
-      reviewBtn.style.backgroundColor = '';
-      reviewBtn.style.color = '';
-      loadEventsList();
+      switchTab('events');
     });
 
-    const seasonTab = document.getElementById('tab-season');
-    const seasonBtn = document.getElementById('tab-season-btn');
-
     seasonBtn.addEventListener('click', () => {
-      reviewTab.classList.add('hidden');
-      eventsTab.classList.add('hidden');
-      seasonTab.classList.remove('hidden');
-      seasonBtn.classList.add('active-tab');
-      seasonBtn.style.backgroundColor = '#1b3b87';
-      seasonBtn.style.color = 'white';
-      reviewBtn.classList.remove('active-tab');
-      reviewBtn.style.backgroundColor = '';
-      reviewBtn.style.color = '';
-      eventsBtn.classList.remove('active-tab');
-      eventsBtn.style.backgroundColor = '';
-      eventsBtn.style.color = '';
-      loadSeasonManagement();
+      switchTab('season');
     });
 
     // =====================================================================
@@ -1335,28 +1365,8 @@
     // TAB 4: BADGE MANAGEMENT
     // =====================================================================
 
-    const badgesTab = document.getElementById('tab-badges');
-    const badgesBtn = document.getElementById('tab-badges-btn');
-
     badgesBtn.addEventListener('click', () => {
-      reviewTab.classList.add('hidden');
-      eventsTab.classList.add('hidden');
-      seasonTab.classList.add('hidden');
-      badgesTab.classList.remove('hidden');
-      badgesBtn.classList.add('active-tab');
-      badgesBtn.style.backgroundColor = '#1b3b87';
-      badgesBtn.style.color = 'white';
-      reviewBtn.classList.remove('active-tab');
-      reviewBtn.style.backgroundColor = '';
-      reviewBtn.style.color = '';
-      eventsBtn.classList.remove('active-tab');
-      eventsBtn.style.backgroundColor = '';
-      eventsBtn.style.color = '';
-      seasonBtn.classList.remove('active-tab');
-      seasonBtn.style.backgroundColor = '';
-      seasonBtn.style.color = '';
-      loadBadgesList();
-      loadActivitiesForBadges();
+      switchTab('badges');
     });
 
     // Badge form submission
