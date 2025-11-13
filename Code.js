@@ -891,7 +891,8 @@ function setupSpreadsheet() {
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
-    'Config_Points': ['Setting_Name', 'Points_Value', 'Description']
+    'Config_Points': ['Setting_Name', 'Points_Value', 'Description'],
+    'Badge_Awards': ['Award_ID', 'Timestamp', 'Email', 'Display_Name', 'Badge_ID', 'Badge_Name', 'Badge_Image_URL']
   };
 
   Object.keys(sheets).forEach((sheetName, index) => {
@@ -4747,6 +4748,22 @@ function calculateBadges(email) {
 
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
+
+        // Log badge award to Badge_Awards sheet for fan feed
+        const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+        if (badgeAwardsSheet) {
+          const displayName = studentData[studentRow - 1][1] || email; // Get Display_Name or fallback to email
+          badgeAwardsSheet.appendRow([
+            Utilities.getUuid(),          // Award_ID
+            new Date(),                   // Timestamp
+            email,                        // Email
+            displayName,                  // Display_Name
+            badgeId,                      // Badge_ID
+            badgesData[i][1],             // Badge_Name
+            badgesData[i][6]              // Badge_Image_URL
+          ]);
+        }
+
         // Send notification for new badge
         notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
       }
@@ -4877,6 +4894,29 @@ function processSeasonEndBadges() {
           currentBadges.push(badge.badgeId);
           studentSheet.getRange(studentRowIndex + 1, 5).setValue(JSON.stringify(currentBadges));
           placementBadgesAwarded++;
+
+          // Log badge award to Badge_Awards sheet for fan feed
+          const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+          if (badgeAwardsSheet) {
+            // Find badge image URL from Config_Badges
+            let badgeImageUrl = '';
+            for (let j = 1; j < badgesData.length; j++) {
+              if (badgesData[j][0] === badge.badgeId) {
+                badgeImageUrl = badgesData[j][6] || ''; // Badge_Image_URL column
+                break;
+              }
+            }
+
+            badgeAwardsSheet.appendRow([
+              Utilities.getUuid(),          // Award_ID
+              new Date(),                   // Timestamp
+              topStudent.email,             // Email
+              topStudent.name,              // Display_Name
+              badge.badgeId,                // Badge_ID
+              badge.badgeName,              // Badge_Name
+              badgeImageUrl                 // Badge_Image_URL
+            ]);
+          }
 
           // Send notification
           notifyBadgeEarned(topStudent.email, badge.badgeName);
