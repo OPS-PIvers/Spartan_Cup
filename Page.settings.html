@@ -165,10 +165,8 @@
     }
 
     function logoutUser() {
-      // Show confirmation modal instead of native confirm() for consistency
-      const modal = document.getElementById('confirm-modal');
-      const messageEl = document.getElementById('modal-message');
-      messageEl.textContent = 'Are you sure you want to log out?';
+      // Use dedicated logout modal to avoid conflicts with event submission modal handlers
+      const modal = document.getElementById('logout-confirm-modal');
       modal.classList.remove('hidden');
 
       // Handle proceed button click (using { once: true } to prevent memory leaks)
@@ -193,8 +191,8 @@
         modal.classList.add('hidden');
       };
 
-      document.getElementById('modal-proceed').addEventListener('click', proceedHandler, { once: true });
-      document.getElementById('modal-cancel').addEventListener('click', cancelHandler, { once: true });
+      document.getElementById('logout-proceed').addEventListener('click', proceedHandler, { once: true });
+      document.getElementById('logout-cancel').addEventListener('click', cancelHandler, { once: true });
     }
   </script>
 </div>
