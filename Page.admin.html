@@ -2070,10 +2070,16 @@
         const card = document.createElement('div');
         card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 sm:gap-3';
 
-        // Badge image
+        // Badge image - using DOM APIs to prevent XSS via attribute injection
         const imgDiv = document.createElement('div');
         imgDiv.className = 'w-16 h-16 flex-shrink-0 mx-auto sm:mx-0';
-        imgDiv.innerHTML = `<img src="${escapeHTML(badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg')}" alt="${escapeHTML(badge.badgeName)}" class="w-full h-full object-cover rounded-lg" onerror="this.src='https://the-spartan-cup.web.app/badges/default-badge.svg'">`;
+
+        const img = document.createElement('img');
+        img.src = badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg';
+        img.alt = badge.badgeName;
+        img.className = 'w-full h-full object-cover rounded-lg';
+        img.onerror = function() { this.src = 'https://the-spartan-cup.web.app/badges/default-badge.svg'; };
+        imgDiv.appendChild(img);
 
         // Badge details
         const detailsDiv = document.createElement('div');

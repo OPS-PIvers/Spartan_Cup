@@ -2128,25 +2128,35 @@ function createHtmlFiles() {
 
   <script>
     let refreshInterval = null;
+    const REFRESH_INTERVAL_MS = 10000; // 10 seconds
+
+    // Helper function to start auto-refresh
+    function startRefresh() {
+      if (!refreshInterval) {
+        refreshInterval = setInterval(loadFanFeed, REFRESH_INTERVAL_MS);
+      }
+    }
+
+    // Helper function to stop auto-refresh
+    function stopRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       loadFanFeed();
-      // Refresh every 10 seconds
-      refreshInterval = setInterval(loadFanFeed, 10000);
+      startRefresh();
 
       // Pause refresh when page is hidden to reduce API calls
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-          if (refreshInterval) {
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-          }
+          stopRefresh();
         } else {
           // Resume refresh when page becomes visible
-          if (!refreshInterval) {
-            loadFanFeed(); // Load immediately
-            refreshInterval = setInterval(loadFanFeed, 10000);
-          }
+          loadFanFeed(); // Load immediately
+          startRefresh();
         }
       });
     });
@@ -5004,9 +5014,11 @@ function getFanFeed() {
       // Skip if no photo URL
       if (!photoUrl) continue;
 
+      const timestamp = verifiedData[i][2]; // Timestamp_Approved
       photos.push({
         submissionId: verifiedData[i][0],
-        timestamp: verifiedData[i][2], // Timestamp_Approved
+        timestamp: timestamp,
+        _time: new Date(timestamp).getTime(), // Cache parsed time for efficient sorting
         studentEmail: verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
@@ -5016,12 +5028,8 @@ function getFanFeed() {
     }
 
     // Sort by date (most recent first) and limit to 50
-    // Compare timestamps directly to avoid creating Date objects repeatedly
-    photos.sort((a, b) => {
-      const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp;
-      const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp;
-      return timeB - timeA;
-    });
+    // Use cached _time property to avoid repeated Date object creation during sort
+    photos.sort((a, b) => b._time - a._time);
     const recentPhotos = photos.slice(0, 50);
 
     return {
