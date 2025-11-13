@@ -4989,10 +4989,17 @@ function getEventList(category) {
 function getFanFeed() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const daysBack = 7;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
-    // Get verified submissions
-    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-    const verifiedData = verifiedSheet.getDataRange().getValues();
+    // Get student name mapping
+    const profileSheet = ss.getSheetByName('Student_Profiles');
+    const profileData = profileSheet.getDataRange().getValues();
+    const studentMap = {};
+    for (let i = 1; i < profileData.length; i++) {
+      studentMap[profileData[i][0]] = profileData[i][1]; // email -> display name
+    }
 
     // Get event details map
     const eventSheet = ss.getSheetByName('Event_Schedule');
@@ -5005,36 +5012,71 @@ function getFanFeed() {
       };
     }
 
-    const photos = [];
+    const feedItems = [];
+
+    // Get photo submissions
+    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    const verifiedData = verifiedSheet.getDataRange().getValues();
+
     for (let i = 1; i < verifiedData.length; i++) {
+      const timestamp = new Date(verifiedData[i][2]); // Timestamp_Approved
+
+      // Filter by date
+      if (timestamp < cutoffDate) continue;
+
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      // Photo URL is in column 10 (0-indexed as 10) - added when approving
       const photoUrl = verifiedData[i][10];
 
       // Skip if no photo URL
       if (!photoUrl) continue;
 
-      const timestamp = verifiedData[i][2]; // Timestamp_Approved
-      photos.push({
+      feedItems.push({
+        type: 'photo',
         submissionId: verifiedData[i][0],
         timestamp: timestamp,
-        _time: new Date(timestamp).getTime(), // Cache parsed time for efficient sorting
+        _time: timestamp.getTime(), // Cache parsed time for efficient sorting
         studentEmail: verifiedData[i][3],
+        studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
         photoUrl: photoUrl,
-        likes: 0 // Default likes count; persistence tracked in PropertiesService if needed
+        likes: 0
       });
     }
 
-    // Sort by date (most recent first) and limit to 50
-    // Use cached _time property to avoid repeated Date object creation during sort
-    photos.sort((a, b) => b._time - a._time);
-    const recentPhotos = photos.slice(0, 50);
+    // Add badge awards
+    const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+    if (badgeAwardsSheet) {
+      const badgeAwardsData = badgeAwardsSheet.getDataRange().getValues();
+
+      for (let i = 1; i < badgeAwardsData.length; i++) {
+        const timestamp = new Date(badgeAwardsData[i][1]); // Timestamp
+
+        // Filter by date
+        if (timestamp < cutoffDate) continue;
+
+        feedItems.push({
+          type: 'badge',
+          awardId: badgeAwardsData[i][0],
+          timestamp: timestamp,
+          _time: timestamp.getTime(), // Cache parsed time for efficient sorting
+          studentEmail: badgeAwardsData[i][2],
+          studentName: badgeAwardsData[i][3], // Display_Name
+          badgeId: badgeAwardsData[i][4],
+          badgeName: badgeAwardsData[i][5],
+          badgeImageUrl: badgeAwardsData[i][6]
+        });
+      }
+    }
+
+    // Sort by cached _time (most recent first) and limit to 50 items
+    feedItems.sort((a, b) => b._time - a._time);
+    const recentItems = feedItems.slice(0, 50);
 
     return {
       status: "success",
-      photos: recentPhotos
+      items: recentItems,
+      daysShown: daysBack
     };
 
   } catch (e) {
