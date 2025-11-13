@@ -620,22 +620,61 @@ function getProfileData() {
       }
     }
 
-    // Build top 5 leaderboards
-    const topSeasonLeaderboard = seasonLeaderboard.slice(0, 5).map((student, index) => ({
-      rank: index + 1,
-      name: student.name,
-      points: student.seasonPoints,
-      icon: index < 3 ? 'workspace_premium' : 'military_tech',
-      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
-    }));
+    // Build top 10 leaderboards with user highlighting
+    // If user is in top 10, show top 10
+    // If user is outside top 10, show top 9 + user's position with gap indicator
 
-    const topAllTimeLeaderboard = allTimeLeaderboard.slice(0, 5).map((student, index) => ({
-      rank: index + 1,
-      name: student.name,
-      points: student.allTimePoints,
-      icon: index < 3 ? 'workspace_premium' : 'military_tech',
-      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
-    }));
+    function buildLeaderboardWithUser(leaderboard, userEmail) {
+      const result = [];
+      const userIndex = leaderboard.findIndex(s => s.email === userEmail);
+      const userRank = userIndex + 1;
+
+      if (userRank <= 10) {
+        // User is in top 10, show top 10
+        for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+          result.push({
+            rank: i + 1,
+            name: leaderboard[i].name,
+            points: leaderboard[i].seasonPoints || leaderboard[i].allTimePoints,
+            icon: i < 3 ? 'workspace_premium' : 'military_tech',
+            color: i === 0 ? 'text-gold' : (i === 1 ? 'text-silver' : (i === 2 ? 'text-bronze' : 'text-gray-400')),
+            isCurrentUser: leaderboard[i].email === userEmail,
+            showGapBefore: false
+          });
+        }
+      } else {
+        // User is outside top 10, show top 9 + gap + user
+        for (let i = 0; i < Math.min(9, leaderboard.length); i++) {
+          result.push({
+            rank: i + 1,
+            name: leaderboard[i].name,
+            points: leaderboard[i].seasonPoints || leaderboard[i].allTimePoints,
+            icon: i < 3 ? 'workspace_premium' : 'military_tech',
+            color: i === 0 ? 'text-gold' : (i === 1 ? 'text-silver' : (i === 2 ? 'text-bronze' : 'text-gray-400')),
+            isCurrentUser: false,
+            showGapBefore: false
+          });
+        }
+
+        // Add user's position
+        if (userIndex >= 0) {
+          result.push({
+            rank: userRank,
+            name: leaderboard[userIndex].name,
+            points: leaderboard[userIndex].seasonPoints || leaderboard[userIndex].allTimePoints,
+            icon: 'military_tech',
+            color: 'text-gray-400',
+            isCurrentUser: true,
+            showGapBefore: true
+          });
+        }
+      }
+
+      return result;
+    }
+
+    const topSeasonLeaderboard = buildLeaderboardWithUser(seasonLeaderboard, email);
+    const topAllTimeLeaderboard = buildLeaderboardWithUser(allTimeLeaderboard, email);
 
     // --- FETCH BADGES ---
     // Use cached badge data (static, doesn't change frequently)
@@ -1747,12 +1786,28 @@ function createHtmlFiles() {
       const lbContainer = document.getElementById('leaderboard-container');
       lbContainer.innerHTML = ''; // Clear
       leaderboard.forEach(item => {
+        // Add gap indicator if needed
+        if (item.showGapBefore) {
+          lbContainer.innerHTML += \`
+            <div class="flex items-center justify-center py-2">
+              <span class="text-gray-400 dark:text-gray-500 text-sm">···</span>
+            </div>\`;
+        }
+
+        // Determine if this is the first place for special styling
+        const isFirstPlace = item.rank === 1;
+
+        // Build row HTML with conditional user highlighting
         lbContainer.innerHTML += \`
-          <div class="flex items-center gap-3 rounded-lg p-3 \${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
-            <span class="font-bold text-lg \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
+          <div class="flex items-center gap-3 rounded-lg p-3 \${
+            item.isCurrentUser
+              ? 'bg-primary/5 dark:bg-primary/10 border-l-4 border-primary'
+              : (isFirstPlace ? 'bg-primary/10 dark:bg-primary/20' : '')
+          }">
+            <span class="font-bold text-lg \${isFirstPlace ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
             <span class="material-symbols-outlined text-2xl \${item.color}">\${item.icon}</span>
-            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">\${item.name}</span>
-            <span class="font-bold \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
+            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white \${item.isCurrentUser ? 'font-semibold' : ''}">\${item.name}\${item.isCurrentUser ? ' <span class="text-primary dark:text-blue-300 text-sm">(You)</span>' : ''}</span>
+            <span class="font-bold \${isFirstPlace ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
           </div>\`;
       });
     }
