@@ -4995,6 +4995,7 @@ function getFanFeed() {
 
     // Get student name mapping
     const profileSheet = ss.getSheetByName('Student_Profiles');
+    if (!profileSheet) throw new Error("Sheet 'Student_Profiles' not found");
     const profileData = profileSheet.getDataRange().getValues();
     const studentMap = {};
     for (let i = 1; i < profileData.length; i++) {
@@ -5003,6 +5004,7 @@ function getFanFeed() {
 
     // Get event details map
     const eventSheet = ss.getSheetByName('Events');
+    if (!eventSheet) throw new Error("Sheet 'Events' not found");
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
@@ -5016,6 +5018,7 @@ function getFanFeed() {
 
     // Get photo submissions
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    if (!verifiedSheet) throw new Error("Sheet 'Submissions_Verified' not found");
     const verifiedData = verifiedSheet.getDataRange().getValues();
 
     for (let i = 1; i < verifiedData.length; i++) {
