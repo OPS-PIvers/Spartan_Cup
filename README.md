@@ -93,9 +93,18 @@ The geolocation wrapper is deployed to Firebase Hosting. See the wrapper templat
 Google Apps Script requires user activation for navigation. Never use `confirm()` dialogs or `setTimeout()` before navigation—use custom modals instead. See [CLAUDE.md](CLAUDE.md#important-implementation-notes) for details.
 
 ### Data Storage
-- **Sheets tabs:** Student_Profiles, Event_Schedule, Submissions_Pending, Submissions_Verified, Config_Badges, Config_Admins
+
+For complete spreadsheet schema documentation, see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md).
+
+**Google Sheets Backend:**
+- **Core Data Sheets:** Student_Profiles, Activities_Data, Events, Submissions_Pending, Submissions_Verified
+- **Configuration Sheets:** Config_Points, Config_Badges, Config_Admins, Config_Active_Season
+- **Operational Sheets:** Active_Season_Prizes, Badge_Awards
+
+**Additional Storage:**
 - **Google Drive:** Photo submissions (base64-encoded with metadata)
-- **Geofencing:** Hardcoded campus coordinates validate submission location
+- **Firebase Storage:** Badge images (auto-uploaded via admin UI)
+- **Geofencing:** Campus coordinates stored in Activities_Data and Events sheets
 
 ## Testing
 
@@ -158,6 +167,7 @@ Google Apps Script requires user activation for navigation. Never use `confirm()
 
 ## References
 
+- [Spreadsheet Schema](SPREADSHEET_SCHEMA.md) - Complete Google Sheets backend schema documentation
 - [Firebase Storage Setup](docs/FIREBASE_STORAGE_SETUP.md) - Badge image storage configuration
 - [Google Sheets API Setup](docs/SHEETS_API_SETUP.md) - Direct sheet access via Python scripts
 - [Claude Development Notes](CLAUDE.md) - AI assistant instructions

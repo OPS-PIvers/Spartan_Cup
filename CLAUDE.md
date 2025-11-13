@@ -39,6 +39,7 @@ Spartan_Cup/
 ├── cors.json               # CORS configuration for Firebase Storage
 ├── README.md               # Main project documentation
 ├── CLAUDE.md               # This file - AI assistant instructions
+├── SPREADSHEET_SCHEMA.md   # Complete Google Sheets backend schema
 ├── docs/                   # Documentation folder
 │   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide
 │   ├── BADGE_DEPLOYMENT_GUIDE.md   # Badge deployment reference
@@ -76,7 +77,10 @@ Spartan_Cup/
 - Communication between frontend and backend via `google.script.run` (Apps Script AJAX)
 
 **Data Layer:**
-- **Backend storage:** Google Sheets with tabs: Student_Profiles, Event_Schedule, Submissions_Pending, Submissions_Verified, Config_Badges, Config_Admins
+- **Backend storage:** Google Sheets with tabs (see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md) for complete schema)
+  - **Core Data:** Student_Profiles, Activities_Data, Events, Submissions_Pending, Submissions_Verified
+  - **Configuration:** Config_Points, Config_Badges, Config_Admins, Config_Active_Season
+  - **Operational:** Active_Season_Prizes, Badge_Awards
 - **File storage:** Google Drive for photo submissions (base64-encoded, saved with metadata)
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
@@ -232,11 +236,32 @@ From in-code comments, these features need completion:
 
 ## Spreadsheet Schema Reference
 
-- **Student_Profiles:** Columns for user ID, name, grade, points, badges, photo URL
-- **Event_Schedule:** Event metadata including name, date, location, geofence coordinates, QR code
-- **Submissions_Pending:** User submissions awaiting admin review
-- **Submissions_Verified:** Approved submissions with calculated points
-- **Config_Badges:** Badge definitions, point thresholds, icons
-- **Config_Admins:** Email whitelist for administrative access (single source of truth). Format: Column A = email address, Column B = role (e.g., "Admin", "Moderator")
+For complete schema documentation with column definitions, data types, relationships, and caching strategy, see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md).
 
-Check Code.js for the exact column names and data structure used in each tab.
+### Core Data Sheets
+
+- **Student_Profiles:** Student records with Email (unique key), Display_Name, Total_Points_Season, Total_Points_AllTime, Badges_Earned (JSON array), Loyalty_Stats_JSON, Variety_Stats_Set (JSON array), Disqualified flag, Student_Settings (JSON object)
+- **Activities_Data:** Master list of sports/arts activities by season. Columns: Activity_Code (unique key), Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
+- **Events:** Individual event instances (games, performances). Columns: Event_ID (unique key, format "ACTIVITYCODE-NNN"), Activity_Code (FK to Activities_Data), Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active (auto-updated by trigger)
+- **Submissions_Pending:** User submissions awaiting admin review. Columns: Submission_ID (UUID), Timestamp, Email (FK to Student_Profiles), Event_ID (FK to Events), Photo_URL, Photo_ID, Location_Data_JSON, Dressed_For_Theme, Notes
+- **Submissions_Verified:** Approved submissions archive (immutable). Columns: Submission_ID, Timestamp_Submitted, Timestamp_Approved, Email, Event_ID, Admin_Email, Points_Base, Points_Theme, Points_Spotlight_Multiplier, Points_Total, Photo_URL
+
+### Configuration Sheets
+
+- **Config_Points:** Point value configuration. Columns: Setting_Name (unique key), Points_Value, Description. Updated via admin UI dialog `openPointsConfigDialog()`
+- **Config_Badges:** Badge definition library. Columns: Badge_ID (unique key, format "badge_NNN"), Badge_Name, Category, Trigger_Type, Trigger_Value, Description, Badge_Image_URL. See SPREADSHEET_SCHEMA.md for complete trigger type reference
+- **Config_Admins:** Admin access control list (single source of truth). Columns: Admin_Email (unique key), Role. Checked by `getUserIsAdmin()` (cached 6 hours)
+- **Config_Active_Season:** Single-value store for current season. Columns: Setting_Name ("Active_Season"), Setting_Value (e.g., "Winter", "Spring", "Fall"). Referenced by `getActiveSeason()` (cached 1 hour)
+
+### Operational Sheets
+
+- **Active_Season_Prizes:** Prize definitions for current season. Columns: Rank (e.g., "1st Place", "Most Spirited"), Description. Displayed on Prizes & Events page
+- **Badge_Awards:** Historical log of badge awards (optional). Columns: Award_ID (UUID), Timestamp, Email, Display_Name, Badge_ID, Badge_Name, Badge_Image_URL. Used for fan feed and analytics
+
+### Important Notes
+
+- All sheets use 1-indexed row numbers (row 1 = headers, data starts row 2)
+- Foreign keys use Email (Student_Profiles), Event_ID (Events), Activity_Code (Activities_Data), Badge_ID (Config_Badges)
+- JSON fields store arrays and objects as stringified JSON
+- Caching is used extensively (see SPREADSHEET_SCHEMA.md for TTL values)
+- The `updateActiveEventStatus()` trigger runs every 10 minutes to update Events.Is_Active based on current time vs. Start_Time + Duration_Hours
