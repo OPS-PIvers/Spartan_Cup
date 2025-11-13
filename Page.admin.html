@@ -865,21 +865,6 @@
       });
     }
 
-    // Toast notification system
-    function showToast(message, type = 'error', duration = 3000) {
-      const toast = document.createElement('div');
-      toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity ${
-        type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-      }`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, duration);
-    }
-
     // Show action confirmation overlay (Approved/Denied)
     function showConfirmation(message, icon) {
       const overlay = document.getElementById('confirmation-overlay');

@@ -231,6 +231,33 @@
       );
     }
 
+    // --- GLOBAL TOAST NOTIFICATION SYSTEM -----------------------------------
+
+    /**
+     * Shows a toast notification (used by fan feed, admin, etc.)
+     * @param {string} message - Message to display
+     * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
+     * @param {number} duration - How long to show (ms), default 4000
+     */
+    function showToast(message, type = 'info', duration = 4000) {
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        warning: 'bg-amber-500',
+        info: 'bg-blue-500'
+      };
+      toast.className = `fixed bottom-20 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity z-50 ${colors[type] || colors.info}`;
+      toast.textContent = message;
+      toast.style.maxWidth = '90vw';
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
     // --- STATE & PAGE ROUTING -----------------------------------------------
 
     // Page titles map
