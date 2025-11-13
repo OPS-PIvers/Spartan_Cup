@@ -642,7 +642,13 @@
         'review': {
           tab: reviewTab,
           btn: reviewBtn,
-          onShow: loadAdminQueue
+          onShow: () => {
+            // Only load queue once to prevent redundant API calls
+            if (!queueLoaded) {
+              loadAdminQueue();
+              queueLoaded = true;
+            }
+          }
         },
         'events': {
           tab: eventsTab,
@@ -708,6 +714,7 @@
     let hasThemeBonus = false;
     const THEME_BONUS_POINTS = 25;
     const BASE_POINTS = 50;
+    let queueLoaded = false;  // Track if queue has been loaded to prevent redundant calls
 
     // Image cache for preloading
     const imageCache = {};
@@ -2046,7 +2053,7 @@
           listContainer.innerHTML = '<p class="text-red-600">Error loading badges: ' + escapeHTML(response.message) + '</p>';
         }
       }).withFailureHandler((error) => {
-        listContainer.innerHTML = '<p class="text-red-600">Network error: ' + escapeHTML(error) + '</p>';
+        listContainer.innerHTML = '<p class="text-red-600">Network error: ' + escapeHTML(error.message || error.toString()) + '</p>';
       }).getAllBadgesForAdmin();
     }
 
@@ -2498,7 +2505,7 @@
           document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error: ' + escapeHTML(response.message) + '</div>';
         }
       }).withFailureHandler((error) => {
-        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + escapeHTML(error) + '</div>';
+        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + escapeHTML(error.message || error.toString()) + '</div>';
       }).getAllSeasonPrizes();
     }
 

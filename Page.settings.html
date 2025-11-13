@@ -171,11 +171,9 @@
       messageEl.textContent = 'Are you sure you want to log out?';
       modal.classList.remove('hidden');
 
-      // Handle proceed button click
+      // Handle proceed button click (using { once: true } to prevent memory leaks)
       const proceedHandler = () => {
         modal.classList.add('hidden');
-        document.getElementById('modal-proceed').removeEventListener('click', proceedHandler);
-        document.getElementById('modal-cancel').removeEventListener('click', cancelHandler);
 
         // Google Apps Script will handle logout via the Apps Script authentication
         // Build URL programmatically to avoid Caja sanitizer breaking string literals
@@ -190,15 +188,13 @@
         document.body.removeChild(link);
       };
 
-      // Handle cancel button click
+      // Handle cancel button click (using { once: true } to prevent memory leaks)
       const cancelHandler = () => {
         modal.classList.add('hidden');
-        document.getElementById('modal-proceed').removeEventListener('click', proceedHandler);
-        document.getElementById('modal-cancel').removeEventListener('click', cancelHandler);
       };
 
-      document.getElementById('modal-proceed').addEventListener('click', proceedHandler);
-      document.getElementById('modal-cancel').addEventListener('click', cancelHandler);
+      document.getElementById('modal-proceed').addEventListener('click', proceedHandler, { once: true });
+      document.getElementById('modal-cancel').addEventListener('click', cancelHandler, { once: true });
     }
   </script>
 </div>

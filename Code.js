@@ -64,8 +64,10 @@ function getUserEmail() {
   if (!email || email.trim() === '') {
     email = Session.getEffectiveUser().getEmail();
   }
-  // Validate email format
-  if (!email || !email.includes('@')) {
+  // Validate email format with basic but robust regex
+  // Checks for: local-part @ domain . tld
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
     throw new Error('Unable to determine user email');
   }
   return email;
