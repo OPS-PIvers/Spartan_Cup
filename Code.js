@@ -4987,11 +4987,13 @@ function getEventList(category) {
  * @return {Array} Array of approved submission photos with metadata
  */
 function getFanFeed() {
+  Logger.log('getFanFeed() called');
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const daysBack = 7;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    Logger.log('getFanFeed: Initialized, looking for sheets');
 
     // Get student name mapping
     const profileSheet = ss.getSheetByName('Student_Profiles');
@@ -5083,7 +5085,8 @@ function getFanFeed() {
     };
 
   } catch (e) {
-    // Logger.log('Error in getFanFeed: ' + e.message);
+    Logger.log('Error in getFanFeed: ' + e.message);
+    Logger.log('Stack: ' + e.stack);
     return {
       status: "error",
       message: "Error fetching fan feed: " + e.message
