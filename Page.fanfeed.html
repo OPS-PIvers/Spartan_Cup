@@ -1,10 +1,121 @@
-<!-- 
+<!--
   This file holds the content for the 'fanfeed' page.
   It is dynamically injected into Index.html by Code.gs
 -->
-<div class="page p-4">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm text-center">
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Fan Feed</h2>
-    <p class="text-[#111318] dark:text-white mt-4">The Fan Feed is coming soon! This is where you'll see a live feed of approved event photos.</p>
+<div class="page p-4 pb-20">
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
+  </div>
+
+  <div id="fanfeed-container" class="space-y-4">
+    <p class="text-center text-gray-500 py-8">Loading feed...</p>
   </div>
 </div>
+
+<script>
+  /**
+   * Escapes HTML to prevent XSS attacks
+   * @param {string} str - String to escape
+   * @return {string} Escaped string safe for innerHTML
+   */
+  function escapeHTML(str) {
+    if (!str) return '';
+    const p = document.createElement('p');
+    p.textContent = str;
+    return p.innerHTML;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadFanFeed();
+    // Refresh every 30 seconds
+    setInterval(loadFanFeed, 30000);
+  });
+
+  function loadFanFeed() {
+    const container = document.getElementById('fanfeed-container');
+
+    google.script.run.withSuccessHandler((response) => {
+      if (response.status === 'error') {
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
+        return;
+      }
+
+      const items = response.items || [];
+      if (items.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No activity in the last ' + (response.daysShown || 7) + ' days. Check in at events to see them here!</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      items.forEach(item => {
+        if (item.type === 'photo') {
+          // Photo card
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
+          card.innerHTML = `
+            <img src="${item.photoUrl}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
+
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <p class="font-bold text-[#111318] dark:text-white">${escapeHTML(item.eventName)}</p>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHTML(item.studentName)}</p>
+                </div>
+              </div>
+
+              <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+                ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+              </p>
+            </div>
+          `;
+          container.appendChild(card);
+        } else if (item.type === 'badge') {
+          // Badge award card
+          const card = document.createElement('div');
+          card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
+
+          // Create badge image with safe fallback handling
+          const badgeImg = document.createElement('img');
+          badgeImg.src = item.badgeImageUrl;
+          badgeImg.alt = escapeHTML(item.badgeName);
+          badgeImg.className = 'w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600';
+          badgeImg.onerror = function() {
+            this.src = APP_DATA.badgeBaseUrl + 'default-badge.svg';
+            this.onerror = null;
+          };
+
+          card.innerHTML = `
+            <div class="p-4">
+              <div class="flex items-center gap-4">
+                <div class="flex-shrink-0 badge-img-container">
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" aria-hidden="true">emoji_events</span>
+                    <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
+                  </div>
+                  <p class="text-lg font-bold text-[#111318] dark:text-white">${escapeHTML(item.badgeName)}</p>
+                  <p class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(item.studentName)}</p>
+                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+                    ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                  </p>
+                </div>
+              </div>
+            </div>
+          `;
+
+          // Append badge image to its container
+          const imgContainer = card.querySelector('.badge-img-container');
+          imgContainer.appendChild(badgeImg);
+
+          container.appendChild(card);
+        }
+      });
+    }).withFailureHandler((error) => {
+      container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
+    }).getFanFeed();
+  }
+</script>

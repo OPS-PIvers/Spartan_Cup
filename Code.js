@@ -871,6 +871,7 @@ function setupSpreadsheet() {
     'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
+    'Badge_Awards': ['Award_ID', 'Timestamp', 'Email', 'Display_Name', 'Badge_ID', 'Badge_Name', 'Badge_Image_URL'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
     'Config_Points': ['Setting_Name', 'Points_Value', 'Description']
@@ -2097,80 +2098,121 @@ function createHtmlFiles() {
       }
     }
   </script>`,
-    'Page.fanfeed.html': `<div class="p-4 pt-6">
+    'Page.fanfeed.html': `<div class="p-4 pb-20">
     <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
       <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos from your classmates!</p>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
     </div>
 
-    <div id="fanfeed-container" class="space-y-3">
-      <p class="text-center text-gray-500 py-8">Loading photos...</p>
+    <div id="fanfeed-container" class="space-y-4">
+      <p class="text-center text-gray-500 py-8">Loading feed...</p>
     </div>
   </div>
 
   <script>
+    /**
+     * Escapes HTML to prevent XSS attacks
+     * @param {string} str - String to escape
+     * @return {string} Escaped string safe for innerHTML
+     */
+    function escapeHTML(str) {
+      if (!str) return '';
+      const p = document.createElement('p');
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadFanFeed();
-      // Refresh every 10 seconds
-      setInterval(loadFanFeed, 10000);
+      // Refresh every 30 seconds
+      setInterval(loadFanFeed, 30000);
     });
 
     function loadFanFeed() {
       const container = document.getElementById('fanfeed-container');
-      container.innerHTML = '<p class="text-center text-gray-500 py-4">Loading...</p>';
 
       google.script.run.withSuccessHandler((response) => {
         if (response.status === 'error') {
-          container.innerHTML = '<p class="text-center text-red-600">Error loading feed</p>';
+          container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
           return;
         }
 
-        const photos = response.photos || [];
-        if (photos.length === 0) {
-          container.innerHTML = '<p class="text-center text-gray-500 py-8">No approved photos yet. Scan an event code to get started!</p>';
+        const items = response.items || [];
+        if (items.length === 0) {
+          container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No activity in the last ' + (response.daysShown || 7) + ' days. Check in at events to see them here!</p>';
           return;
         }
 
         container.innerHTML = '';
-        photos.forEach(photo => {
-          const card = document.createElement('div');
-          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
-          card.innerHTML = \`
-            <img src="\${photo.photoUrl}" alt="Event photo" class="w-full h-64 object-cover">
+        items.forEach(item => {
+          if (item.type === 'photo') {
+            // Photo card
+            const card = document.createElement('div');
+            card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
+            card.innerHTML = \`
+              <img src="\${item.photoUrl}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
 
-            <div class="p-4">
-              <div class="flex items-center justify-between mb-2">
-                <div>
-                  <p class="font-bold text-[#111318] dark:text-white">\${photo.eventName}</p>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">\${photo.studentEmail}</p>
+              <div class="p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="font-bold text-[#111318] dark:text-white">\${escapeHTML(item.eventName)}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">\${escapeHTML(item.studentName)}</p>
+                  </div>
+                </div>
+
+                <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
+                  <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+                  \${new Date(item.timestamp).toLocaleDateString()} \${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                </p>
+              </div>
+            \`;
+            container.appendChild(card);
+          } else if (item.type === 'badge') {
+            // Badge award card
+            const card = document.createElement('div');
+            card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
+
+            // Create badge image with safe fallback handling
+            const badgeImg = document.createElement('img');
+            badgeImg.src = item.badgeImageUrl;
+            badgeImg.alt = escapeHTML(item.badgeName);
+            badgeImg.className = 'w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600';
+            badgeImg.onerror = function() {
+              this.src = APP_DATA.badgeBaseUrl + 'default-badge.svg';
+              this.onerror = null;
+            };
+
+            card.innerHTML = \`
+              <div class="p-4">
+                <div class="flex items-center gap-4">
+                  <div class="flex-shrink-0 badge-img-container">
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" aria-hidden="true">emoji_events</span>
+                      <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
+                    </div>
+                    <p class="text-lg font-bold text-[#111318] dark:text-white">\${escapeHTML(item.badgeName)}</p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300">\${escapeHTML(item.studentName)}</p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+                      \${new Date(item.timestamp).toLocaleDateString()} \${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                    </p>
+                  </div>
                 </div>
               </div>
+            \`;
 
-              <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                <span class="material-symbols-outlined text-xs align-middle">schedule</span>
-                \${new Date(photo.timestamp).toLocaleDateString()}
-              </p>
+            // Append badge image to its container
+            const imgContainer = card.querySelector('.badge-img-container');
+            imgContainer.appendChild(badgeImg);
 
-              <div class="flex gap-2">
-                <div class="flex-1 flex items-center justify-center gap-1 bg-gray-100 dark:bg-gray-700/50 rounded py-2 px-3">
-                  <span class="material-symbols-outlined text-sm">favorite</span>
-                  <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">\${photo.likes || 0}</span>
-                </div>
-                <button onclick="toggleLike('\${photo.submissionId}')" class="flex-1 flex items-center justify-center gap-1 bg-primary/10 dark:bg-primary/20 rounded py-2 px-3 active:scale-95 transition-transform">
-                  <span class="material-symbols-outlined text-sm">favorite_border</span>
-                  <span class="text-sm font-semibold text-primary dark:text-blue-300">Like</span>
-                </button>
-              </div>
-            </div>
-          \`;
-          container.appendChild(card);
+            container.appendChild(card);
+          }
         });
+      }).withFailureHandler((error) => {
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
       }).getFanFeed();
-    }
-
-    function toggleLike(submissionId) {
-      // This can be extended to implement actual like functionality
-      // console.log('Liked submission:', submissionId);
     }
   </script>`,
     'Page.scanner.html': `<div class="page fixed inset-0 z-50 bg-background-dark text-white">
@@ -4221,20 +4263,47 @@ function calculateBadges(email) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Get student profile
+    // Get student profile with header-based column indexing
     const studentSheet = ss.getSheetByName('Student_Profiles');
     const studentData = studentSheet.getDataRange().getValues();
+
+    // Validate sheet has data
+    if (!studentData || studentData.length === 0) {
+      Logger.log('calculateBadges: Student_Profiles sheet is empty');
+      return;
+    }
+
+    const studentHeaders = studentData[0];
+
+    // Dynamically locate column indices
+    const studentColIndices = {
+      email: studentHeaders.indexOf('Email'),
+      displayName: studentHeaders.indexOf('Display_Name'),
+      seasonPoints: studentHeaders.indexOf('Total_Points_Season'),
+      allTimePoints: studentHeaders.indexOf('Total_Points_AllTime'),
+      badgesEarned: studentHeaders.indexOf('Badges_Earned')
+    };
+
+    // Validate all required columns exist
+    const requiredStudentCols = ['email', 'displayName', 'seasonPoints', 'allTimePoints', 'badgesEarned'];
+    for (const col of requiredStudentCols) {
+      if (studentColIndices[col] === -1) {
+        Logger.log(`calculateBadges: Required column missing in Student_Profiles: ${col}`);
+        return;
+      }
+    }
 
     let studentRow = null;
     let studentProfile = null;
 
     for (let i = 1; i < studentData.length; i++) {
-      if (studentData[i][0] === email) {
+      if (studentData[i][studentColIndices.email] === email) {
         studentRow = i + 1;
         studentProfile = {
-          seasonPoints: studentData[i][2] || 0,
-          allTimePoints: studentData[i][3] || 0,
-          earnedBadges: studentData[i][4] ? JSON.parse(studentData[i][4]) : []
+          seasonPoints: studentData[i][studentColIndices.seasonPoints] || 0,
+          allTimePoints: studentData[i][studentColIndices.allTimePoints] || 0,
+          earnedBadges: studentData[i][studentColIndices.badgesEarned] ? JSON.parse(studentData[i][studentColIndices.badgesEarned]) : [],
+          displayName: studentData[i][studentColIndices.displayName] || email
         };
         break;
       }
@@ -4242,9 +4311,40 @@ function calculateBadges(email) {
 
     if (!studentProfile) return;
 
-    // Get all badges
+    // Track badges that were already earned before this call
+    const previouslyEarnedBadges = new Set(studentProfile.earnedBadges);
+
+    // Get all badges with header-based column indexing
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
+
+    // Validate sheet has data
+    if (!badgesData || badgesData.length === 0) {
+      Logger.log('calculateBadges: Config_Badges sheet is empty');
+      return;
+    }
+
+    const badgeHeaders = badgesData[0];
+
+    // Dynamically locate badge column indices
+    const badgeColIndices = {
+      badgeId: badgeHeaders.indexOf('Badge_ID'),
+      badgeName: badgeHeaders.indexOf('Badge_Name'),
+      category: badgeHeaders.indexOf('Category'),
+      triggerType: badgeHeaders.indexOf('Trigger_Type'),
+      triggerValue: badgeHeaders.indexOf('Trigger_Value'),
+      description: badgeHeaders.indexOf('Description'),
+      badgeImageUrl: badgeHeaders.indexOf('Badge_Image_URL')
+    };
+
+    // Validate all required columns exist
+    const requiredBadgeCols = ['badgeId', 'badgeName', 'triggerType', 'badgeImageUrl'];
+    for (const col of requiredBadgeCols) {
+      if (badgeColIndices[col] === -1) {
+        Logger.log(`calculateBadges: Required column missing in Config_Badges: ${col}`);
+        return;
+      }
+    }
 
     // PERFORMANCE: Fetch sheet data ONCE outside the loop to avoid redundant reads
     // These sheets are used by multiple badge trigger types
@@ -4266,9 +4366,9 @@ function calculateBadges(email) {
 
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
-      const badgeId = badgesData[i][0];
-      const triggerType = badgesData[i][3];
-      const triggerValue = badgesData[i][4];
+      const badgeId = badgesData[i][badgeColIndices.badgeId];
+      const triggerType = badgesData[i][badgeColIndices.triggerType];
+      const triggerValue = badgesData[i][badgeColIndices.triggerValue];
 
       // Skip if badge ID is empty
       if (!badgeId) continue;
@@ -4691,13 +4791,37 @@ function calculateBadges(email) {
 
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
-        // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+
+        // Only log to Badge_Awards if this is a NEWLY earned badge (not previously earned)
+        // This prevents duplicate entries when retroactive badge functions re-run calculateBadges()
+        if (!previouslyEarnedBadges.has(badgeId)) {
+          const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+          if (badgeAwardsSheet) {
+            const awardId = 'AWARD-' + Utilities.getUuid();
+            const timestamp = new Date();
+            const displayName = studentProfile.displayName;
+            const badgeName = badgesData[i][badgeColIndices.badgeName];
+            const badgeImageUrl = badgesData[i][badgeColIndices.badgeImageUrl];
+
+            badgeAwardsSheet.appendRow([
+              awardId,
+              timestamp,
+              email,
+              displayName,
+              badgeId,
+              badgeName,
+              badgeImageUrl
+            ]);
+          }
+
+          // Send notification for new badge (only for newly earned badges)
+          notifyBadgeEarned(email, badgesData[i][badgeColIndices.badgeName]);
+        }
       }
     }
 
-    // Update Student_Profiles with new badges
-    studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
+    // Update Student_Profiles with new badges using dynamic column index
+    studentSheet.getRange(studentRow, studentColIndices.badgesEarned + 1).setValue(JSON.stringify(studentProfile.earnedBadges));
 
   } catch (e) {
     // Logger.log('Error in calculateBadges: ' + e.message);
@@ -4927,55 +5051,208 @@ function getEventList(category) {
 }
 
 /**
- * Fetches approved photos for the fan feed (recent 50 photos, sorted by date).
- * @return {Array} Array of approved submission photos with metadata
+ * Fetches approved photos and recent badge awards for the fan feed.
+ * Shows recent photos and badge awards from the last 7 days.
+ * @param {number} daysBack - Number of days to look back for feed items (default: 7)
+ * @return {Object} Object with status and array of feed items (photos and badge awards)
  */
-function getFanFeed() {
+function getFanFeed(daysBack = 7) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const cutoffDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 
-    // Get verified submissions
+    // Get verified submissions (photos) with header-based indexing
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     const verifiedData = verifiedSheet.getDataRange().getValues();
 
-    // Get event details map
-    const eventSheet = ss.getSheetByName('Event_Schedule');
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1]
+    // Validate sheet has data
+    if (!verifiedData || verifiedData.length === 0) {
+      return {
+        status: "success",
+        items: [],
+        daysShown: daysBack
       };
     }
 
-    const photos = [];
+    const verifiedHeaders = verifiedData[0];
+    const verifiedColIndices = {
+      submissionId: verifiedHeaders.indexOf('Submission_ID'),
+      timestampApproved: verifiedHeaders.indexOf('Timestamp_Approved'),
+      email: verifiedHeaders.indexOf('Email'),
+      eventId: verifiedHeaders.indexOf('Event_ID'),
+      photoUrl: verifiedHeaders.indexOf('Photo_URL')
+    };
+
+    // Validate required columns exist
+    if (verifiedColIndices.submissionId === -1 || verifiedColIndices.timestampApproved === -1 ||
+        verifiedColIndices.email === -1 || verifiedColIndices.eventId === -1 || verifiedColIndices.photoUrl === -1) {
+      Logger.log('getFanFeed: Required columns missing in Submissions_Verified');
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Submissions_Verified"
+      };
+    }
+
+    // Get event details map with header-based indexing
+    const eventSheet = ss.getSheetByName('Events');
+    const eventData = eventSheet.getDataRange().getValues();
+
+    // Validate Events sheet
+    if (!eventData || eventData.length === 0) {
+      Logger.log('getFanFeed: Events sheet is empty');
+      return {
+        status: "error",
+        message: "Data structure error: Events sheet is empty"
+      };
+    }
+
+    const eventHeaders = eventData[0];
+    const eventColIndices = {
+      eventId: eventHeaders.indexOf('Event_ID'),
+      activityCode: eventHeaders.indexOf('Activity_Code'),
+      eventName: eventHeaders.indexOf('Event_Name')
+    };
+
+    // Validate required event columns
+    if (eventColIndices.eventId === -1 || eventColIndices.eventName === -1) {
+      Logger.log('getFanFeed: Required columns missing in Events');
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Events"
+      };
+    }
+
+    const eventMap = {};
+    for (let i = 1; i < eventData.length; i++) {
+      eventMap[eventData[i][eventColIndices.eventId]] = {
+        eventName: eventData[i][eventColIndices.eventName],
+        sportArt: eventData[i][eventColIndices.activityCode]
+      };
+    }
+
+    // Get student names map with header-based indexing
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    const studentData = studentSheet.getDataRange().getValues();
+
+    // Validate Student_Profiles sheet
+    if (!studentData || studentData.length === 0) {
+      Logger.log('getFanFeed: Student_Profiles sheet is empty');
+      return {
+        status: "error",
+        message: "Data structure error: Student_Profiles sheet is empty"
+      };
+    }
+
+    const studentHeaders = studentData[0];
+    const studentColIndices = {
+      email: studentHeaders.indexOf('Email'),
+      displayName: studentHeaders.indexOf('Display_Name')
+    };
+
+    // Validate required student columns
+    if (studentColIndices.email === -1 || studentColIndices.displayName === -1) {
+      Logger.log('getFanFeed: Required columns missing in Student_Profiles');
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Student_Profiles"
+      };
+    }
+
+    const studentMap = {};
+    for (let i = 1; i < studentData.length; i++) {
+      studentMap[studentData[i][studentColIndices.email]] = studentData[i][studentColIndices.displayName];
+    }
+
+    const feedItems = [];
+
+    // Add photos from verified submissions
     for (let i = 1; i < verifiedData.length; i++) {
-      const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      // Photo URL is in column 10 (0-indexed as 10) - added when approving
-      const photoUrl = verifiedData[i][10];
+      const timestamp = new Date(verifiedData[i][verifiedColIndices.timestampApproved]);
+
+      // Filter by date
+      if (timestamp < cutoffDate) continue;
+
+      const eventInfo = eventMap[verifiedData[i][verifiedColIndices.eventId]] || { eventName: 'Event', sportArt: 'Event' };
+      const photoUrl = verifiedData[i][verifiedColIndices.photoUrl];
 
       // Skip if no photo URL
       if (!photoUrl) continue;
 
-      photos.push({
-        submissionId: verifiedData[i][0],
-        timestamp: verifiedData[i][2], // Timestamp_Approved
-        studentEmail: verifiedData[i][3],
+      feedItems.push({
+        type: 'photo',
+        submissionId: verifiedData[i][verifiedColIndices.submissionId],
+        timestamp: timestamp,
+        studentEmail: verifiedData[i][verifiedColIndices.email],
+        studentName: studentMap[verifiedData[i][verifiedColIndices.email]] || verifiedData[i][verifiedColIndices.email],
         eventName: eventInfo.eventName,
-        eventId: verifiedData[i][4],
+        eventId: verifiedData[i][verifiedColIndices.eventId],
         photoUrl: photoUrl,
         likes: 0 // Default likes count; persistence tracked in PropertiesService if needed
       });
     }
 
-    // Sort by date (most recent first) and limit to 50
-    photos.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const recentPhotos = photos.slice(0, 50);
+    // Add badge awards with header-based indexing
+    const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+    if (badgeAwardsSheet) {
+      const badgeAwardsData = badgeAwardsSheet.getDataRange().getValues();
+
+      // Only process if there's data (more than just headers)
+      if (badgeAwardsData && badgeAwardsData.length > 1) {
+        const badgeAwardHeaders = badgeAwardsData[0];
+        const badgeAwardColIndices = {
+          awardId: badgeAwardHeaders.indexOf('Award_ID'),
+          timestamp: badgeAwardHeaders.indexOf('Timestamp'),
+          email: badgeAwardHeaders.indexOf('Email'),
+          displayName: badgeAwardHeaders.indexOf('Display_Name'),
+          badgeId: badgeAwardHeaders.indexOf('Badge_ID'),
+          badgeName: badgeAwardHeaders.indexOf('Badge_Name'),
+          badgeImageUrl: badgeAwardHeaders.indexOf('Badge_Image_URL')
+        };
+
+        // Validate required badge award columns (only if we have data)
+        const hasRequiredCols = badgeAwardColIndices.timestamp !== -1 &&
+                                badgeAwardColIndices.badgeName !== -1 &&
+                                badgeAwardColIndices.displayName !== -1;
+
+        if (hasRequiredCols) {
+          for (let i = 1; i < badgeAwardsData.length; i++) {
+            const timestamp = new Date(badgeAwardsData[i][badgeAwardColIndices.timestamp]);
+
+            // Filter by date
+            if (timestamp < cutoffDate) continue;
+
+            feedItems.push({
+              type: 'badge',
+              awardId: badgeAwardsData[i][badgeAwardColIndices.awardId],
+              timestamp: timestamp,
+              studentEmail: badgeAwardsData[i][badgeAwardColIndices.email],
+              studentName: badgeAwardsData[i][badgeAwardColIndices.displayName],
+              badgeId: badgeAwardsData[i][badgeAwardColIndices.badgeId],
+              badgeName: badgeAwardsData[i][badgeAwardColIndices.badgeName],
+              badgeImageUrl: badgeAwardsData[i][badgeAwardColIndices.badgeImageUrl]
+            });
+          }
+        } else {
+          Logger.log('getFanFeed: Badge_Awards sheet missing required columns, skipping badge awards');
+        }
+      }
+    }
+
+    // Sort by timestamp (most recent first) and limit to 50 items
+    // Performance: timestamp is already a Date object, no need to recreate
+    feedItems.sort((a, b) => b.timestamp - a.timestamp);
+    const recentItems = feedItems.slice(0, 50);
+
+    // Convert Date objects to ISO strings for proper serialization via google.script.run
+    const serializedItems = recentItems.map(item => ({
+      ...item,
+      timestamp: item.timestamp.toISOString()
+    }));
 
     return {
       status: "success",
-      photos: recentPhotos
+      items: serializedItems,
+      daysShown: daysBack
     };
 
   } catch (e) {
