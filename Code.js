@@ -5002,7 +5002,7 @@ function getFanFeed() {
     }
 
     // Get event details map
-    const eventSheet = ss.getSheetByName('Event_Schedule');
+    const eventSheet = ss.getSheetByName('Events');
     const eventData = eventSheet.getDataRange().getValues();
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
