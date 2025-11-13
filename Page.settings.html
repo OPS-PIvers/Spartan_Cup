@@ -165,7 +165,18 @@
     }
 
     function logoutUser() {
-      if (confirm('Are you sure you want to log out?')) {
+      // Show confirmation modal instead of native confirm() for consistency
+      const modal = document.getElementById('confirm-modal');
+      const messageEl = document.getElementById('modal-message');
+      messageEl.textContent = 'Are you sure you want to log out?';
+      modal.classList.remove('hidden');
+
+      // Handle proceed button click
+      const proceedHandler = () => {
+        modal.classList.add('hidden');
+        document.getElementById('modal-proceed').removeEventListener('click', proceedHandler);
+        document.getElementById('modal-cancel').removeEventListener('click', cancelHandler);
+
         // Google Apps Script will handle logout via the Apps Script authentication
         // Build URL programmatically to avoid Caja sanitizer breaking string literals
         const link = document.createElement('a');
@@ -177,7 +188,17 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      }
+      };
+
+      // Handle cancel button click
+      const cancelHandler = () => {
+        modal.classList.add('hidden');
+        document.getElementById('modal-proceed').removeEventListener('click', proceedHandler);
+        document.getElementById('modal-cancel').removeEventListener('click', cancelHandler);
+      };
+
+      document.getElementById('modal-proceed').addEventListener('click', proceedHandler);
+      document.getElementById('modal-cancel').addEventListener('click', cancelHandler);
     }
   </script>
 </div>
