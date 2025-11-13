@@ -33,9 +33,8 @@
   <!-- TAB 1: REVIEW SUBMISSIONS -->
   <!-- ===================================================================== -->
   <div id="tab-review" class="flex-1 flex flex-col overflow-y-auto">
-    <!-- Header -->
-    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-secondary mb-4">
-      <h2 class="text-2xl font-bold text-secondary dark:text-red-400 mb-2">Admin Dashboard</h2>
+    <!-- Queue Status -->
+    <div class="mb-4 text-center">
       <p id="queue-status" class="text-sm text-gray-600 dark:text-gray-400">Loading submissions...</p>
     </div>
 
@@ -247,8 +246,8 @@
           <input id="new-activity-location" type="text" placeholder="Location Name (e.g., Gym A)" class="w-full px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400" required>
 
           <div class="grid grid-cols-2 gap-2">
-            <input id="new-activity-lat" type="number" placeholder="Latitude" step="0.0001" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
-            <input id="new-activity-lon" type="number" placeholder="Longitude" step="0.0001" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
+            <input id="new-activity-lat" type="number" placeholder="Latitude" step="any" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
+            <input id="new-activity-lon" type="number" placeholder="Longitude" step="any" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
           </div>
 
           <button type="button" id="get-activity-location-btn" class="w-full px-3 py-2 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 font-semibold">
@@ -830,8 +829,13 @@
     }
 
     function handleTouchStart(e) {
+      // Check if touch originated from a button - if so, don't interfere
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+        return;
+      }
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      touchCurrentX = touchStartX; // Reset to prevent using stale value
       isDragging = true;
     }
 
@@ -842,14 +846,20 @@
     }
 
     function handleTouchEnd(e) {
+      if (!isDragging) return; // Skip if we ignored the touchstart
       isDragging = false;
       const distance = touchCurrentX - touchStartX;
       handleSwipeEnd(distance);
     }
 
     function handleMouseStart(e) {
+      // Check if click originated from a button - if so, don't interfere
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+        return;
+      }
       touchStartX = e.clientX;
       touchStartY = e.clientY;
+      touchCurrentX = touchStartX; // Reset to prevent using stale value
       isDragging = true;
     }
 
@@ -860,6 +870,7 @@
     }
 
     function handleMouseEnd(e) {
+      if (!isDragging) return; // Skip if we ignored the mousedown
       isDragging = false;
       const distance = touchCurrentX - touchStartX;
       handleSwipeEnd(distance);
@@ -1016,6 +1027,15 @@
 
     function approveCurrentSubmission(optimistic = false) {
       const submission = currentQueue[currentIndex];
+
+      // Guard: Check if submission exists
+      if (!submission) {
+        console.error('approveCurrentSubmission: No submission at index', currentIndex);
+        showToast('Error: No submission to approve', 'error');
+        isProcessing = false;
+        return;
+      }
+
       const themeBonusPoints = hasThemeBonus ? THEME_BONUS_POINTS : 0;
 
       if (optimistic) {
@@ -1056,6 +1076,14 @@
 
     function denyCurrentSubmission(optimistic = false) {
       const submission = currentQueue[currentIndex];
+
+      // Guard: Check if submission exists
+      if (!submission) {
+        console.error('denyCurrentSubmission: No submission at index', currentIndex);
+        showToast('Error: No submission to deny', 'error');
+        isProcessing = false;
+        return;
+      }
 
       if (optimistic) {
         // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously

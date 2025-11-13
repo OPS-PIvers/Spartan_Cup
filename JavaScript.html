@@ -432,8 +432,8 @@
         const adminButton = document.getElementById('admin-button');
         if (adminButton) {
           adminButton.addEventListener('click', () => {
-            // Show admin menu modal (replaces confirm() which breaks user activation)
-            document.getElementById('admin-menu-modal').classList.remove('hidden');
+            // Navigate directly to admin dashboard
+            navigateToPage('admin');
           });
         }
         
