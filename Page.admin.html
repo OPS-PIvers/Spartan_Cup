@@ -724,7 +724,14 @@
       const tabConfig = {
         'review': {
           tab: reviewTab,
-          btn: reviewBtn
+          btn: reviewBtn,
+          // QUOTA OPTIMIZATION: Load queue only when tab is clicked, not on page load
+          onShow: () => {
+            if (!queueLoaded) {
+              loadAdminQueue();
+              queueLoaded = true;
+            }
+          }
         },
         'events': {
           tab: eventsTab,
@@ -803,10 +810,13 @@
     let lastTapTime = 0;
     let isProcessing = false;  // Prevent multiple simultaneous swipes
 
+    // QUOTA OPTIMIZATION: Track if queue has been loaded to avoid unnecessary calls
+    let queueLoaded = false;
+
     document.addEventListener('DOMContentLoaded', () => {
       // Initialize the Review tab as active
       switchTab('review');
-      loadAdminQueue();
+      // QUOTA OPTIMIZATION: Queue now loads lazily when review tab is clicked (see switchTab config)
       setupGestureHandlers();
     });
 
@@ -1009,8 +1019,24 @@
       document.getElementById('card-points-display').textContent = total;
     }
 
+    // QUOTA OPTIMIZATION: Load admin queue with error handling
     function loadAdminQueue() {
-      google.script.run.withSuccessHandler(populateAdminQueue).getAdminQueue();
+      google.script.run
+        .withSuccessHandler(populateAdminQueue)
+        .withFailureHandler((error) => {
+          const status = document.getElementById('queue-status');
+          const errorMsg = error.message || error.toString();
+
+          // Handle quota errors gracefully
+          if (errorMsg.includes('quota') || errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
+            status.innerHTML = '<p class="text-amber-600 dark:text-amber-400">⚠️ Service temporarily busy. Please wait a moment and try again.</p>';
+            console.error('Quota limit detected:', errorMsg);
+          } else {
+            status.innerHTML = '<p class="text-red-600 dark:text-red-400">Error loading queue: ' + errorMsg + '</p>';
+          }
+          showEmptyState();
+        })
+        .getAdminQueue();
     }
 
     function populateAdminQueue(response) {

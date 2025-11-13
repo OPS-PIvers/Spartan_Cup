@@ -449,9 +449,35 @@
             updateLeaderboardDisplay(leaderboard);
           }
         });
-        
-        // Load dynamic profile data
-        google.script.run.withSuccessHandler(populateProfile).getProfileData();
+
+        // QUOTA OPTIMIZATION: Load dynamic profile data with sessionStorage caching
+        const cachedProfile = sessionStorage.getItem('profileData');
+        const cacheTimestamp = sessionStorage.getItem('profileDataTimestamp');
+        const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+        if (cachedProfile && cacheTimestamp) {
+          const age = Date.now() - parseInt(cacheTimestamp, 10);
+          if (age < PROFILE_CACHE_TTL) {
+            // Use cached data (fresh enough)
+            console.log('Using cached profile data (age: ' + Math.round(age / 1000) + 's)');
+            populateProfile(JSON.parse(cachedProfile));
+          } else {
+            // Cache expired, fetch fresh data
+            console.log('Profile cache expired, fetching fresh data');
+            google.script.run.withSuccessHandler((data) => {
+              sessionStorage.setItem('profileData', JSON.stringify(data));
+              sessionStorage.setItem('profileDataTimestamp', Date.now().toString());
+              populateProfile(data);
+            }).getProfileData();
+          }
+        } else {
+          // No cache, fetch fresh data
+          google.script.run.withSuccessHandler((data) => {
+            sessionStorage.setItem('profileData', JSON.stringify(data));
+            sessionStorage.setItem('profileDataTimestamp', Date.now().toString());
+            populateProfile(data);
+          }).getProfileData();
+        }
       }
 
       if (pageKey === 'welcome') {
@@ -475,8 +501,33 @@
       // Scanner page removed - users now check in via location-based auto-detection
 
       if (pageKey === 'history') {
-        // Load dynamic history data
-        google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
+        // QUOTA OPTIMIZATION: Load dynamic history data with sessionStorage caching
+        const cachedProfile = sessionStorage.getItem('profileData');
+        const cacheTimestamp = sessionStorage.getItem('profileDataTimestamp');
+        const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+        if (cachedProfile && cacheTimestamp) {
+          const age = Date.now() - parseInt(cacheTimestamp, 10);
+          if (age < PROFILE_CACHE_TTL) {
+            // Use cached data
+            console.log('Using cached history data (age: ' + Math.round(age / 1000) + 's)');
+            populateHistory(JSON.parse(cachedProfile));
+          } else {
+            // Cache expired
+            google.script.run.withSuccessHandler((data) => {
+              sessionStorage.setItem('profileData', JSON.stringify(data));
+              sessionStorage.setItem('profileDataTimestamp', Date.now().toString());
+              populateHistory(data);
+            }).getProfileData();
+          }
+        } else {
+          // No cache
+          google.script.run.withSuccessHandler((data) => {
+            sessionStorage.setItem('profileData', JSON.stringify(data));
+            sessionStorage.setItem('profileDataTimestamp', Date.now().toString());
+            populateHistory(data);
+          }).getProfileData();
+        }
       }
       
       if (pageKey === 'all-badges') {

@@ -4067,6 +4067,44 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
 }
 
 /**
+ * Logs quota warnings and sends email alerts if quota limits are approached.
+ * @param {string} functionName - Name of function experiencing issues
+ * @param {Error} error - The error object
+ */
+function logQuotaWarning(functionName, error) {
+  const errorMsg = error.message || error.toString();
+
+  // Check if it's a quota-related error
+  if (errorMsg.includes('quota') || errorMsg.includes('too many') || errorMsg.includes('rate limit') || errorMsg.includes('Service invoked')) {
+    Logger.log(`⚠️ QUOTA WARNING in ${functionName}: ${errorMsg}`);
+
+    try {
+      // Send email alert to deployer
+      const adminEmail = Session.getActiveUser().getEmail();
+      MailApp.sendEmail({
+        to: adminEmail,
+        subject: '🚨 Spartan Cup: Quota Limit Warning',
+        body: `A quota limit was detected in the Spartan Cup app.\n\n` +
+              `Function: ${functionName}\n` +
+              `Error: ${errorMsg}\n` +
+              `Time: ${new Date().toLocaleString()}\n\n` +
+              `This may indicate high usage. Consider:\n` +
+              `- Checking current active users\n` +
+              `- Reviewing cache hit rates\n` +
+              `- Monitoring the Apps Script dashboard\n\n` +
+              `Dashboard: https://script.google.com/home/executions`
+      });
+    } catch (emailError) {
+      Logger.log('Could not send quota warning email: ' + emailError.message);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Approves a pending submission and moves it to Submissions_Verified.
  * Also updates student's points in Student_Profiles.
  * @param {string} submissionId - The submission ID to approve
@@ -4213,6 +4251,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
   } catch (e) {
     // Logger.log('Error in approveSubmission: ' + e.message);
+    // QUOTA MONITORING: Check for quota errors and alert
+    logQuotaWarning('approveSubmission', e);
+
     return {
       status: "error",
       message: "Error approving submission: " + e.message
@@ -5373,6 +5414,9 @@ function getFanFeed(daysBack = 7) {
 
   } catch (e) {
     // Logger.log('Error in getFanFeed: ' + e.message);
+    // QUOTA MONITORING: Check for quota errors and alert
+    logQuotaWarning('getFanFeed', e);
+
     return {
       status: "error",
       message: "Error fetching fan feed: " + e.message

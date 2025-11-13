@@ -4,8 +4,15 @@
 -->
 <div class="page p-4 pb-20">
   <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Fan Feed</h2>
+      <button id="refresh-feed-btn" class="px-3 py-1 bg-primary hover:bg-opacity-90 text-white text-sm rounded-lg transition-all flex items-center gap-1" onclick="manualRefresh()">
+        <span class="material-symbols-outlined text-sm">refresh</span>
+        Refresh
+      </button>
+    </div>
     <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
+    <p id="last-updated" class="text-xs text-gray-500 dark:text-gray-500 mt-2"></p>
   </div>
 
   <div id="fanfeed-container" class="space-y-4">
@@ -26,16 +33,61 @@
     return p.innerHTML;
   }
 
+  // QUOTA OPTIMIZATION: Throttling to prevent excessive API calls
+  let lastLoadTime = 0;
+  const MIN_LOAD_INTERVAL = 5000; // 5 seconds minimum between loads
+  let autoRefreshInterval = null;
+
   document.addEventListener('DOMContentLoaded', () => {
     loadFanFeed();
-    // Refresh every 30 seconds
-    setInterval(loadFanFeed, 30000);
+    // QUOTA OPTIMIZATION: Refresh every 90 seconds (reduced from 30s = 67% fewer calls)
+    autoRefreshInterval = setInterval(loadFanFeed, 90000);
   });
 
+  /**
+   * Manual refresh triggered by button click
+   */
+  function manualRefresh() {
+    const now = Date.now();
+    const timeSinceLastLoad = now - lastLoadTime;
+
+    if (timeSinceLastLoad < MIN_LOAD_INTERVAL) {
+      const remainingTime = Math.ceil((MIN_LOAD_INTERVAL - timeSinceLastLoad) / 1000);
+      showToast(`Please wait ${remainingTime} seconds before refreshing again`, 'warning', 3000);
+      return;
+    }
+
+    // Reset auto-refresh timer on manual refresh
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = setInterval(loadFanFeed, 90000);
+    }
+
+    loadFanFeed();
+  }
+
+  /**
+   * Loads fan feed with throttling and error handling
+   */
   function loadFanFeed() {
+    const now = Date.now();
+
+    // QUOTA OPTIMIZATION: Throttle to prevent spam
+    if (now - lastLoadTime < MIN_LOAD_INTERVAL) {
+      console.log('Fan feed load throttled: Too soon since last load');
+      return;
+    }
+
+    lastLoadTime = now;
     const container = document.getElementById('fanfeed-container');
 
     google.script.run.withSuccessHandler((response) => {
+      // Update last refresh timestamp
+      const lastUpdatedEl = document.getElementById('last-updated');
+      if (lastUpdatedEl) {
+        lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      }
+
       if (response.status === 'error') {
         container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
         return;
@@ -115,7 +167,15 @@
         }
       });
     }).withFailureHandler((error) => {
-      container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
+      // QUOTA OPTIMIZATION: Handle quota errors with user-friendly message
+      const errorMsg = error.message || error.toString();
+
+      if (errorMsg.includes('quota') || errorMsg.includes('too many') || errorMsg.includes('rate limit')) {
+        container.innerHTML = '<p class="text-center text-amber-600 dark:text-amber-400">⚠️ Service temporarily busy. Feed will refresh automatically in 90 seconds.</p>';
+        console.error('Quota limit detected:', errorMsg);
+      } else {
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(errorMsg) + '</p>';
+      }
     }).getFanFeed();
   }
 </script>
