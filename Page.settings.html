@@ -165,7 +165,14 @@
     }
 
     function logoutUser() {
-      if (confirm('Are you sure you want to log out?')) {
+      // Use dedicated logout modal to avoid conflicts with event submission modal handlers
+      const modal = document.getElementById('logout-confirm-modal');
+      modal.classList.remove('hidden');
+
+      // Handle proceed button click (using { once: true } to prevent memory leaks)
+      const proceedHandler = () => {
+        modal.classList.add('hidden');
+
         // Google Apps Script will handle logout via the Apps Script authentication
         // Build URL programmatically to avoid Caja sanitizer breaking string literals
         const link = document.createElement('a');
@@ -177,7 +184,15 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      }
+      };
+
+      // Handle cancel button click (using { once: true } to prevent memory leaks)
+      const cancelHandler = () => {
+        modal.classList.add('hidden');
+      };
+
+      document.getElementById('logout-proceed').addEventListener('click', proceedHandler, { once: true });
+      document.getElementById('logout-cancel').addEventListener('click', cancelHandler, { once: true });
     }
   </script>
 </div>

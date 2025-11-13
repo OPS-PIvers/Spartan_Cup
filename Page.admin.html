@@ -641,7 +641,14 @@
       const tabConfig = {
         'review': {
           tab: reviewTab,
-          btn: reviewBtn
+          btn: reviewBtn,
+          onShow: () => {
+            // Only load queue once to prevent redundant API calls
+            if (!queueLoaded) {
+              loadAdminQueue();
+              queueLoaded = true;
+            }
+          }
         },
         'events': {
           tab: eventsTab,
@@ -707,6 +714,7 @@
     let hasThemeBonus = false;
     const THEME_BONUS_POINTS = 25;
     const BASE_POINTS = 50;
+    let queueLoaded = false;  // Track if queue has been loaded to prevent redundant calls
 
     // Image cache for preloading
     const imageCache = {};
@@ -721,9 +729,8 @@
     let isProcessing = false;  // Prevent multiple simultaneous swipes
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Initialize the Review tab as active
+      // Initialize the Review tab as active (lazy loading handled by switchTab)
       switchTab('review');
-      loadAdminQueue();
       setupGestureHandlers();
     });
 
@@ -770,6 +777,13 @@
           }, 200);
         }
       });
+    }
+
+    // HTML escape helper to prevent XSS
+    function escapeHTML(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
     // Toast notification system
@@ -934,7 +948,7 @@
       const status = document.getElementById('queue-status');
 
       if (!response || response.status === 'error') {
-        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${response ? response.message : 'An unexpected error occurred.'}</p>`;
+        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${escapeHTML(response ? response.message : 'An unexpected error occurred.')}</p>`;
         showEmptyState();
         return;
       }
@@ -1147,7 +1161,7 @@
 
       const failureHandler = (error) => {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Error communicating with server: ' + error.message);
+        alert('Error communicating with server: ' + (error.message || error.toString()));
       };
 
       if (editingEventCode) {
@@ -1171,7 +1185,7 @@
         if (response.status === 'success') {
           populateEventsList(response.events);
         } else {
-          document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + response.message + '</p>';
+          document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + escapeHTML(response.message) + '</p>';
         }
       }).getEventsList();
     }
@@ -1422,7 +1436,7 @@
           }
         })
         .withFailureHandler((error) => {
-          messageEl.textContent = `✗ Network error: ${error.message}`;
+          messageEl.textContent = `✗ Network error: ${error.message || error.toString()}`;
           messageEl.className = 'text-sm text-red-600 dark:text-red-400 mt-4 text-center';
         })
         .setActiveSeason(season);
@@ -1553,7 +1567,7 @@
             document.getElementById('activity-form-message').classList.remove('hidden');
           },
           (error) => {
-            document.getElementById('activity-form-message').textContent = `✗ Could not get location: ${error.message}`;
+            document.getElementById('activity-form-message').textContent = `✗ Could not get location: ${error.message || error.toString()}`;
             document.getElementById('activity-form-message').className = 'text-sm text-red-600 dark:text-red-400 text-center';
             document.getElementById('activity-form-message').classList.remove('hidden');
           }
@@ -1984,7 +1998,7 @@
         await saveBadge();
       } catch (error) {
         console.error('Badge submission error:', error);
-        alert('An unexpected error occurred: ' + error.message);
+        alert('An unexpected error occurred: ' + (error.message || error.toString()));
         document.getElementById('loading-modal').classList.add('hidden');
       } finally {
         isSubmittingBadge = false;
@@ -2036,10 +2050,10 @@
         if (response.status === 'success') {
           populateBadgesList(response.badges);
         } else {
-          listContainer.innerHTML = '<p class="text-red-600">Error loading badges: ' + response.message + '</p>';
+          listContainer.innerHTML = '<p class="text-red-600">Error loading badges: ' + escapeHTML(response.message) + '</p>';
         }
       }).withFailureHandler((error) => {
-        listContainer.innerHTML = '<p class="text-red-600">Network error: ' + error + '</p>';
+        listContainer.innerHTML = '<p class="text-red-600">Network error: ' + escapeHTML(error.message || error.toString()) + '</p>';
       }).getAllBadgesForAdmin();
     }
 
@@ -2056,10 +2070,16 @@
         const card = document.createElement('div');
         card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 sm:gap-3';
 
-        // Badge image
+        // Badge image - using DOM APIs to prevent XSS via attribute injection
         const imgDiv = document.createElement('div');
         imgDiv.className = 'w-16 h-16 flex-shrink-0 mx-auto sm:mx-0';
-        imgDiv.innerHTML = `<img src="${badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg'}" alt="${badge.badgeName}" class="w-full h-full object-cover rounded-lg" onerror="this.src='https://the-spartan-cup.web.app/badges/default-badge.svg'">`;
+
+        const img = document.createElement('img');
+        img.src = badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg';
+        img.alt = badge.badgeName;
+        img.className = 'w-full h-full object-cover rounded-lg';
+        img.onerror = function() { this.src = 'https://the-spartan-cup.web.app/badges/default-badge.svg'; };
+        imgDiv.appendChild(img);
 
         // Badge details
         const detailsDiv = document.createElement('div');
@@ -2213,7 +2233,7 @@
         try {
           firebaseImageUrl = await uploadToFirebaseStorage(badgeName, badgeImageData);
         } catch (error) {
-          showBadgeError('Error uploading image to Firebase Storage: ' + error.message);
+          showBadgeError('Error uploading image to Firebase Storage: ' + (error.message || error.toString()));
           return;
         }
       }
@@ -2488,10 +2508,10 @@
         if (response.status === 'success') {
           populatePrizesList(response.prizes);
         } else {
-          document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error: ' + response.message + '</div>';
+          document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error: ' + escapeHTML(response.message) + '</div>';
         }
       }).withFailureHandler((error) => {
-        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + error + '</div>';
+        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + escapeHTML(error.message || error.toString()) + '</div>';
       }).getAllSeasonPrizes();
     }
 

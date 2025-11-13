@@ -56,12 +56,30 @@ function getAdminEmails() {
 }
 
 /**
+ * Gets the current user's email with fallback to getEffectiveUser().
+ * @return {string} User's email address
+ */
+function getUserEmail() {
+  let email = Session.getActiveUser().getEmail();
+  if (!email || email.trim() === '') {
+    email = Session.getEffectiveUser().getEmail();
+  }
+  // Validate email format with basic but robust regex
+  // Checks for: local-part @ domain . tld
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    throw new Error('Unable to determine user email');
+  }
+  return email;
+}
+
+/**
  * Gets the current user's display name from the Student_Profiles sheet.
  * Uses cached data if available to avoid redundant Sheets API calls.
  * @return {string} User's display name, or empty string if not found
  */
 function getUserDisplayName() {
-  const email = Session.getActiveUser().getEmail();
+  const email = getUserEmail();
 
   try {
     // Try to use cached student data first
@@ -86,7 +104,7 @@ function getUserDisplayName() {
  * @return {boolean} True if user is an admin, false otherwise
  */
 function getUserIsAdmin() {
-  const email = Session.getActiveUser().getEmail();
+  const email = getUserEmail();
   const adminEmails = getAdminEmails(); // Uses Config_Admins sheet with caching
   return adminEmails.includes(email.toLowerCase());
 }
@@ -2109,10 +2127,38 @@ function createHtmlFiles() {
   </div>
 
   <script>
+    let refreshInterval = null;
+    const REFRESH_INTERVAL_MS = 10000; // 10 seconds
+
+    // Helper function to start auto-refresh
+    function startRefresh() {
+      if (!refreshInterval) {
+        refreshInterval = setInterval(loadFanFeed, REFRESH_INTERVAL_MS);
+      }
+    }
+
+    // Helper function to stop auto-refresh
+    function stopRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadFanFeed();
-      // Refresh every 10 seconds
-      setInterval(loadFanFeed, 10000);
+      startRefresh();
+
+      // Pause refresh when page is hidden to reduce API calls
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          stopRefresh();
+        } else {
+          // Resume refresh when page becomes visible
+          loadFanFeed(); // Load immediately
+          startRefresh();
+        }
+      });
     });
 
     function loadFanFeed() {
@@ -2135,9 +2181,16 @@ function createHtmlFiles() {
         photos.forEach(photo => {
           const card = document.createElement('div');
           card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
-          card.innerHTML = \`
-            <img src="\${photo.photoUrl}" alt="Event photo" class="w-full h-64 object-cover">
 
+          // Create img element directly for better security instead of innerHTML
+          const img = document.createElement('img');
+          img.src = photo.photoUrl;
+          img.alt = 'Event photo';
+          img.className = 'w-full h-64 object-cover';
+
+          // Create content div
+          const contentDiv = document.createElement('div');
+          contentDiv.innerHTML = \`
             <div class="p-4">
               <div class="flex items-center justify-between mb-2">
                 <div>
@@ -2163,6 +2216,9 @@ function createHtmlFiles() {
               </div>
             </div>
           \`;
+
+          card.appendChild(img);
+          card.appendChild(contentDiv);
           container.appendChild(card);
         });
       }).getFanFeed();
@@ -4958,9 +5014,11 @@ function getFanFeed() {
       // Skip if no photo URL
       if (!photoUrl) continue;
 
+      const timestamp = verifiedData[i][2]; // Timestamp_Approved
       photos.push({
         submissionId: verifiedData[i][0],
-        timestamp: verifiedData[i][2], // Timestamp_Approved
+        timestamp: timestamp,
+        _time: new Date(timestamp).getTime(), // Cache parsed time for efficient sorting
         studentEmail: verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
@@ -4970,7 +5028,8 @@ function getFanFeed() {
     }
 
     // Sort by date (most recent first) and limit to 50
-    photos.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Use cached _time property to avoid repeated Date object creation during sort
+    photos.sort((a, b) => b._time - a._time);
     const recentPhotos = photos.slice(0, 50);
 
     return {
