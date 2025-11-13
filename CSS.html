@@ -45,13 +45,51 @@
     }
     
     /* Leaderboard Toggle */
-    .active-toggle { 
-      background-color: white; 
-      color: #1b3b87; 
-      box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1); 
+    .active-toggle {
+      background-color: white;
+      color: #1b3b87;
+      box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);
     }
-    .dark .active-toggle { 
+    .dark .active-toggle {
       background-color: #374151; /* gray-700 */
-      color: white; 
+      color: white;
+    }
+
+    /* Admin Dashboard Tab Buttons */
+    .admin-tab-btn {
+      background-color: #e5e7eb; /* gray-200 */
+      color: #374151; /* gray-700 */
+    }
+    .dark .admin-tab-btn {
+      background-color: #374151; /* gray-700 */
+      color: #d1d5db; /* gray-300 */
+    }
+
+    /* Admin Tab Active State */
+    .admin-tab-btn.active-tab {
+      background-color: #1b3b87; /* primary */
+      color: white;
+    }
+    .admin-tab-btn.active-tab .material-symbols-outlined {
+      color: white;
+    }
+
+    /* Admin Tab Hover State */
+    .admin-tab-btn:hover {
+      background-color: #d1d5db; /* gray-300 */
+    }
+    .dark .admin-tab-btn:hover {
+      background-color: #4b5563; /* gray-600 */
+    }
+    .admin-tab-btn.active-tab:hover {
+      background-color: #152d6b; /* darker primary */
+    }
+
+    /* Admin Tab Icon Styling */
+    .admin-tab-btn .material-symbols-outlined {
+      color: #6b7280; /* gray-500 */
+    }
+    .dark .admin-tab-btn .material-symbols-outlined {
+      color: #9ca3af; /* gray-400 */
     }
 </style>

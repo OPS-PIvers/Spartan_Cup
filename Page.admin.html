@@ -6,28 +6,49 @@
   - Swipe-based review interface for submission approval/denial
   - Event management (CRUD) for Config_Event_Codes sheet
 -->
-<div class="page p-4 flex flex-col">
-  <!-- Tab Navigation -->
-  <div class="flex gap-1 mb-4 overflow-x-auto">
-    <button id="tab-review-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Review
+<div class="page p-4 flex flex-col md:flex-row">
+  <!-- Mobile Dropdown Navigation (visible on mobile only) -->
+  <div class="md:hidden mb-4">
+    <label for="mobile-tab-select" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Admin Section</label>
+    <select id="mobile-tab-select" class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:border-primary focus:outline-none transition-colors">
+      <option value="review">Review Submissions</option>
+      <option value="events">Manage Events</option>
+      <option value="season">Manage Season</option>
+      <option value="badges">Configure Badges</option>
+      <option value="prizes">Manage Prizes</option>
+      <option value="points">Configure Points</option>
+    </select>
+  </div>
+
+  <!-- Desktop Vertical Sidebar (visible on desktop/tablet only) -->
+  <div class="hidden md:flex md:flex-col md:w-48 md:flex-shrink-0 md:mr-6 md:space-y-2">
+    <button id="tab-review-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">fact_check</span>
+      <span>Review</span>
     </button>
-    <button id="tab-events-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Events
+    <button id="tab-events-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">event</span>
+      <span>Events</span>
     </button>
-    <button id="tab-season-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Season
+    <button id="tab-season-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">calendar_month</span>
+      <span>Season</span>
     </button>
-    <button id="tab-badges-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Badges
+    <button id="tab-badges-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">military_tech</span>
+      <span>Badges</span>
     </button>
-    <button id="tab-prizes-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Prizes
+    <button id="tab-prizes-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">redeem</span>
+      <span>Prizes</span>
     </button>
-    <button id="tab-points-btn" class="flex-1 px-3 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap">
-      Points
+    <button id="tab-points-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">stars</span>
+      <span>Points</span>
     </button>
   </div>
+
+  <!-- Tab Content Container --><div class="flex-1 flex flex-col">
 
   <!-- ===================================================================== -->
   <!-- TAB 1: REVIEW SUBMISSIONS -->
@@ -686,6 +707,12 @@
         selected.btn.classList.remove('bg-gray-300', 'dark:bg-gray-700', 'text-gray-700', 'dark:text-gray-300');
         selected.btn.classList.add('active-tab', 'bg-primary', 'text-white');
 
+        // Sync mobile dropdown selection
+        const mobileSelect = document.getElementById('mobile-tab-select');
+        if (mobileSelect) {
+          mobileSelect.value = tabName;
+        }
+
         // Call tab-specific load function if defined
         if (selected.onShow) {
           selected.onShow();
@@ -693,6 +720,7 @@
       }
     }
 
+    // Desktop sidebar button event listeners
     reviewBtn.addEventListener('click', () => {
       switchTab('review');
     });
@@ -704,6 +732,26 @@
     seasonBtn.addEventListener('click', () => {
       switchTab('season');
     });
+
+    badgesBtn.addEventListener('click', () => {
+      switchTab('badges');
+    });
+
+    prizesBtn.addEventListener('click', () => {
+      switchTab('prizes');
+    });
+
+    pointsBtn.addEventListener('click', () => {
+      switchTab('points');
+    });
+
+    // Mobile dropdown event listener
+    const mobileTabSelect = document.getElementById('mobile-tab-select');
+    if (mobileTabSelect) {
+      mobileTabSelect.addEventListener('change', (e) => {
+        switchTab(e.target.value);
+      });
+    }
 
     // =====================================================================
     // SUBMISSION REVIEW LOGIC (OPTIMIZED FOR SNAPPY UX)
@@ -1656,18 +1704,6 @@
     // =====================================================================
     // TAB 4: BADGE MANAGEMENT
     // =====================================================================
-
-    badgesBtn.addEventListener('click', () => {
-      switchTab('badges');
-    });
-
-    prizesBtn.addEventListener('click', () => {
-      switchTab('prizes');
-    });
-
-    pointsBtn.addEventListener('click', () => {
-      switchTab('points');
-    });
 
     // Badge form submission
     let editingBadgeId = null;
@@ -2714,4 +2750,5 @@
       return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
   </script>
-</div>
+  </div><!-- End Tab Content Container -->
+</div><!-- End page container -->
