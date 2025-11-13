@@ -1421,10 +1421,6 @@ function openPointsConfigDialog() {
     html += '<input type="number" id="Spotlight_Game_Multiplier" value="' + config['Spotlight_Game_Multiplier'] + '" step="0.1" />';
     html += '<div class="description">Points multiplier for spotlight games (e.g., 1.5 = 50% more)</div>';
 
-    html += '<label>Home Game Bonus:</label>';
-    html += '<input type="number" id="Home_Game_Bonus" value="' + config['Home_Game_Bonus'] + '" step="0.1" />';
-    html += '<div class="description">Bonus points for home games</div>';
-
     html += '<button type="button" onclick="submitForm()">Save Changes</button>';
     html += '<button type="button" onclick="google.script.host.close()" style="margin-left: 8px; background: #999;">Cancel</button>';
 
@@ -1436,8 +1432,7 @@ function openPointsConfigDialog() {
     html += '    "Base_Points_With_Theme": parseFloat(document.getElementById("Base_Points_With_Theme").value),';
     html += '    "Base_Points_Without_Theme": parseFloat(document.getElementById("Base_Points_Without_Theme").value),';
     html += '    "Theme_Bonus": parseFloat(document.getElementById("Theme_Bonus").value),';
-    html += '    "Spotlight_Game_Multiplier": parseFloat(document.getElementById("Spotlight_Game_Multiplier").value),';
-    html += '    "Home_Game_Bonus": parseFloat(document.getElementById("Home_Game_Bonus").value)';
+    html += '    "Spotlight_Game_Multiplier": parseFloat(document.getElementById("Spotlight_Game_Multiplier").value)';
     html += '  };';
     html += '  google.script.run.updatePointsConfig(config);';
     html += '  google.script.host.close();';
@@ -2590,8 +2585,7 @@ function createHtmlFiles() {
       'Base_Points_With_Theme': 75,
       'Base_Points_Without_Theme': 50,
       'Theme_Bonus': 25,
-      'Spotlight_Game_Multiplier': 1.5,
-      'Home_Game_Bonus': 10
+      'Spotlight_Game_Multiplier': 1.5
     };
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -3980,6 +3974,46 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
     const pendingData = pendingSheet.getDataRange().getValues();
     // Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
+    // Validate sheet has data
+    if (!pendingData || pendingData.length < 2) {
+      return {
+        status: "success",
+        queue: [],
+        pagination: {
+          page: page,
+          itemsPerPage: itemsPerPage,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false
+        }
+      };
+    }
+
+    // Build column index map for Submissions_Pending
+    const pendingHeaders = pendingData[0];
+    const pendingColIndices = {
+      submissionId: pendingHeaders.indexOf('Submission_ID'),
+      timestamp: pendingHeaders.indexOf('Timestamp_Submitted'),
+      email: pendingHeaders.indexOf('Email'),
+      eventId: pendingHeaders.indexOf('Event_ID'),
+      photoUrl: pendingHeaders.indexOf('Photo_URL'),
+      photoId: pendingHeaders.indexOf('Photo_ID'),
+      dressedForTheme: pendingHeaders.indexOf('Dressed_For_Theme'),
+      notes: pendingHeaders.indexOf('Notes')
+    };
+
+    // Validate required columns exist
+    if (pendingColIndices.submissionId === -1 || pendingColIndices.timestamp === -1 ||
+        pendingColIndices.email === -1 || pendingColIndices.eventId === -1 ||
+        pendingColIndices.photoUrl === -1 || pendingColIndices.photoId === -1) {
+      // Logger.log('getAdminQueue: Required columns missing in Submissions_Pending');
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Submissions_Pending"
+      };
+    }
+
     // Get event details map (cached)
     const eventMap = getEventMapCache();
     // Logger.log('Event map retrieved from cache');
@@ -3987,19 +4021,19 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
     // Build full queue
     const fullQueue = [];
     for (let i = 1; i < pendingData.length; i++) {
-      const eventInfo = eventMap[pendingData[i][3]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
+      const eventInfo = eventMap[pendingData[i][pendingColIndices.eventId]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
       fullQueue.push({
-        submissionId: pendingData[i][0],
-        email: pendingData[i][2],
-        eventId: pendingData[i][3],
+        submissionId: pendingData[i][pendingColIndices.submissionId],
+        email: pendingData[i][pendingColIndices.email],
+        eventId: pendingData[i][pendingColIndices.eventId],
         eventName: eventInfo.eventName,
         sportArt: eventInfo.sportArt,
         eventDate: (eventInfo.date instanceof Date) ? eventInfo.date.toLocaleDateString() : eventInfo.date,
-        photoUrl: pendingData[i][4],
-        photoId: pendingData[i][5],
-        dressedForTheme: pendingData[i][7] || false,
-        notes: pendingData[i][8] || '',
-        timestamp: pendingData[i][1].toISOString()
+        photoUrl: pendingData[i][pendingColIndices.photoUrl],
+        photoId: pendingData[i][pendingColIndices.photoId],
+        dressedForTheme: pendingData[i][pendingColIndices.dressedForTheme] || false,
+        notes: pendingData[i][pendingColIndices.notes] || '',
+        timestamp: pendingData[i][pendingColIndices.timestamp].toISOString()
       });
     }
     // Logger.log('Full queue built: ' + fullQueue.length + ' items');
@@ -4054,11 +4088,41 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     // Find the pending submission
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
     const pendingData = pendingSheet.getDataRange().getValues();
+
+    // Validate sheet has data
+    if (!pendingData || pendingData.length < 2) {
+      return { status: "error", message: "No pending submissions found." };
+    }
+
+    // Build column index map for Submissions_Pending
+    const pendingHeaders = pendingData[0];
+    const pendingColIndices = {
+      submissionId: pendingHeaders.indexOf('Submission_ID'),
+      timestamp: pendingHeaders.indexOf('Timestamp_Submitted'),
+      email: pendingHeaders.indexOf('Email'),
+      eventId: pendingHeaders.indexOf('Event_ID'),
+      photoUrl: pendingHeaders.indexOf('Photo_URL'),
+      photoId: pendingHeaders.indexOf('Photo_ID'),
+      location: pendingHeaders.indexOf('Location'),
+      dressedForTheme: pendingHeaders.indexOf('Dressed_For_Theme'),
+      notes: pendingHeaders.indexOf('Notes')
+    };
+
+    // Validate required columns exist
+    if (pendingColIndices.submissionId === -1 || pendingColIndices.timestamp === -1 ||
+        pendingColIndices.email === -1 || pendingColIndices.eventId === -1 ||
+        pendingColIndices.photoUrl === -1) {
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Submissions_Pending"
+      };
+    }
+
     let submissionRow = null;
     let submissionInfo = null;
 
     for (let i = 1; i < pendingData.length; i++) {
-      if (pendingData[i][0] === submissionId) {
+      if (pendingData[i][pendingColIndices.submissionId] === submissionId) {
         submissionRow = i + 1;
         submissionInfo = pendingData[i];
         break;
@@ -4070,24 +4134,24 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     }
 
     // Calculate total points
-    const pointsTheme = themeBonus || (submissionInfo[7] ? 25 : 0); // Default theme bonus
+    const pointsTheme = themeBonus || (submissionInfo[pendingColIndices.dressedForTheme] ? 25 : 0); // Default theme bonus
     const pointsMultiplier = spotlightMultiplier || 1;
     const pointsTotal = Math.round((basePoints + pointsTheme) * pointsMultiplier);
 
     // Move to Submissions_Verified (including photo URL for fan feed)
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     verifiedSheet.appendRow([
-      submissionInfo[0], // Submission_ID
-      submissionInfo[1], // Timestamp_Submitted
+      submissionInfo[pendingColIndices.submissionId], // Submission_ID
+      submissionInfo[pendingColIndices.timestamp], // Timestamp_Submitted
       new Date(), // Timestamp_Approved
-      submissionInfo[2], // Email
-      submissionInfo[3], // Event_ID
+      submissionInfo[pendingColIndices.email], // Email
+      submissionInfo[pendingColIndices.eventId], // Event_ID
       email, // Admin_Email
       basePoints, // Points_Base
       pointsTheme, // Points_Theme
       pointsMultiplier, // Points_Spotlight_Multiplier
       pointsTotal, // Points_Total
-      submissionInfo[4] // Photo_URL (added for fan feed)
+      submissionInfo[pendingColIndices.photoUrl] // Photo_URL (added for fan feed)
     ]);
 
     // Delete from Submissions_Pending
@@ -4097,36 +4161,50 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     const studentSheet = ss.getSheetByName('Student_Profiles');
     const studentData = studentSheet.getDataRange().getValues();
 
-    for (let i = 1; i < studentData.length; i++) {
-      if (studentData[i][0] === submissionInfo[2]) {
-        // Update season and all-time points
-        const newSeasonPoints = (studentData[i][2] || 0) + pointsTotal;
-        const newAllTimePoints = (studentData[i][3] || 0) + pointsTotal;
+    // Validate Student_Profiles sheet has data
+    if (!studentData || studentData.length < 2) {
+      return { status: "error", message: "Student_Profiles sheet is empty." };
+    }
 
-        studentSheet.getRange(i + 1, 3).setValue(newSeasonPoints);
-        studentSheet.getRange(i + 1, 4).setValue(newAllTimePoints);
+    // Build column index map for Student_Profiles
+    const studentHeaders = studentData[0];
+    const studentColIndices = {
+      email: studentHeaders.indexOf('Email'),
+      displayName: studentHeaders.indexOf('Display_Name'),
+      seasonPoints: studentHeaders.indexOf('Season_Points'),
+      allTimePoints: studentHeaders.indexOf('All_Time_Points')
+    };
+
+    // Validate required columns exist
+    if (studentColIndices.email === -1 || studentColIndices.seasonPoints === -1 ||
+        studentColIndices.allTimePoints === -1) {
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Student_Profiles"
+      };
+    }
+
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][studentColIndices.email] === submissionInfo[pendingColIndices.email]) {
+        // Update season and all-time points
+        const newSeasonPoints = (studentData[i][studentColIndices.seasonPoints] || 0) + pointsTotal;
+        const newAllTimePoints = (studentData[i][studentColIndices.allTimePoints] || 0) + pointsTotal;
+
+        studentSheet.getRange(i + 1, studentColIndices.seasonPoints + 1).setValue(newSeasonPoints);
+        studentSheet.getRange(i + 1, studentColIndices.allTimePoints + 1).setValue(newAllTimePoints);
         break;
       }
     }
 
     // Calculate badges for the student
-    calculateBadges(submissionInfo[2]);
+    calculateBadges(submissionInfo[pendingColIndices.email]);
 
-    // Get event details map for notification
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1],
-        date: eventData[i][3]
-      };
-    }
+    // Get event details map for notification (using cached version)
+    const eventMap = getEventMapCache();
 
     // Send notification to student
-    const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
-    notifySubmissionApproved(submissionInfo[2], eventInfo.eventName, pointsTotal);
+    const eventInfo = eventMap[submissionInfo[pendingColIndices.eventId]] || { eventName: 'Event' };
+    notifySubmissionApproved(submissionInfo[pendingColIndices.email], eventInfo.eventName, pointsTotal);
 
     return {
       status: "success",
@@ -4161,11 +4239,32 @@ function denySubmission(submissionId, reason) {
     // Find the pending submission
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
     const pendingData = pendingSheet.getDataRange().getValues();
+
+    // Validate sheet has data
+    if (!pendingData || pendingData.length < 2) {
+      return { status: "error", message: "No pending submissions found." };
+    }
+
+    // Build column index map for Submissions_Pending
+    const pendingHeaders = pendingData[0];
+    const pendingColIndices = {
+      submissionId: pendingHeaders.indexOf('Submission_ID'),
+      photoId: pendingHeaders.indexOf('Photo_ID')
+    };
+
+    // Validate required columns exist
+    if (pendingColIndices.submissionId === -1 || pendingColIndices.photoId === -1) {
+      return {
+        status: "error",
+        message: "Data structure error: Missing required columns in Submissions_Pending"
+      };
+    }
+
     let submissionRow = null;
     let submissionInfo = null;
 
     for (let i = 1; i < pendingData.length; i++) {
-      if (pendingData[i][0] === submissionId) {
+      if (pendingData[i][pendingColIndices.submissionId] === submissionId) {
         submissionRow = i + 1;
         submissionInfo = pendingData[i];
         break;
@@ -4181,7 +4280,7 @@ function denySubmission(submissionId, reason) {
 
     // Optionally delete photo from Drive
     try {
-      DriveApp.getFileById(submissionInfo[5]).setTrashed(true);
+      DriveApp.getFileById(submissionInfo[pendingColIndices.photoId]).setTrashed(true);
     } catch (e) {
       // Logger.log("Could not delete photo: " + e.message);
     }
@@ -5051,6 +5150,39 @@ function getEventList(category) {
 }
 
 /**
+ * Validates that a URL is safe and well-formed.
+ * @param {string} url - URL to validate
+ * @return {boolean} True if URL is valid and safe
+ */
+function isValidImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  try {
+    // Check for valid URL structure
+    if (!url.match(/^https?:\/\/.+/i)) {
+      return false;
+    }
+
+    // Block javascript: and data: URLs (XSS risk)
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+      return false;
+    }
+
+    // Additional validation: URL should be reasonable length
+    if (url.length > 2048) {
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * Fetches approved photos and recent badge awards for the fan feed.
  * Shows recent photos and badge awards from the last 7 days.
  * @param {number} daysBack - Number of days to look back for feed items (default: 7)
@@ -5093,46 +5225,18 @@ function getFanFeed(daysBack = 7) {
       };
     }
 
-    // Get event details map with header-based indexing
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
-
-    // Validate Events sheet
-    if (!eventData || eventData.length === 0) {
-      Logger.log('getFanFeed: Events sheet is empty');
-      return {
-        status: "error",
-        message: "Data structure error: Events sheet is empty"
-      };
-    }
-
-    const eventHeaders = eventData[0];
-    const eventColIndices = {
-      eventId: eventHeaders.indexOf('Event_ID'),
-      activityCode: eventHeaders.indexOf('Activity_Code'),
-      eventName: eventHeaders.indexOf('Event_Name')
-    };
-
-    // Validate required event columns
-    if (eventColIndices.eventId === -1 || eventColIndices.eventName === -1) {
-      Logger.log('getFanFeed: Required columns missing in Events');
-      return {
-        status: "error",
-        message: "Data structure error: Missing required columns in Events"
-      };
-    }
-
+    // Get event details map from cache (PERFORMANCE OPTIMIZATION)
+    const eventMapCache = getEventMapCache();
     const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][eventColIndices.eventId]] = {
-        eventName: eventData[i][eventColIndices.eventName],
-        sportArt: eventData[i][eventColIndices.activityCode]
+    for (const eventId in eventMapCache) {
+      eventMap[eventId] = {
+        eventName: eventMapCache[eventId].name,
+        sportArt: eventMapCache[eventId].sportArt
       };
     }
 
-    // Get student names map with header-based indexing
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Get student names map from cached data (PERFORMANCE OPTIMIZATION)
+    const studentData = getStudentProfilesData();
 
     // Validate Student_Profiles sheet
     if (!studentData || studentData.length === 0) {
@@ -5175,8 +5279,13 @@ function getFanFeed(daysBack = 7) {
       const eventInfo = eventMap[verifiedData[i][verifiedColIndices.eventId]] || { eventName: 'Event', sportArt: 'Event' };
       const photoUrl = verifiedData[i][verifiedColIndices.photoUrl];
 
-      // Skip if no photo URL
-      if (!photoUrl) continue;
+      // Skip if no photo URL or invalid URL (SECURITY)
+      if (!photoUrl || !isValidImageUrl(photoUrl)) {
+        if (photoUrl && !isValidImageUrl(photoUrl)) {
+          Logger.log('getFanFeed: Invalid photo URL detected, skipping submission: ' + verifiedData[i][verifiedColIndices.submissionId]);
+        }
+        continue;
+      }
 
       feedItems.push({
         type: 'photo',
@@ -5221,6 +5330,13 @@ function getFanFeed(daysBack = 7) {
             // Filter by date
             if (timestamp < cutoffDate) continue;
 
+            // Validate badge image URL before adding to feed (SECURITY)
+            const badgeImageUrl = badgeAwardsData[i][badgeAwardColIndices.badgeImageUrl];
+            if (!isValidImageUrl(badgeImageUrl)) {
+              Logger.log('getFanFeed: Invalid badge image URL detected, skipping badge award: ' + badgeAwardsData[i][badgeAwardColIndices.awardId]);
+              continue;
+            }
+
             feedItems.push({
               type: 'badge',
               awardId: badgeAwardsData[i][badgeAwardColIndices.awardId],
@@ -5229,7 +5345,7 @@ function getFanFeed(daysBack = 7) {
               studentName: badgeAwardsData[i][badgeAwardColIndices.displayName],
               badgeId: badgeAwardsData[i][badgeAwardColIndices.badgeId],
               badgeName: badgeAwardsData[i][badgeAwardColIndices.badgeName],
-              badgeImageUrl: badgeAwardsData[i][badgeAwardColIndices.badgeImageUrl]
+              badgeImageUrl: badgeImageUrl
             });
           }
         } else {
@@ -5275,13 +5391,33 @@ function calculateStreakBonus(email) {
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     const verifiedData = verifiedSheet.getDataRange().getValues();
 
+    // Validate sheet has data
+    if (!verifiedData || verifiedData.length < 2) {
+      return 0;
+    }
+
+    // Build column index map for Submissions_Verified
+    const verifiedHeaders = verifiedData[0];
+    const verifiedColIndices = {
+      timestampApproved: verifiedHeaders.indexOf('Timestamp_Approved'),
+      email: verifiedHeaders.indexOf('Email'),
+      eventId: verifiedHeaders.indexOf('Event_ID')
+    };
+
+    // Validate required columns exist
+    if (verifiedColIndices.timestampApproved === -1 || verifiedColIndices.email === -1 ||
+        verifiedColIndices.eventId === -1) {
+      // Logger.log('calculateStreakBonus: Required columns missing in Submissions_Verified');
+      return 0;
+    }
+
     // Get this user's submissions, sorted by date
     const userSubmissions = [];
     for (let i = 1; i < verifiedData.length; i++) {
-      if (verifiedData[i][3] === email) {
+      if (verifiedData[i][verifiedColIndices.email] === email) {
         userSubmissions.push({
-          timestamp: new Date(verifiedData[i][2]),
-          eventId: verifiedData[i][4]
+          timestamp: new Date(verifiedData[i][verifiedColIndices.timestampApproved]),
+          eventId: verifiedData[i][verifiedColIndices.eventId]
         });
       }
     }

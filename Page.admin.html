@@ -603,6 +603,89 @@
 
   <script>
     // =====================================================================
+    // UTILITY FUNCTIONS
+    // =====================================================================
+
+    /**
+     * Shows a toast notification
+     * @param {string} message - Message to display
+     * @param {string} type - 'success', 'error', 'warning', or 'info' (default: 'info')
+     * @param {number} duration - Duration in milliseconds (default: 4000)
+     */
+    function showToast(message, type = 'info', duration = 4000) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      // Create toast element
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto transform transition-all duration-300 ease-out translate-x-full opacity-0 rounded-lg shadow-lg p-4 flex items-start gap-3`;
+
+      // Set background color based on type
+      const bgColors = {
+        'success': 'bg-green-500',
+        'error': 'bg-red-500',
+        'warning': 'bg-amber-500',
+        'info': 'bg-blue-500'
+      };
+      toast.classList.add(bgColors[type] || bgColors['info']);
+
+      // Set icon based on type
+      const icons = {
+        'success': '✓',
+        'error': '✗',
+        'warning': '⚠',
+        'info': 'ℹ'
+      };
+      const icon = icons[type] || icons['info'];
+
+      // Convert newlines to <br> tags for multi-line messages
+      const formattedMessage = message.replace(/\n/g, '<br>');
+
+      toast.innerHTML = `
+        <div class="flex-shrink-0 text-white text-lg font-bold">${icon}</div>
+        <div class="flex-1 text-white text-sm font-medium" style="line-height: 1.4;">${formattedMessage}</div>
+        <button class="flex-shrink-0 text-white hover:text-gray-200 transition-colors" onclick="this.parentElement.remove()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      `;
+
+      container.appendChild(toast);
+
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+      }, 10);
+
+      // Auto-dismiss
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    /**
+     * Shows the loading modal overlay
+     */
+    function showLoading() {
+      const modal = document.getElementById('loading-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+      }
+    }
+
+    /**
+     * Hides the loading modal overlay
+     */
+    function hideLoading() {
+      const modal = document.getElementById('loading-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+    }
+
+    // =====================================================================
     // TAB MANAGEMENT
     // =====================================================================
     const reviewTab = document.getElementById('tab-review');
@@ -1101,7 +1184,7 @@
 
 
     function saveEvent() {
-      document.getElementById('loading-modal').classList.remove('hidden'); // Show loading spinner
+      showLoading(); // Show loading spinner
 
       const activityCode = document.getElementById('event-activity-code').value.trim();
       const eventName = document.getElementById('event-name').value.trim();
@@ -1110,18 +1193,18 @@
       const theme = document.getElementById('event-theme').value.trim();
 
       if (!activityCode) {
-        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Please select a Sport/Activity');
+        hideLoading(); // Hide loading spinner
+        showToast('Please select a Sport/Activity', 'warning');
         return;
       }
       if (!eventName) {
-        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Event name is required');
+        hideLoading(); // Hide loading spinner
+        showToast('Event name is required', 'warning');
         return;
       }
       if (!dateTime) {
-        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Date and Time are required');
+        hideLoading(); // Hide loading spinner
+        showToast('Date and Time are required', 'warning');
         return;
       }
 
@@ -1134,20 +1217,20 @@
       };
 
       const successHandler = (response) => {
-        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        hideLoading(); // Hide loading spinner
         if (response.status === 'success') {
-          alert(response.message);
+          showToast(response.message, 'success');
           clearEventForm();
           loadEventsList(); // Refresh event list
           loadActivityDropdown(); // Refresh activity dropdown
         } else {
-          alert('Error: ' + response.message);
+          showToast('Error: ' + response.message, 'error');
         }
       };
 
       const failureHandler = (error) => {
-        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Error communicating with server: ' + error.message);
+        hideLoading(); // Hide loading spinner
+        showToast('Error communicating with server: ' + error.message, 'error');
       };
 
       if (editingEventCode) {
@@ -1295,10 +1378,10 @@
       if (confirm(`Delete event "${eventName}" (${eventId})?`)) {
         google.script.run.withSuccessHandler((response) => {
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             loadEventsList();
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         }).deleteEvent(eventId);
       }
@@ -1975,7 +2058,7 @@
 
       // Prevent multiple concurrent submissions
       if (isSubmittingBadge) {
-        alert('Please wait while the badge is being saved...');
+        showToast('Please wait while the badge is being saved...', 'info');
         return;
       }
 
@@ -1984,8 +2067,8 @@
         await saveBadge();
       } catch (error) {
         console.error('Badge submission error:', error);
-        alert('An unexpected error occurred: ' + error.message);
-        document.getElementById('loading-modal').classList.add('hidden');
+        showToast('An unexpected error occurred: ' + error.message, 'error');
+        hideLoading();
       } finally {
         isSubmittingBadge = false;
       }
@@ -2001,14 +2084,14 @@
 
       // Validate file type
       if (!file.type.match('image/(png|svg\\+xml|jpeg)')) {
-        alert('Please select a PNG, SVG, or JPG image');
+        showToast('Please select a PNG, SVG, or JPG image', 'warning');
         e.target.value = '';
         return;
       }
 
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        alert('Image must be smaller than 2MB');
+        showToast('Image must be smaller than 2MB', 'warning');
         e.target.value = '';
         return;
       }
@@ -2117,12 +2200,12 @@
 
     // Helper function to show error and hide loading modal
     function showBadgeError(message) {
-      document.getElementById('loading-modal').classList.add('hidden');
-      alert(message);
+      hideLoading();
+      showToast(message, 'error');
     }
 
     async function saveBadge() {
-      document.getElementById('loading-modal').classList.remove('hidden');
+      showLoading();
 
       const template = document.getElementById('badge-template').value;
       const badgeName = document.getElementById('badge-name').value.trim();
@@ -2242,24 +2325,24 @@
 
         const successHandler = (response) => {
           console.log('[saveBadge] Server response:', response);
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           if (response && response.status === 'success') {
-            alert('✅ Badge saved successfully!' + (operation === 'update' ? '\\n(Update)' : '\\n(New Badge)'));
+            showToast('✅ Badge saved successfully!' + (operation === 'update' ? '\n(Update)' : '\n(New Badge)'), 'success');
             clearBadgeForm();
             loadBadgesList();
             resolve(response);
           } else {
             const errorMsg = response && response.message ? response.message : 'Unknown server error. Check browser console and Apps Script logs.';
             console.error('[saveBadge] Server returned error:', errorMsg);
-            alert('❌ Failed to save badge:\\n\\n' + errorMsg);
+            showToast('❌ Failed to save badge:\n\n' + errorMsg, 'error');
             reject(new Error(errorMsg));
           }
         };
 
         const failureHandler = (error) => {
           console.error('[saveBadge] Server communication failed:', error);
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('❌ Error communicating with server:\\n\\n' + error + '\\n\\nCheck the Apps Script logs for details.');
+          hideLoading();
+          showToast('❌ Error communicating with server:\n\n' + error + '\n\nCheck the Apps Script logs for details.', 'error');
           reject(new Error('Server communication error: ' + error));
         };
 
@@ -2272,7 +2355,7 @@
           }
         } catch (error) {
           console.error('[saveBadge] Client-side exception:', error);
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           reject(error);
         }
       });
@@ -2359,7 +2442,7 @@
       const template = triggerTypeToTemplate[badge.triggerType] || 'manual';
 
       if (!triggerTypeToTemplate[badge.triggerType]) {
-        alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
+        showToast('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.', 'warning', 6000);
       }
 
       // Populate form fields based on trigger type
@@ -2398,19 +2481,19 @@
     }
 
     function deleteBadgeConfirm(badgeId, badgeName) {
-      if (confirm(`Delete badge "${badgeName}" (${badgeId})?\\n\\nWarning: This may affect students who have earned this badge.`)) {
-        document.getElementById('loading-modal').classList.remove('hidden');
+      if (confirm(`Delete badge "${badgeName}" (${badgeId})?\n\nWarning: This may affect students who have earned this badge.`)) {
+        showLoading();
         google.script.run.withSuccessHandler((response) => {
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             loadBadgesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         }).withFailureHandler((error) => {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          hideLoading();
+          showToast('Error: ' + error, 'error');
         }).deleteBadge(badgeId);
       }
     }
@@ -2429,42 +2512,42 @@
       const description = document.getElementById('prize-description').value.trim();
 
       if (!rank || !description) {
-        alert('Please fill in all fields');
+        showToast('Please fill in all fields', 'warning');
         return;
       }
 
       // Show loading
-      document.getElementById('loading-modal').classList.remove('hidden');
+      showLoading();
 
       if (editingPrizeRowIndex) {
         // Update existing prize
         google.script.run.withSuccessHandler((response) => {
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             clearPrizeForm();
             loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         }).withFailureHandler((error) => {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          hideLoading();
+          showToast('Error: ' + error, 'error');
         }).updatePrize(editingPrizeRowIndex, rank, description);
       } else {
         // Create new prize
         google.script.run.withSuccessHandler((response) => {
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             clearPrizeForm();
             loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         }).withFailureHandler((error) => {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          hideLoading();
+          showToast('Error: ' + error, 'error');
         }).createPrize(rank, description);
       }
     });
@@ -2532,19 +2615,19 @@
     }
 
     function deletePrizeConfirm(rowIndex, rank) {
-      if (confirm(`Delete prize "${rank}"?\\n\\nThis will remove the prize from the season.`)) {
-        document.getElementById('loading-modal').classList.remove('hidden');
+      if (confirm(`Delete prize "${rank}"?\n\nThis will remove the prize from the season.`)) {
+        showLoading();
         google.script.run.withSuccessHandler((response) => {
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         }).withFailureHandler((error) => {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          hideLoading();
+          showToast('Error: ' + error, 'error');
         }).deletePrize(rowIndex);
       }
     }
@@ -2573,7 +2656,7 @@
           updateCurrentPointsDisplay(config);
         })
         .withFailureHandler((error) => {
-          alert('Error loading points configuration: ' + error);
+          showToast('Error loading points configuration: ' + error, 'error');
           console.error('Error loading points config:', error);
         })
         .getPointsConfig();
@@ -2602,28 +2685,28 @@
       // Client-side validation
       for (const [key, value] of Object.entries(config)) {
         if (isNaN(value) || value < 0) {
-          alert(`Invalid value for ${key.replace(/_/g, ' ')}: must be a non-negative number`);
+          showToast(`Invalid value for ${key.replace(/_/g, ' ')}: must be a non-negative number`, 'error');
           return;
         }
       }
 
       // Show loading modal
-      document.getElementById('loading-modal').classList.remove('hidden');
+      showLoading();
 
       google.script.run
         .withSuccessHandler((response) => {
-          document.getElementById('loading-modal').classList.add('hidden');
+          hideLoading();
 
           if (response.status === 'success') {
-            alert('Points configuration updated successfully!');
+            showToast('Points configuration updated successfully!', 'success');
             loadPointsConfig(); // Reload to confirm changes
           } else {
-            alert('Error: ' + response.message);
+            showToast('Error: ' + response.message, 'error');
           }
         })
         .withFailureHandler((error) => {
-          document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error saving points configuration: ' + error);
+          hideLoading();
+          showToast('Error saving points configuration: ' + error, 'error');
           console.error('Error saving points config:', error);
         })
         .updatePointsConfig(config);
@@ -2633,22 +2716,22 @@
     document.getElementById('points-reset-btn').addEventListener('click', () => {
       if (confirm('Reset all point values to defaults?\n\nDefaults:\n- Base Points (With Theme): 75\n- Base Points (Without Theme): 50\n- Theme Bonus: 25\n- Spotlight Multiplier: 1.5')) {
         // Show loading modal
-        document.getElementById('loading-modal').classList.remove('hidden');
+        showLoading();
 
         google.script.run
           .withSuccessHandler((response) => {
-            document.getElementById('loading-modal').classList.add('hidden');
+            hideLoading();
 
             if (response.status === 'success') {
-              alert('Points configuration reset to defaults!');
+              showToast('Points configuration reset to defaults!', 'success');
               loadPointsConfig(); // Reload to show new values
             } else {
-              alert('Error: ' + response.message);
+              showToast('Error: ' + response.message, 'error');
             }
           })
           .withFailureHandler((error) => {
-            document.getElementById('loading-modal').classList.add('hidden');
-            alert('Error resetting points configuration: ' + error);
+            hideLoading();
+            showToast('Error resetting points configuration: ' + error, 'error');
             console.error('Error resetting points config:', error);
           })
           .resetPointsToDefaults();
@@ -2666,4 +2749,15 @@
       return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
   </script>
+
+  <!-- Loading Modal -->
+  <div id="loading-modal" class="hidden fixed inset-0 z-[9998] flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl flex flex-col items-center gap-4">
+      <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">Loading...</p>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none" style="max-width: 90vw; width: 320px;"></div>
 </div>
