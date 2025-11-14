@@ -3471,14 +3471,16 @@ function getEventsList() {
     const activitiesSheet = ss.getSheetByName('Activities_Data');
     const activityMap = {};
     if (!activitiesSheet) {
-      Logger.log('WARNING: Activities_Data sheet not found. Events will display raw Activity_Code instead of user-friendly names.');
-    } else {
-      const activitiesData = activitiesSheet.getDataRange().getValues();
-      // Columns: Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
-      for (let i = 1; i < activitiesData.length; i++) {
-        if (activitiesData[i][0]) {
-          activityMap[String(activitiesData[i][0]).trim()] = String(activitiesData[i][1] || '').trim();
-        }
+    if (!activitiesSheet) {
+      Logger.log('Warning: Activities_Data sheet not found. Events will not have user-friendly activity names.');
+      return { status: 'error', message: 'Activities_Data sheet not found' };
+    }
+    const activityMap = {};
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Columns: Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
+    for (let i = 1; i < activitiesData.length; i++) {
+      if (activitiesData[i][0]) {
+        activityMap[String(activitiesData[i][0]).trim()] = String(activitiesData[i][1] || '').trim();
       }
     }
 
