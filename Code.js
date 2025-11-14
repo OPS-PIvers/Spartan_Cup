@@ -624,7 +624,7 @@ function getProfileData() {
     // If user is in top 10, show top 10
     // If user is outside top 10, show top 9 + user's position with gap indicator
 
-    function buildLeaderboardWithUser(leaderboard, userEmail) {
+    function buildLeaderboardWithUser(leaderboard, userEmail, pointsKey) {
       const result = [];
       const userIndex = leaderboard.findIndex(s => s.email === userEmail);
       const userRank = userIndex + 1; // userRank = 0 if user not found
@@ -635,8 +635,8 @@ function getProfileData() {
         return {
           rank: index + 1,
           name: student.name,
-          // Use ?? (nullish coalescing) instead of || to properly handle 0 points
-          points: student.seasonPoints ?? student.allTimePoints,
+          // Use the correct points field based on leaderboard type
+          points: student[pointsKey] ?? 0,
           icon: index < 3 ? 'workspace_premium' : 'military_tech',
           color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400')),
           isCurrentUser: isCurrentUser,
@@ -668,8 +668,8 @@ function getProfileData() {
       return result;
     }
 
-    const topSeasonLeaderboard = buildLeaderboardWithUser(seasonLeaderboard, email);
-    const topAllTimeLeaderboard = buildLeaderboardWithUser(allTimeLeaderboard, email);
+    const topSeasonLeaderboard = buildLeaderboardWithUser(seasonLeaderboard, email, 'seasonPoints');
+    const topAllTimeLeaderboard = buildLeaderboardWithUser(allTimeLeaderboard, email, 'allTimePoints');
 
     // --- FETCH BADGES ---
     // Use cached badge data (static, doesn't change frequently)
