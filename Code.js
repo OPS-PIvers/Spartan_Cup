@@ -635,7 +635,8 @@ function getProfileData() {
         return {
           rank: index + 1,
           name: student.name,
-          points: student.seasonPoints || student.allTimePoints,
+          // Use ?? (nullish coalescing) instead of || to properly handle 0 points
+          points: student.seasonPoints ?? student.allTimePoints,
           icon: index < 3 ? 'workspace_premium' : 'military_tech',
           color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400')),
           isCurrentUser: isCurrentUser,
@@ -1791,10 +1792,10 @@ function createHtmlFiles() {
       let htmlContent = '';
 
       leaderboard.forEach(item => {
-        // Add gap indicator if needed
+        // Add gap indicator if needed (with accessibility attributes)
         if (item.showGapBefore) {
           htmlContent += \`
-            <div class="flex items-center justify-center py-2">
+            <div class="flex items-center justify-center py-2" role="separator" aria-label="Gap in rankings">
               <span class="text-gray-400 dark:text-gray-500 text-sm">···</span>
             </div>\`;
         }
@@ -1805,13 +1806,14 @@ function createHtmlFiles() {
         // Escape user name to prevent XSS
         const escapedName = escapeHtml(item.name);
 
+        // Fix: Combine first place and current user styling when both apply
+        const backgroundClass = item.isCurrentUser
+          ? (isFirstPlace ? 'bg-primary/15 dark:bg-primary/25 border-l-4 border-primary' : 'bg-primary/5 dark:bg-primary/10 border-l-4 border-primary')
+          : (isFirstPlace ? 'bg-primary/10 dark:bg-primary/20' : '');
+
         // Build row HTML with conditional user highlighting
         htmlContent += \`
-          <div class="flex items-center gap-3 rounded-lg p-3 \${
-            item.isCurrentUser
-              ? 'bg-primary/5 dark:bg-primary/10 border-l-4 border-primary'
-              : (isFirstPlace ? 'bg-primary/10 dark:bg-primary/20' : '')
-          }">
+          <div class="flex items-center gap-3 rounded-lg p-3 \${backgroundClass}" \${item.isCurrentUser ? 'aria-current="true"' : ''}>
             <span class="font-bold text-lg \${isFirstPlace ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
             <span class="material-symbols-outlined text-2xl \${item.color}">\${item.icon}</span>
             <span class="flex-1 truncate font-medium text-[#111318] dark:text-white \${item.isCurrentUser ? 'font-semibold' : ''}">\${escapedName}\${item.isCurrentUser ? ' <span class="text-primary dark:text-blue-300 text-sm">(You)</span>' : ''}</span>
