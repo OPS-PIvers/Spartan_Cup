@@ -84,8 +84,8 @@ Spartan_Cup/
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
 **Key Components:**
-- `Code.js`: All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-- `JavaScript.html`: Client-side routing, page navigation, location services, form submission handlers
+`Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
+`JavaScript.html` (337 lines): Client-side routing, page navigation, location services, form submission handlers
 - `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
 - `Page.submit.html`: Event submission form with location-based check-in
 - `Page.admin.html`: Admin approval dashboard
