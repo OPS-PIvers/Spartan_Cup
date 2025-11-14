@@ -2008,14 +2008,18 @@
       specific_activities: {
         category: 'Variety',
         triggerType: 'Specific_Activities',
-        needsValue: true,
+        needsValue: false,
         needsPercentage: false,
-        needsActivity: false,
-        valueLabel: 'Activity Codes (comma-separated)',
-        valueHelp: 'Enter activity codes separated by commas (e.g., ACT,BAND,SING)',
-        valuePlaceholder: 'e.g., ACT,BAND,SING',
-        help: 'Awarded when student attends ALL specified activities. Use activity codes from your Activities_Data sheet.',
-        previewFn: (val) => `Student attends events for all these activities: ${val.split(',').join(', ')}`
+        needsActivity: true,
+        help: 'Awarded when student attends ALL specified activities. Select at least one activity.',
+        previewFn: (val, activityCodes) => {
+          const codes = activityCodes ? activityCodes.split(',') : [];
+          const names = codes.map(code => {
+            const activity = activitiesData.find(a => a.activityCode === code);
+            return activity ? activity.activityName : code;
+          }).join(', ');
+          return `Student attends events from all of these: ${names}`;
+        }
       },
       manual: {
         category: 'Special',
@@ -2150,11 +2154,9 @@
       if (config.needsActivity) {
         console.log('[Badge Debug] Showing activity field for template:', template);
         document.getElementById('activity-field').classList.remove('hidden');
-        document.getElementById('badge-activity-code').required = true;
       } else {
         console.log('[Badge Debug] Hiding activity field for template:', template);
         document.getElementById('activity-field').classList.add('hidden');
-        document.getElementById('badge-activity-code').required = false;
       }
 
       if (config.needsValue) {
@@ -2412,15 +2414,15 @@
 
       const template = document.getElementById('badge-template').value;
       const badgeName = document.getElementById('badge-name').value.trim();
-      const category = document.getElementById('badge-category').value;
       const description = document.getElementById('badge-description').value.trim();
 
-      if (!template || !badgeName || !category || !description) {
+      if (!template || !badgeName || !description) {
         showBadgeError('Please fill in all required fields');
         return;
       }
 
       const config = badgeTemplates[template];
+      const category = config.category;
 
       // Build trigger type and value based on template
       let triggerType = config.triggerType;
@@ -2457,36 +2459,33 @@
           return;
         }
 
-        // Special handling for Specific_Activities (comma-separated string)
-        if (triggerType === 'Specific_Activities') {
-          // Validate that it's a comma-separated list of activity codes
-          const activityCodes = valueInputValue.split(',').map(code => code.trim()).filter(code => code.length > 0);
-          if (activityCodes.length === 0) {
-            showBadgeError('Please enter at least one activity code');
+        // Regular numeric value
+        const value = parseInt(valueInputValue);
+        if (isNaN(value) || value < 1) {
+          showBadgeError('Please enter a valid number (must be at least 1)');
+          return;
+        }
+
+        if (config.needsActivity) {
+          // Activity count badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT"
+          const activityCodes = getSelectedActivityCodes();
+          if (!activityCodes) {
+            showBadgeError('Please select at least one sport/activity');
             return;
           }
-          triggerValue = activityCodes.join(',');
+          triggerValue = `${activityCodes}:${value}`;
         } else {
           // Regular numeric value
-          const value = parseInt(valueInputValue);
-          if (isNaN(value) || value < 1) {
-            showBadgeError('Please enter a valid number (must be at least 1)');
-            return;
-          }
-
-          if (config.needsActivity) {
-            // Activity count badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT"
-            const activityCodes = getSelectedActivityCodes();
-            if (!activityCodes) {
-              showBadgeError('Please select at least one sport/activity');
-              return;
-            }
-            triggerValue = `${activityCodes}:${value}`;
-          } else {
-            // Regular numeric value
-            triggerValue = value;
-          }
+          triggerValue = value;
         }
+      } else if (config.needsActivity && triggerType === 'Specific_Activities') {
+        // Specific activities badge - activity codes only, no value/percentage
+        const activityCodes = getSelectedActivityCodes();
+        if (!activityCodes) {
+          showBadgeError('Please select at least one sport/activity');
+          return;
+        }
+        triggerValue = activityCodes;
       } else {
         // Manual award - no trigger value
         triggerValue = 0;
