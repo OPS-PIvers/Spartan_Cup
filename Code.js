@@ -5001,6 +5001,17 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
 
+        // Calculate and award badge points
+        const badgePointsBase = badgesData[i][7] || 0; // Badge_Points_Base (column H, index 7)
+        const badgePointsMultiplier = badgesData[i][8] || 1.0; // Badge_Points_Multiplier (column I, index 8)
+        const badgePointsAwarded = Math.round(badgePointsBase * badgePointsMultiplier);
+
+        if (badgePointsAwarded > 0) {
+          // Update student's season and all-time points
+          studentProfile.seasonPoints = (studentProfile.seasonPoints || 0) + badgePointsAwarded;
+          studentProfile.allTimePoints = (studentProfile.allTimePoints || 0) + badgePointsAwarded;
+        }
+
         // Log badge award to Badge_Awards sheet for fan feed
         const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
         if (badgeAwardsSheet) {
@@ -5021,8 +5032,11 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
       }
     }
 
-    // Update Student_Profiles with new badges
-    studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
+    // Update Student_Profiles with new badges and updated points
+    // Batch update badges (column 5) and season/all-time points (columns 3-4)
+    studentSheet.getRange(studentRow, 3, 1, 3).setValues([
+      [studentProfile.seasonPoints, studentProfile.allTimePoints, JSON.stringify(studentProfile.earnedBadges)]
+    ]);
 
   } catch (e) {
     Logger.log('ERROR in calculateBadges for ' + email + ': ' + e.message + ' | Stack: ' + e.stack);
