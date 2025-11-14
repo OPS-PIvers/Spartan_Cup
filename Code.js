@@ -931,8 +931,13 @@ function setupSpreadsheet() {
         sheet.setFrozenRows(1);
         sheet.getRange(1, 1, 1, requiredHeaders.length).setFontWeight('bold');
         headersAdded.push(`${sheetName} (was empty - added headers)`);
+      } else if (sheet.getLastColumn() < 1) {
+        // Edge case: Sheet has a header row but no columns (getLastColumn() returns 0)
+        sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]).setFontWeight('bold');
+        sheet.setFrozenRows(1);
+        headersAdded.push(`${sheetName} (had header row but no columns - added headers)`);
       } else {
-        // Sheet has at least one row - check existing headers
+        // Sheet has at least one row and one column - check existing headers
         const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
         const existingHeaderSet = new Set(existingHeaders);
 
@@ -942,6 +947,10 @@ function setupSpreadsheet() {
         if (missingHeaders.length > 0) {
           // IMPORTANT: Append missing headers to END of sheet to avoid data corruption
           // Inserting columns mid-sheet would shift existing data and misalign it with headers
+          //
+          // NOTE: Any code relying on specific column positions (rather than header names)
+          // may need updates when missing headers are appended to the end.
+          // Best practice: Always reference columns by header name lookup, not by hardcoded indices.
           const firstNewCol = sheet.getLastColumn() + 1;
           sheet.getRange(1, firstNewCol, 1, missingHeaders.length).setValues([missingHeaders]).setFontWeight('bold');
           headersAdded.push(`${sheetName} (appended ${missingHeaders.length} header(s) to end: ${missingHeaders.join(', ')})`);
