@@ -6,7 +6,14 @@
 <div class="page pb-24">
   <!-- Top App Bar -->
   <div class="sticky top-0 z-10 flex items-center bg-white dark:bg-gray-800 p-4 pb-2 justify-between border-b border-gray-200 dark:border-gray-800 shadow-sm">
-    <div class="text-gray-700 dark:text-gray-200 flex size-12 shrink-0 items-center justify-start cursor-pointer" onclick="navigateToPage('profile')">
+    <div
+      class="text-gray-700 dark:text-gray-200 flex size-12 shrink-0 items-center justify-start cursor-pointer"
+      onclick="navigateToPage('profile')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){navigateToPage('profile');event.preventDefault();}"
+      role="button"
+      tabindex="0"
+      aria-label="Go back to profile"
+    >
       <span class="material-symbols-outlined text-2xl">arrow_back</span>
     </div>
     <h2 class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Rulebook</h2>
@@ -147,6 +154,15 @@
     }
 
     /**
+     * Escape HTML to prevent XSS attacks
+     */
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /**
      * Create an accordion element for a section
      */
     function createAccordion(section) {
@@ -171,24 +187,32 @@
       const icon = getIconForSection(section.id);
       const iconColor = isWarning ? 'bg-red-500/10 text-red-600 dark:text-red-500' : 'bg-primary/10 text-primary dark:text-blue-400';
 
-      summary.innerHTML = `
-        <div class="flex items-center gap-4">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full ${iconColor}">
-            <span class="material-symbols-outlined">${icon}</span>
-          </div>
-          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">${section.title}</p>
-        </div>
-        <div class="${isWarning ? 'text-red-600' : 'text-gray-900 dark:text-gray-300'} group-open:rotate-180 transition-transform">
-          <span class="material-symbols-outlined">expand_more</span>
+      // Build summary with escaped title to prevent XSS
+      const titleContainer = document.createElement('div');
+      titleContainer.className = 'flex items-center gap-4';
+      titleContainer.innerHTML = `
+        <div class="flex h-10 w-10 items-center justify-center rounded-full ${iconColor}">
+          <span class="material-symbols-outlined">${icon}</span>
         </div>
       `;
+      const titleText = document.createElement('p');
+      titleText.className = 'text-gray-900 dark:text-white text-base font-semibold leading-normal';
+      titleText.textContent = section.title; // Use textContent to prevent XSS
+      titleContainer.appendChild(titleText);
 
-      // Content
+      const expandIcon = document.createElement('div');
+      expandIcon.className = `${isWarning ? 'text-red-600' : 'text-gray-900 dark:text-gray-300'} group-open:rotate-180 transition-transform`;
+      expandIcon.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
+
+      summary.appendChild(titleContainer);
+      summary.appendChild(expandIcon);
+
+      // Content (HTML is intentionally allowed here for rich formatting)
       const content = document.createElement('div');
       content.className = isWarning
         ? 'text-gray-700 dark:text-red-200 text-sm font-normal leading-relaxed pt-4'
         : 'text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4';
-      content.innerHTML = section.content;
+      content.innerHTML = section.content; // Admins control this content
 
       details.appendChild(summary);
       details.appendChild(content);
@@ -244,9 +268,12 @@
 
         if (title.includes(searchTerm) || content.includes(searchTerm)) {
           section.classList.remove('hidden');
-          // Auto-open matched sections
+          // Auto-open matched sections when searching
           if (searchTerm.length > 0) {
             section.setAttribute('open', '');
+          } else {
+            // Close sections when search is cleared
+            section.removeAttribute('open');
           }
         } else {
           section.classList.add('hidden');
@@ -346,12 +373,28 @@
     }
 
     /**
-     * Format badge points display
+     * Format badge trigger condition display
+     * Note: Badges are recognition milestones, not point awards
      */
     function getBadgePointsDisplay(badge) {
-      if (badge.triggerValue && !isNaN(badge.triggerValue)) {
-        return `${badge.triggerValue} pts`;
+      // Show trigger condition instead of points (badges don't award points)
+      if (!badge.triggerType || !badge.triggerValue) {
+        return '';
       }
+
+      const value = badge.triggerValue;
+
+      // Format based on trigger type
+      if (badge.triggerType.includes('Points') || badge.triggerType.includes('points')) {
+        return `@ ${value} pts`;
+      } else if (badge.triggerType.includes('event') || badge.triggerType.includes('Event') || badge.triggerType.includes('Count')) {
+        return `${value} events`;
+      } else if (badge.triggerType.includes('Pct') || badge.triggerType.includes('percent')) {
+        return `${Math.round(parseFloat(value) * 100)}%`;
+      } else if (!isNaN(value)) {
+        return `x${value}`;
+      }
+
       return '';
     }
 

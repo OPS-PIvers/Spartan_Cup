@@ -2092,20 +2092,22 @@ function updateRulebookContent(sections) {
       return { status: 'error', message: 'Config_Rulebook sheet not found' };
     }
 
-    // Update each section
-    let updatedCount = 0;
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i];
-      const rowIndex = i + 2; // Row 1 is headers, data starts at row 2
+    // Build 2D array with all section data for efficient batch update
+    const dataArray = sections.map(section => [
+      section.id,
+      section.title,
+      section.content,
+      section.order,
+      section.active
+    ]);
 
-      rulebookSheet.getRange(rowIndex, 1).setValue(section.id);
-      rulebookSheet.getRange(rowIndex, 2).setValue(section.title);
-      rulebookSheet.getRange(rowIndex, 3).setValue(section.content);
-      rulebookSheet.getRange(rowIndex, 4).setValue(section.order);
-      rulebookSheet.getRange(rowIndex, 5).setValue(section.active);
-
-      updatedCount++;
+    // Update all sections in a single API call
+    if (dataArray.length > 0) {
+      const startRow = 2; // Row 1 is headers, data starts at row 2
+      rulebookSheet.getRange(startRow, 1, dataArray.length, 5).setValues(dataArray);
     }
+
+    const updatedCount = sections.length;
 
     // Clear cache so new content is picked up
     CacheService.getScriptCache().remove('rulebook_content');

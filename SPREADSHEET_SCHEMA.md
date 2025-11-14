@@ -424,7 +424,6 @@ misconduct | Misconduct & Cheating | <div class="space-y-3">...</div> | 5 | TRUE
 - HTML content should be escaped properly when editing via dialog
 - Badge system information is NOT stored here (it's dynamically loaded from Config_Badges)
 - Admins can also edit the sheet directly for advanced formatting
-- Season names are case-sensitive in lookups
 
 ---
 
