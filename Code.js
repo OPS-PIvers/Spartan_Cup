@@ -3470,7 +3470,9 @@ function getEventsList() {
     // Load Activities_Data to get activity names
     const activitiesSheet = ss.getSheetByName('Activities_Data');
     const activityMap = {};
-    if (activitiesSheet) {
+    if (!activitiesSheet) {
+      Logger.log('WARNING: Activities_Data sheet not found. Events will display raw Activity_Code instead of user-friendly names.');
+    } else {
       const activitiesData = activitiesSheet.getDataRange().getValues();
       // Columns: Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
       for (let i = 1; i < activitiesData.length; i++) {

@@ -25,6 +25,18 @@
   </div>
 
   <script>
+    /**
+     * Escapes HTML to prevent XSS attacks
+     * @param {string} str - String to escape
+     * @return {string} Escaped string safe for innerHTML
+     */
+    function escapeHTML(str) {
+      if (!str) return '';
+      const p = document.createElement('p');
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadPrizes();
       google.script.run.withSuccessHandler(populateEvents).getEventsList();
@@ -43,7 +55,7 @@
           prizesList.innerHTML = '';
           response.prizes.forEach(prize => {
             const li = document.createElement('li');
-            li.innerHTML = `<span class="font-bold">${prize.rank}:</span> ${prize.description}`;
+            li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
             prizesList.appendChild(li);
           });
         } else {
@@ -55,7 +67,7 @@
           `;
         }
       }).withFailureHandler((error) => {
-        prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + error.message + '</li>';
+        prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + (error.message || error.toString() || 'Unknown error') + '</li>';
       }).getAllSeasonPrizes();
     }
 
