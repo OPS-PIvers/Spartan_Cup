@@ -1356,7 +1356,7 @@ function generateSampleSubmissions() {
       const basePoints = dressedForTheme ? pointsConfig['Base_Points_With_Theme'] : pointsConfig['Base_Points_Without_Theme'];
       const themeBonus = dressedForTheme ? pointsConfig['Theme_Bonus'] : 0;
       const spotlightMultiplier = pointsConfig['Spotlight_Game_Multiplier']; // GBB-01 is a spotlight game
-      const totalPoints = Math.round((basePoints + themeBonus) * spotlightMultiplier);
+      const totalPoints = Math.round(basePoints * spotlightMultiplier + themeBonus);
 
       verifiedSheet.appendRow([
         Utilities.getUuid(), // Submission_ID
@@ -2857,7 +2857,7 @@ function createHtmlFiles() {
       const basePoints = parseInt(document.getElementById('approval-base-points').value) || 0;
       const themeBonus = document.getElementById('approval-theme-bonus').checked ? pointsConfig['Theme_Bonus'] : 0;
       const multiplier = document.getElementById('approval-spotlight-multiplier').checked ? pointsConfig['Spotlight_Game_Multiplier'] : 1;
-      const total = Math.round((basePoints + themeBonus) * multiplier);
+      const total = Math.round(basePoints * multiplier + themeBonus);
 
       document.getElementById('approval-total-points').innerText = 'Total: ' + total + ' PTS';
     }
@@ -4314,7 +4314,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     // Calculate total points
     const pointsTheme = themeBonus || (submissionInfo[7] ? 25 : 0); // Default theme bonus
     const pointsMultiplier = spotlightMultiplier || 1;
-    const pointsTotal = Math.round((basePoints + pointsTheme) * pointsMultiplier);
+    const pointsTotal = Math.round(basePoints * pointsMultiplier + pointsTheme);
 
     // Move to Submissions_Verified (including photo URL and ID for fan feed)
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
