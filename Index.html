@@ -115,23 +115,27 @@
   <?!= include('Modals'); ?>
 
   <!-- ====================================================================== -->
-  <!-- MAIN 4-TAB NAVIGATION BAR -->
+  <!-- MAIN 5-TAB NAVIGATION BAR -->
   <!-- ====================================================================== -->
   <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 flex justify-around">
     <!-- Navigation items with loading modal on click -->
-    <a href="<?= getWebAppUrl() ?>?page=profile" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4 cursor-pointer" data-page="profile" onclick="event.preventDefault(); navigateToPage('profile');">
+    <a href="<?= getWebAppUrl() ?>?page=profile" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="profile" onclick="event.preventDefault(); navigateToPage('profile');">
       <span class="material-symbols-outlined text-2xl">person</span>
       <span class="text-xs font-medium">Profile</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=history" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4 cursor-pointer" data-page="history" onclick="event.preventDefault(); navigateToPage('history');">
+    <a href="<?= getWebAppUrl() ?>?page=history" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="history" onclick="event.preventDefault(); navigateToPage('history');">
       <span class="material-symbols-outlined text-2xl">event</span>
       <span class="text-xs font-medium">History</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=prizes" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4 cursor-pointer" data-page="prizes" onclick="event.preventDefault(); navigateToPage('prizes');">
+    <a href="<?= getWebAppUrl() ?>?page=prizes" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="prizes" onclick="event.preventDefault(); navigateToPage('prizes');">
       <span class="material-symbols-outlined text-2xl">emoji_events</span>
       <span class="text-xs font-medium">Prizes</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=fanfeed" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/4 cursor-pointer" data-page="fanfeed" onclick="event.preventDefault(); navigateToPage('fanfeed');">
+    <a href="<?= getWebAppUrl() ?>?page=rulebook" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="rulebook" onclick="event.preventDefault(); navigateToPage('rulebook');">
+      <span class="material-symbols-outlined text-2xl">gavel</span>
+      <span class="text-xs font-medium">Rulebook</span>
+    </a>
+    <a href="<?= getWebAppUrl() ?>?page=fanfeed" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="fanfeed" onclick="event.preventDefault(); navigateToPage('fanfeed');">
       <span class="material-symbols-outlined text-2xl">dynamic_feed</span>
       <span class="text-xs font-medium">Fan Feed</span>
     </a>
