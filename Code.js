@@ -1891,11 +1891,17 @@ function getRulebookContent() {
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const rulebookSheet = ss.getSheetByName('Config_Rulebook');
+    let rulebookSheet = ss.getSheetByName('Config_Rulebook');
 
     if (!rulebookSheet) {
-      Logger.log('Config_Rulebook sheet not found');
-      return [];
+      Logger.log('Config_Rulebook sheet not found - auto-creating...');
+      initializeConfigRulebook();
+      rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+      if (!rulebookSheet) {
+        Logger.log('Failed to create Config_Rulebook sheet');
+        return [];
+      }
     }
 
     const data = rulebookSheet.getDataRange().getValues();
