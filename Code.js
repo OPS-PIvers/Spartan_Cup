@@ -620,22 +620,56 @@ function getProfileData() {
       }
     }
 
-    // Build top 5 leaderboards
-    const topSeasonLeaderboard = seasonLeaderboard.slice(0, 5).map((student, index) => ({
-      rank: index + 1,
-      name: student.name,
-      points: student.seasonPoints,
-      icon: index < 3 ? 'workspace_premium' : 'military_tech',
-      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
-    }));
+    // Build top 10 leaderboards with user highlighting
+    // If user is in top 10, show top 10
+    // If user is outside top 10, show top 9 + user's position with gap indicator
 
-    const topAllTimeLeaderboard = allTimeLeaderboard.slice(0, 5).map((student, index) => ({
-      rank: index + 1,
-      name: student.name,
-      points: student.allTimePoints,
-      icon: index < 3 ? 'workspace_premium' : 'military_tech',
-      color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400'))
-    }));
+    function buildLeaderboardWithUser(leaderboard, userEmail, pointsKey) {
+      const result = [];
+      const userIndex = leaderboard.findIndex(s => s.email === userEmail);
+      const userRank = userIndex + 1; // userRank = 0 if user not found
+
+      // Helper function to create entry object (reduces duplication)
+      function createEntry(index, isCurrentUser, showGapBefore) {
+        const student = leaderboard[index];
+        return {
+          rank: index + 1,
+          name: student.name,
+          // Use the correct points field based on leaderboard type
+          points: student[pointsKey] ?? 0,
+          icon: index < 3 ? 'workspace_premium' : 'military_tech',
+          color: index === 0 ? 'text-gold' : (index === 1 ? 'text-silver' : (index === 2 ? 'text-bronze' : 'text-gray-400')),
+          isCurrentUser: isCurrentUser,
+          showGapBefore: showGapBefore
+        };
+      }
+
+      // Fixed bug: check userRank > 0 to ensure user is on leaderboard
+      if (userRank > 0 && userRank <= 10) {
+        // User is in top 10, show top 10
+        for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+          result.push(createEntry(i, leaderboard[i].email === userEmail, false));
+        }
+      } else if (userRank > 10) {
+        // User is outside top 10, show top 9 + gap + user
+        for (let i = 0; i < Math.min(9, leaderboard.length); i++) {
+          result.push(createEntry(i, false, false));
+        }
+
+        // Add user's position with gap indicator
+        result.push(createEntry(userIndex, true, true));
+      } else {
+        // User not on leaderboard (userRank = 0), just show top 10
+        for (let i = 0; i < Math.min(10, leaderboard.length); i++) {
+          result.push(createEntry(i, false, false));
+        }
+      }
+
+      return result;
+    }
+
+    const topSeasonLeaderboard = buildLeaderboardWithUser(seasonLeaderboard, email, 'seasonPoints');
+    const topAllTimeLeaderboard = buildLeaderboardWithUser(allTimeLeaderboard, email, 'allTimePoints');
 
     // --- FETCH BADGES ---
     // Use cached badge data (static, doesn't change frequently)
@@ -1831,18 +1865,52 @@ function createHtmlFiles() {
     // This includes page routing, button event handlers, and modal management
 
     // --- DATA POPULATION ---
+
+    // Helper function to escape HTML to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
     function updateLeaderboardDisplay(leaderboard) {
       const lbContainer = document.getElementById('leaderboard-container');
-      lbContainer.innerHTML = ''; // Clear
+
+      // Build complete HTML string first (performance optimization - single DOM update)
+      let htmlContent = '';
+
       leaderboard.forEach(item => {
-        lbContainer.innerHTML += \`
-          <div class="flex items-center gap-3 rounded-lg p-3 \${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
-            <span class="font-bold text-lg \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
+        // Add gap indicator if needed (with accessibility attributes)
+        if (item.showGapBefore) {
+          htmlContent += \`
+            <div class="flex items-center justify-center py-2" role="separator" aria-label="Gap in rankings">
+              <span class="text-gray-400 dark:text-gray-500 text-sm">···</span>
+            </div>\`;
+        }
+
+        // Determine if this is the first place for special styling
+        const isFirstPlace = item.rank === 1;
+
+        // Escape user name to prevent XSS
+        const escapedName = escapeHtml(item.name);
+
+        // Fix: Combine first place and current user styling when both apply
+        const backgroundClass = item.isCurrentUser
+          ? (isFirstPlace ? 'bg-primary/15 dark:bg-primary/25 border-l-4 border-primary' : 'bg-primary/5 dark:bg-primary/10 border-l-4 border-primary')
+          : (isFirstPlace ? 'bg-primary/10 dark:bg-primary/20' : '');
+
+        // Build row HTML with conditional user highlighting
+        htmlContent += \`
+          <div class="flex items-center gap-3 rounded-lg p-3 \${backgroundClass}" \${item.isCurrentUser ? 'aria-current="true"' : ''}>
+            <span class="font-bold text-lg \${isFirstPlace ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">\${item.rank}</span>
             <span class="material-symbols-outlined text-2xl \${item.color}">\${item.icon}</span>
-            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">\${item.name}</span>
-            <span class="font-bold \${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
+            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white \${item.isCurrentUser ? 'font-semibold' : ''}">\${escapedName}\${item.isCurrentUser ? ' <span class="text-primary dark:text-blue-300 text-sm">(You)</span>' : ''}</span>
+            <span class="font-bold \${isFirstPlace ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">\${item.points} PTS</span>
           </div>\`;
       });
+
+      // Set innerHTML once (performance optimization)
+      lbContainer.innerHTML = htmlContent;
     }
 
     function populateProfile(data) {
