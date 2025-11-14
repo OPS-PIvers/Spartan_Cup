@@ -1894,13 +1894,34 @@ function getRulebookContent() {
     let rulebookSheet = ss.getSheetByName('Config_Rulebook');
 
     if (!rulebookSheet) {
-      Logger.log('Config_Rulebook sheet not found - auto-creating...');
-      initializeConfigRulebook();
-      rulebookSheet = ss.getSheetByName('Config_Rulebook');
+      // Use lock to prevent race condition when multiple users access simultaneously
+      const lock = LockService.getScriptLock();
+      try {
+        lock.waitLock(10000); // Wait up to 10 seconds for the lock
 
-      if (!rulebookSheet) {
-        Logger.log('Failed to create Config_Rulebook sheet');
+        // Re-check cache after acquiring lock (another user might have created it)
+        const cachedAfterLock = cache.get(cacheKey);
+        if (cachedAfterLock) {
+          return safeJSONParse(cachedAfterLock, [], 'rulebook content cache');
+        }
+
+        // Re-check if sheet exists after acquiring lock (another user might have created it)
+        rulebookSheet = ss.getSheetByName('Config_Rulebook');
+        if (!rulebookSheet) {
+          Logger.log('Config_Rulebook sheet not found - auto-creating...');
+          initializeConfigRulebook();
+          rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+          if (!rulebookSheet) {
+            Logger.log('Failed to create Config_Rulebook sheet');
+            return [];
+          }
+        }
+      } catch (e) {
+        Logger.log('Error acquiring lock or creating Config_Rulebook: ' + e.message);
         return [];
+      } finally {
+        lock.releaseLock();
       }
     }
 
