@@ -20,6 +20,32 @@ const CAMPUS_GEOFENCE = [
 
 const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
 
+// Cache TTL (Time To Live) values in seconds
+const CACHE_TTL = {
+  ADMIN_EMAILS: 21600,      // 6 hours
+  STUDENT_PROFILES: 600,    // 10 minutes
+  BADGES: 86400,            // 24 hours
+  EVENTS: 3600,             // 1 hour
+  BADGE_MAP: 86400,         // 24 hours
+  ACTIVE_SEASON: 3600       // 1 hour
+};
+
+/**
+ * Safely parses JSON with error handling
+ * @param {string} jsonString - The JSON string to parse
+ * @param {*} defaultValue - The default value to return if parsing fails
+ * @param {string} context - Context for logging (optional)
+ * @return {*} Parsed JSON or default value
+ */
+function safeJSONParse(jsonString, defaultValue, context) {
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    Logger.log('JSON parse error' + (context ? ' in ' + context : '') + ': ' + e.message);
+    return defaultValue;
+  }
+}
+
 /**
  * Reads admin emails from the Config_Admins sheet.
  * Results are cached for 6 hours to reduce Sheets API calls.
@@ -31,10 +57,13 @@ function getAdminEmails() {
     const cache = CacheService.getScriptCache();
     const cachedEmails = cache.get('admin_emails');
     if (cachedEmails) {
-      return JSON.parse(cachedEmails);
+      const parsed = safeJSONParse(cachedEmails, null, 'admin_emails cache');
+      if (parsed) return parsed;
+      // If parse failed, clear cache and rebuild
+      cache.remove('admin_emails');
     }
 
-    // Cache miss: read from Sheets
+    // Cache miss or parse error: read from Sheets
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const adminSheet = ss.getSheetByName('Config_Admins');
     const adminData = adminSheet.getDataRange().getValues();
@@ -45,8 +74,8 @@ function getAdminEmails() {
       }
     }
 
-    // Cache for 6 hours (21600 seconds)
-    cache.put('admin_emails', JSON.stringify(adminEmails), 21600);
+    // Cache for 6 hours using constant
+    cache.put('admin_emails', JSON.stringify(adminEmails), CACHE_TTL.ADMIN_EMAILS);
 
     return adminEmails;
   } catch (e) {
@@ -148,16 +177,19 @@ function getStudentProfilesData() {
   let cachedData = cache.get(cacheKey);
 
   if (cachedData) {
-    return JSON.parse(cachedData);
+    const parsed = safeJSONParse(cachedData, null, 'student_profiles cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
   }
 
-  // Cache miss: read from Sheets
+  // Cache miss or parse error: read from Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const studentSheet = ss.getSheetByName('Student_Profiles');
   const studentData = studentSheet.getDataRange().getValues();
 
-  // Cache for 10 minutes (600 seconds) for request batching
-  cache.put(cacheKey, JSON.stringify(studentData), 600);
+  // Cache for 10 minutes using constant
+  cache.put(cacheKey, JSON.stringify(studentData), CACHE_TTL.STUDENT_PROFILES);
 
   return studentData;
 }
@@ -173,10 +205,13 @@ function getBadgeMapCache() {
   let cachedMap = cache.get(cacheKey);
 
   if (cachedMap) {
-    return JSON.parse(cachedMap);
+    const parsed = safeJSONParse(cachedMap, null, 'badge_map cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
   }
 
-  // Cache miss: read from Sheets
+  // Cache miss or parse error: read from Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const badgesSheet = ss.getSheetByName('Config_Badges');
   const badgesData = badgesSheet.getDataRange().getValues();
@@ -194,8 +229,8 @@ function getBadgeMapCache() {
     };
   }
 
-  // Cache for 24 hours (86400 seconds) - badge definitions don't change often
-  cache.put(cacheKey, JSON.stringify(badgeMap), 86400);
+  // Cache for 24 hours using constant - badge definitions don't change often
+  cache.put(cacheKey, JSON.stringify(badgeMap), CACHE_TTL.BADGE_MAP);
 
   return badgeMap;
 }
@@ -211,10 +246,13 @@ function getEventMapCache() {
   let cachedMap = cache.get(cacheKey);
 
   if (cachedMap) {
-    return JSON.parse(cachedMap);
+    const parsed = safeJSONParse(cachedMap, null, 'event_map cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
   }
 
-  // Cache miss: read from Sheets
+  // Cache miss or parse error: read from Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const eventSheet = ss.getSheetByName('Events');
   const eventData = eventSheet.getDataRange().getValues();
@@ -229,8 +267,8 @@ function getEventMapCache() {
     };
   }
 
-  // Cache for 1 hour (3600 seconds) - events are relatively static
-  cache.put(cacheKey, JSON.stringify(eventMap), 3600);
+  // Cache for 1 hour using constant - events are relatively static
+  cache.put(cacheKey, JSON.stringify(eventMap), CACHE_TTL.EVENTS);
 
   return eventMap;
 }
@@ -306,13 +344,19 @@ function doGet(e) {
   if (page === 'submit' && !e.parameter.eventCode && !e.parameter.event) {
     // User came to submit page without an event (direct from Firebase wrapper)
     if (template.userLat && template.userLon) {
-      // Location available - try to auto-select closest event
-      const closestEvent = getClosestEvent(parseFloat(template.userLat), parseFloat(template.userLon));
-      if (closestEvent.status === 'success') {
-        template.autoEventCode = escapeJavaScriptString(closestEvent.eventCode);
-        template.autoEventName = escapeJavaScriptString(closestEvent.eventName);
+      // Location available - validate and try to auto-select closest event
+      const lat = parseFloat(template.userLat);
+      const lon = parseFloat(template.userLon);
+      if (isNaN(lat) || isNaN(lon)) {
+        template.autoEventError = escapeJavaScriptString('Invalid location data');
       } else {
-        template.autoEventError = escapeJavaScriptString(closestEvent.message);
+        const closestEvent = getClosestEvent(lat, lon);
+        if (closestEvent.status === 'success') {
+          template.autoEventCode = escapeJavaScriptString(closestEvent.eventCode);
+          template.autoEventName = escapeJavaScriptString(closestEvent.eventName);
+        } else {
+          template.autoEventError = escapeJavaScriptString(closestEvent.message);
+        }
       }
     } else {
       template.autoEventError = escapeJavaScriptString('Location is required to check in. Please enable location access.');
@@ -449,12 +493,12 @@ function getUserSettings() {
             settingsJson = settingsJson.slice(2, -2); // Remove outer quotes
           }
           // Logger.log('Raw settings from sheet: ' + settingsJson);
-          try {
-            const parsed = JSON.parse(settingsJson);
+          const parsed = safeJSONParse(settingsJson, {}, 'user settings');
+          if (parsed && Object.keys(parsed).length > 0) {
             // Logger.log('Successfully parsed settings: ' + JSON.stringify(parsed));
             return parsed;
-          } catch (parseError) {
-            // Logger.log('Failed to parse settings JSON: ' + parseError.message);
+          } else {
+            // Logger.log('Failed to parse settings JSON or empty result');
             // Logger.log('Malformed JSON was: ' + settingsJson);
           }
         }
@@ -551,7 +595,7 @@ function getProfileData() {
           displayName: studentData[i][1],
           seasonPoints: studentData[i][2] || 0,
           allTimePoints: studentData[i][3] || 0,
-          badgesEarned: studentData[i][4] ? JSON.parse(studentData[i][4]) : [],
+          badgesEarned: studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'student badges') : [],
           disqualified: studentData[i][7] || false
         };
         break;
@@ -1327,8 +1371,8 @@ function generateSampleSubmissions() {
         if (studentDataCurrent[j][0] === student.email) {
           const newSeasonPoints = (studentDataCurrent[j][2] || 0) + totalPoints;
           const newAllTimePoints = (studentDataCurrent[j][3] || 0) + totalPoints;
-          studentSheet.getRange(j + 1, 3).setValue(newSeasonPoints);
-          studentSheet.getRange(j + 1, 4).setValue(newAllTimePoints);
+          // Batch update both columns in single API call for better performance
+          studentSheet.getRange(j + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
           break;
         }
       }
@@ -1494,7 +1538,7 @@ function getPointsConfig() {
     const cached = cache.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      return safeJSONParse(cached, null, 'points config cache');
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3419,7 +3463,7 @@ function getActiveEvents(userLat = null, userLon = null) {
       // Cache for 10 minutes (600 seconds) - shorter since Is_Active is updated by trigger
       cache.put(cacheKey, JSON.stringify(eventData), 600);
     } else {
-      eventData = JSON.parse(eventData);
+      eventData = safeJSONParse(eventData, null, 'event data cache');
     }
 
     const activeEvents = [];
@@ -3625,8 +3669,6 @@ function getEventsList() {
 
     // Load Activities_Data to get activity names
     const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activityMap = {};
-    if (!activitiesSheet) {
     if (!activitiesSheet) {
       Logger.log('Warning: Activities_Data sheet not found. Events will not have user-friendly activity names.');
       return { status: 'error', message: 'Activities_Data sheet not found' };
@@ -4293,8 +4335,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
         const newSeasonPoints = (studentData[i][2] || 0) + pointsTotal;
         const newAllTimePoints = (studentData[i][3] || 0) + pointsTotal;
 
-        studentSheet.getRange(i + 1, 3).setValue(newSeasonPoints);
-        studentSheet.getRange(i + 1, 4).setValue(newAllTimePoints);
+        // Batch update both points columns in single API call (more efficient)
+        studentSheet.getRange(i + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
         break;
       }
     }
@@ -4424,7 +4466,7 @@ function getBadgeData() {
     let userEarnedBadges = [];
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === email) {
-        userEarnedBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+        userEarnedBadges = studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'badge array') : [];
         break;
       }
     }
@@ -4466,7 +4508,7 @@ function calculateBadges(email) {
         studentProfile = {
           seasonPoints: studentData[i][2] || 0,
           allTimePoints: studentData[i][3] || 0,
-          earnedBadges: studentData[i][4] ? JSON.parse(studentData[i][4]) : []
+          earnedBadges: studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'badge array') : []
         };
         break;
       }
@@ -4973,7 +5015,7 @@ function awardRetroactiveBadges() {
       if (!email) continue; // Skip empty rows
 
       // Get current badge count for this student
-      const currentBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+      const currentBadges = studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'badge array') : [];
       const beforeCount = currentBadges.length;
 
       // Calculate badges (this will add any newly qualified badges)
@@ -4981,7 +5023,7 @@ function awardRetroactiveBadges() {
 
       // Check how many badges were added
       const updatedData = studentSheet.getDataRange().getValues();
-      const afterBadges = updatedData[i][4] ? JSON.parse(updatedData[i][4]) : [];
+      const afterBadges = updatedData[i][4] ? safeJSONParse(updatedData[i][4], [], 'badge array') : [];
       const afterCount = afterBadges.length;
 
       studentsProcessed++;
@@ -5062,7 +5104,7 @@ function processSeasonEndBadges() {
         const studentRowIndex = topStudent.rowIndex;
 
         // Get student's current badges
-        const currentBadges = studentData[studentRowIndex][4] ? JSON.parse(studentData[studentRowIndex][4]) : [];
+        const currentBadges = studentData[studentRowIndex][4] ? safeJSONParse(studentData[studentRowIndex][4], [], 'badge array') : [];
 
         // Award badge if not already earned
         if (!currentBadges.includes(badge.badgeId)) {
@@ -5108,7 +5150,7 @@ function processSeasonEndBadges() {
       if (!email) continue; // Skip empty rows
 
       // Get current badge count
-      const beforeBadges = studentData[i][4] ? JSON.parse(studentData[i][4]) : [];
+      const beforeBadges = studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'badge array') : [];
       const beforeCount = beforeBadges.length;
 
       // Recalculate badges
@@ -5116,7 +5158,7 @@ function processSeasonEndBadges() {
 
       // Check how many badges were added
       const updatedData = studentSheet.getDataRange().getValues();
-      const afterBadges = updatedData[i][4] ? JSON.parse(updatedData[i][4]) : [];
+      const afterBadges = updatedData[i][4] ? safeJSONParse(updatedData[i][4], [], 'badge array') : [];
       const afterCount = afterBadges.length;
 
       studentsProcessed++;
@@ -5382,10 +5424,9 @@ function sendNotification(studentEmail, type, message) {
 
     // Get existing notifications
     let notifications = [];
-    try {
-      notifications = JSON.parse(userProperties.getProperty(notificationsKey)) || [];
-    } catch (e) {
-      notifications = [];
+    const storedNotifications = userProperties.getProperty(notificationsKey);
+    if (storedNotifications) {
+      notifications = safeJSONParse(storedNotifications, [], 'notifications');
     }
 
     // Add new notification
