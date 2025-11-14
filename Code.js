@@ -924,38 +924,36 @@ function setupSpreadsheet() {
       sheetsCreated.push(sheetName);
     } else {
       // Sheet exists - validate headers
-      const existingData = sheet.getDataRange().getValues();
-      const existingHeaders = existingData.length > 0 ? existingData[0] : [];
 
-      // Check if all required headers exist
-      const missingHeaders = [];
-      requiredHeaders.forEach((header, headerIndex) => {
-        if (headerIndex >= existingHeaders.length || existingHeaders[headerIndex] !== header) {
-          missingHeaders.push({ header: header, index: headerIndex });
-        }
-      });
-
-      if (missingHeaders.length > 0) {
-        // Add missing headers
-        missingHeaders.forEach(({ header, index }) => {
-          if (index >= existingHeaders.length) {
-            // Add new column at the end
-            sheet.getRange(1, index + 1).setValue(header).setFontWeight('bold');
-          } else {
-            // Insert column at the correct position
-            sheet.insertColumnBefore(index + 1);
-            sheet.getRange(1, index + 1).setValue(header).setFontWeight('bold');
-          }
-        });
-        headersAdded.push(`${sheetName} (added ${missingHeaders.length} header(s))`);
+      // Handle completely empty sheets (no rows at all)
+      if (sheet.getLastRow() < 1) {
+        sheet.appendRow(requiredHeaders);
+        sheet.setFrozenRows(1);
+        sheet.getRange(1, 1, 1, requiredHeaders.length).setFontWeight('bold');
+        headersAdded.push(`${sheetName} (was empty - added headers)`);
       } else {
-        sheetsValidated.push(sheetName);
-      }
+        // Sheet has at least one row - check existing headers
+        const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const existingHeaderSet = new Set(existingHeaders);
 
-      // Ensure frozen rows and bold headers
-      sheet.setFrozenRows(1);
-      if (sheet.getLastColumn() > 0) {
-        sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold');
+        // Find headers that are required but missing from existing sheet
+        const missingHeaders = requiredHeaders.filter(h => !existingHeaderSet.has(h));
+
+        if (missingHeaders.length > 0) {
+          // IMPORTANT: Append missing headers to END of sheet to avoid data corruption
+          // Inserting columns mid-sheet would shift existing data and misalign it with headers
+          const firstNewCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, firstNewCol, 1, missingHeaders.length).setValues([missingHeaders]).setFontWeight('bold');
+          headersAdded.push(`${sheetName} (appended ${missingHeaders.length} header(s) to end: ${missingHeaders.join(', ')})`);
+        } else {
+          sheetsValidated.push(sheetName);
+        }
+
+        // Ensure frozen rows and bold headers for all columns
+        sheet.setFrozenRows(1);
+        if (sheet.getLastColumn() > 0) {
+          sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold');
+        }
       }
     }
   });
@@ -963,7 +961,7 @@ function setupSpreadsheet() {
   // Add sample data only for newly created sheets
   if (sheetsCreated.includes('Activities_Data')) {
     const activitiesSheet = ss.getSheetByName('Activities_Data');
-    if (activitiesSheet.getLastRow() === 1) { // Only header row exists
+    if (activitiesSheet.getLastRow() === 1) { // Only header row exists (no data rows)
       activitiesSheet.appendRow(['GBB', 'Girls Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
       activitiesSheet.appendRow(['BBB', 'Boys Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
       activitiesSheet.appendRow(['GVBB', 'Girls Volleyball', 'Fall', 'Orono High School Gym', 44.965, -93.625]);
@@ -972,21 +970,21 @@ function setupSpreadsheet() {
 
   if (sheetsCreated.includes('Events')) {
     const eventsSheet = ss.getSheetByName('Events');
-    if (eventsSheet.getLastRow() === 1) { // Only header row exists
+    if (eventsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
       eventsSheet.appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out', false]);
     }
   }
 
   if (sheetsCreated.includes('Config_Active_Season')) {
     const seasonSheet = ss.getSheetByName('Config_Active_Season');
-    if (seasonSheet.getLastRow() === 1) { // Only header row exists
+    if (seasonSheet.getLastRow() === 1) { // Only header row exists (no data rows)
       seasonSheet.appendRow(['Active_Season', 'Winter']);
     }
   }
 
   if (sheetsCreated.includes('Config_Admins')) {
     const adminsSheet = ss.getSheetByName('Config_Admins');
-    if (adminsSheet.getLastRow() === 1) { // Only header row exists
+    if (adminsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
       adminsSheet.appendRow([Session.getActiveUser().getEmail(), 'Owner']);
     }
   }
@@ -1004,6 +1002,9 @@ function setupSpreadsheet() {
   }
   if (headersAdded.length > 0) {
     Logger.log(`Sheets with headers added: ${headersAdded.join(', ')}`);
+  }
+  if (sheetsCreated.length === 0 && headersAdded.length === 0) {
+    Logger.log('No changes needed: all sheets and headers are already set up correctly');
   }
 
   // Note: Config_Event_Codes has been removed - Events tab is now the single source of truth
