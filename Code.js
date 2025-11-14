@@ -877,11 +877,17 @@ function setupDriveFolders() {
 
 /**
  * Creates and formats the entire Google Sheet backend.
+ * Updated to validate and repair existing sheets rather than clearing them.
+ *
+ * For each sheet:
+ * - If sheet exists: validates all required headers are present and adds any missing ones
+ * - If sheet doesn't exist: creates it with all required headers
  */
 function setupSpreadsheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.setName('[The Spartan Cup] - MASTER');
 
+  // Define ALL sheets with their required headers
   const sheets = {
     'Student_Profiles': ['Email', 'Display_Name', 'Total_Points_Season', 'Total_Points_AllTime', 'Badges_Earned', 'Loyalty_Stats_JSON', 'Variety_Stats_Set', 'Disqualified', 'Student_Settings'],
     'Activities_Data': ['Activity_Code', 'Activity_Name', 'Season', 'Location_Name', 'Event_Lat', 'Event_Lon'],
@@ -892,36 +898,118 @@ function setupSpreadsheet() {
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
     'Config_Points': ['Setting_Name', 'Points_Value', 'Description'],
+    'Active_Season_Prizes': ['Rank', 'Description'],
     'Badge_Awards': ['Award_ID', 'Timestamp', 'Email', 'Display_Name', 'Badge_ID', 'Badge_Name', 'Badge_Image_URL']
   };
 
+  const sheetsCreated = [];
+  const sheetsValidated = [];
+  const headersAdded = [];
+
   Object.keys(sheets).forEach((sheetName, index) => {
+    const requiredHeaders = sheets[sheetName];
     let sheet = ss.getSheetByName(sheetName);
+
     if (!sheet) {
-      sheet = (index === 0 && ss.getSheetByName('Sheet1')) ? ss.getSheetByName('Sheet1').setName(sheetName) : ss.insertSheet(sheetName);
+      // Sheet doesn't exist - create it
+      if (index === 0 && ss.getSheetByName('Sheet1')) {
+        sheet = ss.getSheetByName('Sheet1').setName(sheetName);
+      } else {
+        sheet = ss.insertSheet(sheetName);
+      }
+      // Add headers to new sheet
+      sheet.appendRow(requiredHeaders);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, requiredHeaders.length).setFontWeight('bold');
+      sheetsCreated.push(sheetName);
+    } else {
+      // Sheet exists - validate headers
+
+      // Handle completely empty sheets (no rows at all)
+      if (sheet.getLastRow() < 1) {
+        sheet.appendRow(requiredHeaders);
+        sheet.setFrozenRows(1);
+        sheet.getRange(1, 1, 1, requiredHeaders.length).setFontWeight('bold');
+        headersAdded.push(`${sheetName} (was empty - added headers)`);
+      } else {
+        // Sheet has at least one row and one column - check existing headers
+        const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const existingHeaderSet = new Set(existingHeaders);
+
+        // Find headers that are required but missing from existing sheet
+        const missingHeaders = requiredHeaders.filter(h => !existingHeaderSet.has(h));
+
+        if (missingHeaders.length > 0) {
+          // IMPORTANT: Append missing headers to END of sheet to avoid data corruption
+          // Inserting columns mid-sheet would shift existing data and misalign it with headers
+          //
+          // NOTE: Any code relying on specific column positions (rather than header names)
+          // may need updates when missing headers are appended to the end.
+          // Best practice: Always reference columns by header name lookup, not by hardcoded indices.
+          const firstNewCol = sheet.getLastColumn() + 1;
+          sheet.getRange(1, firstNewCol, 1, missingHeaders.length).setValues([missingHeaders]).setFontWeight('bold');
+          headersAdded.push(`${sheetName} (appended ${missingHeaders.length} header(s) to end: ${missingHeaders.join(', ')})`);
+        } else {
+          sheetsValidated.push(sheetName);
+        }
+
+        // Ensure frozen rows and bold headers for all columns
+        sheet.setFrozenRows(1);
+        if (sheet.getLastColumn() > 0) {
+          sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold');
+        }
+      }
     }
-    sheet.clear();
-    sheet.appendRow(sheets[sheetName]);
-    sheet.setFrozenRows(1);
-    sheet.getRange(1, 1, 1, sheets[sheetName].length).setFontWeight('bold');
   });
 
-  // Add sample Activities_Data
-  ss.getSheetByName('Activities_Data').appendRow(['GBB', 'Girls Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
-  ss.getSheetByName('Activities_Data').appendRow(['BBB', 'Boys Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
-  ss.getSheetByName('Activities_Data').appendRow(['GVBB', 'Girls Volleyball', 'Fall', 'Orono High School Gym', 44.965, -93.625]);
+  // Add sample data only for newly created sheets
+  if (sheetsCreated.includes('Activities_Data')) {
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    if (activitiesSheet.getLastRow() === 1) { // Only header row exists (no data rows)
+      activitiesSheet.appendRow(['GBB', 'Girls Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
+      activitiesSheet.appendRow(['BBB', 'Boys Basketball', 'Winter', 'Orono High School Gym', 44.965, -93.625]);
+      activitiesSheet.appendRow(['GVBB', 'Girls Volleyball', 'Fall', 'Orono High School Gym', 44.965, -93.625]);
+    }
+  }
 
-  // Add sample Events with Activity_Code FK
-  // Columns: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active
-  ss.getSheetByName('Events').appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out', false]);
+  if (sheetsCreated.includes('Events')) {
+    const eventsSheet = ss.getSheetByName('Events');
+    if (eventsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
+      eventsSheet.appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out', false]);
+    }
+  }
 
-  // Set Config_Active_Season default
-  ss.getSheetByName('Config_Active_Season').appendRow(['Active_Season', 'Winter']);
+  if (sheetsCreated.includes('Config_Active_Season')) {
+    const seasonSheet = ss.getSheetByName('Config_Active_Season');
+    if (seasonSheet.getLastRow() === 1) { // Only header row exists (no data rows)
+      seasonSheet.appendRow(['Active_Season', 'Winter']);
+    }
+  }
 
-  ss.getSheetByName('Config_Admins').appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+  if (sheetsCreated.includes('Config_Admins')) {
+    const adminsSheet = ss.getSheetByName('Config_Admins');
+    if (adminsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
+      adminsSheet.appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+    }
+  }
 
-  // Initialize Config_Points with default values
+  // Initialize Config_Points with default values (this function already checks if data exists)
   initializeConfigPoints();
+
+  // Log summary
+  Logger.log('=== Spreadsheet Setup Summary ===');
+  if (sheetsCreated.length > 0) {
+    Logger.log(`Sheets created: ${sheetsCreated.join(', ')}`);
+  }
+  if (sheetsValidated.length > 0) {
+    Logger.log(`Sheets validated (no changes needed): ${sheetsValidated.join(', ')}`);
+  }
+  if (headersAdded.length > 0) {
+    Logger.log(`Sheets with headers added: ${headersAdded.join(', ')}`);
+  }
+  if (sheetsCreated.length === 0 && headersAdded.length === 0 && sheetsValidated.length === 0) {
+    Logger.log('No changes needed: all sheets and headers are already set up correctly');
+  }
 
   // Note: Config_Event_Codes has been removed - Events tab is now the single source of truth
   // Is_Active status is updated by the updateActiveEventStatus() trigger
