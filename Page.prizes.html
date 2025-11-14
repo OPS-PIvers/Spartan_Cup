@@ -26,8 +26,39 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      google.script.run.withSuccessHandler(populateEvents).getEventList();
+      loadPrizes();
+      google.script.run.withSuccessHandler(populateEvents).getEventsList();
     });
+
+    function loadPrizes() {
+      google.script.run.withSuccessHandler((response) => {
+        const prizesList = document.querySelector('ul.list-disc');
+
+        if (response.status === 'error') {
+          prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error loading prizes</li>';
+          return;
+        }
+
+        if (response.prizes && response.prizes.length > 0) {
+          prizesList.innerHTML = '';
+          response.prizes.forEach(prize => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="font-bold">${prize.rank}:</span> ${prize.description}`;
+            prizesList.appendChild(li);
+          });
+        } else {
+          // Keep the default [TBD Prize] text if no prizes are configured
+          prizesList.innerHTML = `
+            <li><span class="font-bold">1st Place:</span> [TBD Prize]</li>
+            <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
+            <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
+          `;
+        }
+      }).withFailureHandler((error) => {
+        const prizesList = document.querySelector('ul.list-disc');
+        prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + error.message + '</li>';
+      }).getAllSeasonPrizes();
+    }
 
     function populateEvents(response) {
       if (response.status === 'error') {
