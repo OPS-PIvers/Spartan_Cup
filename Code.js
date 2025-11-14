@@ -3628,55 +3628,105 @@ function getEventsList() {
 
     const data = sheet.getDataRange().getValues();
     const events = [];
+    const now = new Date();
 
     // Skip header row (row 0)
     // Columns: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
     for (let i = 1; i < data.length; i++) {
       if (data[i][0]) { // If Event_ID exists
-        const eventDate = String(data[i][3] || '').trim();
+        // Format the date properly - data[i][3] may be a Date object from Sheets
+        let eventDate = '';
+        let eventDateObj = null;
+        if (data[i][3]) {
+          if (data[i][3] instanceof Date) {
+            eventDateObj = new Date(data[i][3]);
+            // Format as "M/D/YYYY" to match user-friendly date display
+            eventDate = Utilities.formatDate(data[i][3], Session.getScriptTimeZone(), 'M/d/yyyy');
+          } else {
+            eventDate = String(data[i][3] || '').trim();
+            // Try to parse string date
+            eventDateObj = new Date(eventDate);
+          }
+        }
         let eventStartTime = data[i][7];
 
         // Handle different startTime formats
         let dateTimeCombined = '';
+        let formattedStartTime = '';
+        let hours = 0, minutes = 0;
         if (eventStartTime) {
           if (eventStartTime instanceof Date) {
-            // Date object from Sheets - format it as Central Time
+            // Date object from Sheets - format for display and for datetime-local input
             dateTimeCombined = Utilities.formatDate(eventStartTime, 'America/Chicago', "yyyy-MM-dd'T'HH:mm");
+            // Format for display: "2:30 PM" style
+            formattedStartTime = Utilities.formatDate(eventStartTime, Session.getScriptTimeZone(), 'h:mm a');
+            hours = eventStartTime.getHours();
+            minutes = eventStartTime.getMinutes();
           } else {
-            // String format - normalize to "YYYY-MM-DDTHH:mm" for datetime-local input
+            // String format - parse and format
             const str = String(eventStartTime).trim();
             if (str.includes('T')) {
               // Already has 'T': "2025-11-06T18:30" or "2025-11-06T18:30:00"
               dateTimeCombined = str.substring(0, 16); // Take just YYYY-MM-DDTHH:mm
+              formattedStartTime = str.substring(11, 16); // Extract HH:mm
+              const timeParts = str.substring(11, 16).split(':');
+              hours = parseInt(timeParts[0]) || 0;
+              minutes = parseInt(timeParts[1]) || 0;
             } else if (str.includes(' ')) {
               // Space-separated: "2025-11-06 18:30" → "2025-11-06T18:30"
               dateTimeCombined = str.substring(0, 16).replace(' ', 'T');
-            } else {
-              // Unexpected format - try to combine with date
+              formattedStartTime = str.substring(11, 16); // Extract HH:mm
+              const timeParts = str.substring(11, 16).split(':');
+              hours = parseInt(timeParts[0]) || 0;
+              minutes = parseInt(timeParts[1]) || 0;
+            } else if (str.match(/^\d{1,2}:\d{2}/)) {
+              // Just a time like "18:30" - try to use it
+              formattedStartTime = str;
               dateTimeCombined = eventDate ? `${eventDate}T${str}` : '';
+              const timeParts = str.split(':');
+              hours = parseInt(timeParts[0]) || 0;
+              minutes = parseInt(timeParts[1]) || 0;
             }
           }
           eventStartTime = String(eventStartTime).trim();
         }
 
-        const activityCode = String(data[i][1] || '').trim();
-        events.push({
-          eventId: String(data[i][0]).trim(),
-          activityCode: activityCode, // Use activityCode for consistency
-          sportArt: activityMap[activityCode] || activityCode, // Add sportArt field (activity name)
-          eventName: String(data[i][2] || '').trim(),
-          date: eventDate,
-          locationName: String(data[i][4] || '').trim(),
-          lat: parseFloat(data[i][5]) || 0,
-          lon: parseFloat(data[i][6]) || 0,
-          startTime: eventStartTime,
-          dateTime: dateTimeCombined, // Combined date and time for datetime-local input
-          duration: String(data[i][8] || '').trim(),
-          isHomeGame: true, // Hardcoded to true
-          isSpotlightGame: data[i][10] || false,
-          theme: String(data[i][11] || '').trim(),
-          rowIndex: i + 1 // 1-indexed for Apps Script
-        });
+        // Calculate event end time and check if it's expired
+        let isExpired = true;
+        if (eventDateObj && !isNaN(eventDateObj.getTime())) {
+          const eventEndDate = new Date(eventDateObj);
+          eventEndDate.setHours(hours);
+          eventEndDate.setMinutes(minutes);
+
+          const duration = parseFloat(data[i][8]) || 0;
+          eventEndDate.setHours(eventEndDate.getHours() + Math.floor(duration));
+          eventEndDate.setMinutes(eventEndDate.getMinutes() + Math.round((duration % 1) * 60));
+
+          // Include event only if it hasn't ended yet
+          isExpired = eventEndDate <= now;
+        }
+
+        if (!isExpired) {
+          const activityCode = String(data[i][1] || '').trim();
+          events.push({
+            eventId: String(data[i][0]).trim(),
+            activityCode: activityCode, // Use activityCode for consistency
+            sportArt: activityMap[activityCode] || activityCode, // Add sportArt field (activity name)
+            eventName: String(data[i][2] || '').trim(),
+            date: eventDate,
+            locationName: String(data[i][4] || '').trim(),
+            lat: parseFloat(data[i][5]) || 0,
+            lon: parseFloat(data[i][6]) || 0,
+            startTime: eventStartTime,
+            formattedStartTime: formattedStartTime, // Human-readable time for display
+            dateTime: dateTimeCombined, // Combined date and time for datetime-local input
+            duration: String(data[i][8] || '').trim(),
+            isHomeGame: true, // Hardcoded to true
+            isSpotlightGame: data[i][10] || false,
+            theme: String(data[i][11] || '').trim(),
+            rowIndex: i + 1 // 1-indexed for Apps Script
+          });
+        }
       }
     }
 

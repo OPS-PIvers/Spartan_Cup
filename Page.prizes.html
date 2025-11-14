@@ -120,7 +120,7 @@
             </div>
 
             <div class="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-              <p><span class="material-symbols-outlined text-sm align-middle mr-1">event</span>${typeof event.date === 'string' ? event.date : new Date(event.date).toLocaleDateString()}</p>
+              <p><span class="material-symbols-outlined text-sm align-middle mr-1">event</span>${event.date || 'TBD'}${event.formattedStartTime ? ' at ' + event.formattedStartTime : ''}</p>
               <p><span class="material-symbols-outlined text-sm align-middle mr-1">location_on</span>${event.locationName || 'TBD'}</p>
               ${event.theme && event.theme !== 'None' ? '<p><span class="material-symbols-outlined text-sm align-middle mr-1">style</span>Theme: ' + event.theme + '</p>' : ''}
             </div>
