@@ -597,6 +597,54 @@
     // --- HELPER FUNCTIONS ---
 
     /**
+     * Escapes HTML to prevent XSS attacks
+     * @param {string} text - The text to escape
+     * @return {string} HTML-escaped text
+     */
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /**
+     * Determines the background CSS classes for a leaderboard row
+     * @param {boolean} isCurrentUser - Whether this row represents the current user
+     * @param {boolean} isFirstPlace - Whether this row is the first place entry
+     * @return {string} CSS class string
+     */
+    function getLeaderboardRowClasses(isCurrentUser, isFirstPlace) {
+      if (isCurrentUser) {
+        return isFirstPlace
+          ? 'bg-primary/15 dark:bg-primary/25 border-l-4 border-primary'
+          : 'bg-primary/5 dark:bg-primary/10 border-l-4 border-primary';
+      }
+      return isFirstPlace ? 'bg-primary/10 dark:bg-primary/20' : '';
+    }
+
+    /**
+     * Determines the CSS classes for rank text
+     * @param {boolean} isFirstPlace - Whether this is the first place entry
+     * @return {string} CSS class string
+     */
+    function getRankClasses(isFirstPlace) {
+      return isFirstPlace
+        ? 'text-primary dark:text-blue-300'
+        : 'text-gray-500 dark:text-gray-400';
+    }
+
+    /**
+     * Determines the CSS classes for points text
+     * @param {boolean} isFirstPlace - Whether this is the first place entry
+     * @return {string} CSS class string
+     */
+    function getPointsClasses(isFirstPlace) {
+      return isFirstPlace
+        ? 'text-primary dark:text-blue-300'
+        : 'text-gray-600 dark:text-gray-300';
+    }
+
+    /**
      * Loads activities from the server and populates the activity dropdown in the admin form.
      */
     function loadActivityDropdown() {
@@ -623,20 +671,71 @@
         .getActivitiesForSeason();
     }
 
+    /**
+     * Renders a gap indicator for leaderboard rankings
+     * @return {string} HTML for gap indicator
+     */
+    function renderGapIndicator() {
+      return `
+        <div class="flex items-center justify-center py-2" role="presentation">
+          <span class="text-gray-400 dark:text-gray-500 text-sm">···</span>
+        </div>`;
+    }
+
+    /**
+     * Renders a single leaderboard row
+     * @param {Object} item - Leaderboard item data
+     * @return {string} HTML for leaderboard row
+     */
+    function renderLeaderboardRow(item) {
+      const isFirstPlace = item.rank === 1;
+      const escapedName = escapeHtml(item.name);
+      const backgroundClass = getLeaderboardRowClasses(item.isCurrentUser, isFirstPlace);
+      const rankClass = getRankClasses(isFirstPlace);
+      const pointsClass = getPointsClasses(isFirstPlace);
+
+      // Build name with optional "(You)" label - using DOM creation to avoid XSS
+      const nameDiv = document.createElement('div');
+      const nameSpan = document.createElement('span');
+      nameSpan.className = `flex-1 truncate font-medium text-[#111318] dark:text-white ${item.isCurrentUser ? 'font-semibold' : ''}`;
+      nameSpan.textContent = item.name;
+
+      if (item.isCurrentUser) {
+        const youLabel = document.createElement('span');
+        youLabel.className = 'text-primary dark:text-blue-300 text-sm';
+        youLabel.textContent = ' (You)';
+        nameSpan.appendChild(youLabel);
+      }
+
+      // Get the safely constructed HTML
+      nameDiv.appendChild(nameSpan);
+      const safeNameHTML = nameDiv.innerHTML;
+
+      return `
+        <div class="flex items-center gap-3 rounded-lg p-3 ${backgroundClass}" ${item.isCurrentUser ? 'aria-current="true"' : ''}>
+          <span class="font-bold text-lg ${rankClass} w-5 text-center">${item.rank}</span>
+          <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
+          ${safeNameHTML}
+          <span class="font-bold ${pointsClass}">${item.points} PTS</span>
+        </div>`;
+    }
+
+    /**
+     * Updates the leaderboard display with current data
+     * @param {Array} leaderboard - Array of leaderboard items
+     */
     function updateLeaderboardDisplay(leaderboard) {
       const lbContainer = document.getElementById('leaderboard-container');
-      // Build HTML as a single string instead of repeated += operations
-      let html = '';
-      leaderboard.forEach(item => {
-        html += `
-          <div class="flex items-center gap-3 rounded-lg p-3 ${item.rank === 1 ? 'bg-primary/10 dark:bg-primary/20' : ''}">
-            <span class="font-bold text-lg ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'} w-5 text-center">${item.rank}</span>
-            <span class="material-symbols-outlined text-2xl ${item.color}">${item.icon}</span>
-            <span class="flex-1 truncate font-medium text-[#111318] dark:text-white">${item.name}</span>
-            <span class="font-bold ${item.rank === 1 ? 'text-primary dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}">${item.points} PTS</span>
-          </div>`;
-      });
-      lbContainer.innerHTML = html; // Single insert operation
+
+      // Use Array.map() for idiomatic JavaScript and better readability
+      const htmlContent = leaderboard.map(item => {
+        // Add gap indicator before the item if needed
+        const gap = item.showGapBefore ? renderGapIndicator() : '';
+        return gap + renderLeaderboardRow(item);
+      }).join('');
+
+      // Single DOM update for performance
+      lbContainer.innerHTML = htmlContent;
     }
 
     // --- DATA POPULATION ---
