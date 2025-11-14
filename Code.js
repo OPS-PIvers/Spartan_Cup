@@ -260,7 +260,7 @@ function getEventMapCache() {
 
   for (let i = 1; i < eventData.length; i++) {
     eventMap[eventData[i][0]] = {
-      name: eventData[i][2],
+      eventName: eventData[i][2],
       date: eventData[i][3],
       sportArt: eventData[i][1],
       theme: eventData[i][11]
