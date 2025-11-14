@@ -1787,100 +1787,68 @@ function initializeConfigRulebook() {
       }
     }
 
-    // Default rulebook sections
+    // Default rulebook sections (simplified for accordion layout)
     const defaultSections = [
       [
         'photo_submission',
         'Photo Submission',
-        `<div class="space-y-2">
-          <p class="font-semibold">Photo Requirements:</p>
-          <ul class="list-disc list-inside space-y-1 ml-2">
-            <li>Photos must be taken <span class="font-bold text-primary dark:text-blue-300">during the game</span> (not before or after)</li>
-            <li>Must include <span class="font-bold text-primary dark:text-blue-300">your face</span></li>
-            <li>If dressing for a theme, show <span class="font-bold text-primary dark:text-blue-300">your outfit</span></li>
-          </ul>
-          <p class="font-semibold mt-3">How to Submit:</p>
-          <ul class="list-disc list-inside space-y-1 ml-2">
-            <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
-            <li>Indicate which game you are attending</li>
-            <li>List who you are attending with</li>
-            <li>If necessary, explain how your outfit fits the theme</li>
-          </ul>
-        </div>`,
+        `<p>All event participation must be verified with a photo. Photos must be clear, well-lit, and include you at the event location. Submissions must be made within 48 hours of the event's conclusion.</p>
+        <p class="mt-3"><strong>Photo Requirements:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Photos must be taken <strong>during the game</strong> (not before or after)</li>
+          <li>Must include <strong>your face</strong></li>
+          <li>If dressing for a theme, show <strong>your outfit</strong></li>
+        </ul>
+        <p class="mt-3"><strong>How to Submit:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-400 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
+          <li>Indicate which game you are attending</li>
+          <li>List who you are attending with</li>
+          <li>If necessary, explain how your outfit fits the theme</li>
+        </ul>`,
         1,
         true
       ],
       [
-        'base_points',
-        'Base Points',
-        `<div class="bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 p-4 rounded-lg border border-primary/30">
-          <h4 class="font-bold text-lg mb-2">Base Points</h4>
-          <p>Each game/event starts with a base value of <span class="font-bold text-2xl text-primary dark:text-blue-300">10 points</span></p>
-        </div>`,
+        'points_system',
+        'Points System',
+        `<p>Earn points by attending events and collecting badges. Your total points determine your rank in The Spartan Cup.</p>
+        <p class="mt-3"><strong>Base Points:</strong> Each game/event starts with a base value of <span class="font-bold text-lg">10 points</span>. Additional points can be earned through themed attendance, spotlight games, and badge collection.</p>
+        <p class="mt-3"><strong>Badge Bonuses:</strong> Collect badges to earn bonus points and multipliers. Each badge category (Participation, Variety, Loyalty, etc.) has its own point values and tier-based multipliers.</p>`,
         2,
         true
       ],
       [
-        'badge_system_intro',
-        'Badge System Overview',
-        `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-          <p class="text-sm text-gray-600 dark:text-gray-400">Earn badges by reaching milestones and achievements! Each badge grants bonus points with multipliers for higher tiers.</p>
-        </div>`,
-        3,
-        true
-      ],
-      [
         'awards',
-        'Winning the Competition/Awards',
-        `<div class="space-y-3">
-          <p class="mb-3">Awards are given out every <span class="font-bold">season</span> (Fall, Winter, or Spring) to the top 3 "Orono Super Fans".</p>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Standings are based solely on <span class="font-bold text-primary dark:text-blue-300">point totals</span>.</p>
-          <div class="space-y-2 mt-4">
-            <h4 class="font-bold">Seasonal Awards:</h4>
-            <div class="bg-gold/20 dark:bg-gold/10 p-3 rounded-lg border border-gold">
-              <p class="font-bold text-gold">🥇 First Place</p>
-              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-            </div>
-            <div class="bg-silver/30 dark:bg-silver/10 p-3 rounded-lg border border-silver">
-              <p class="font-bold text-gray-600 dark:text-gray-400">🥈 Second Place</p>
-              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-            </div>
-            <div class="bg-bronze/30 dark:bg-bronze/10 p-3 rounded-lg border border-bronze">
-              <p class="font-bold text-bronze">🥉 Third Place</p>
-              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-            </div>
-          </div>
-        </div>`,
-        4,
+        'Winning & Awards',
+        `<p>Awards are given out every <strong>season</strong> (Fall, Winter, or Spring) to the top participants. Standings are based solely on <strong>point totals</strong>.</p>
+        <p class="mt-3"><strong>Seasonal Awards:</strong></p>
+        <ul class="list-none space-y-2 mt-2">
+          <li>🥇 <strong>First Place</strong> - Prize TBA</li>
+          <li>🥈 <strong>Second Place</strong> - Prize TBA</li>
+          <li>🥉 <strong>Third Place</strong> - Prize TBA</li>
+        </ul>
+        <p class="mt-3">Top 10 participants will receive recognition at the end-of-season ceremony.</p>`,
+        3,
         true
       ],
       [
         'misconduct',
         'Misconduct & Cheating',
-        `<div class="space-y-3">
-          <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border-l-4 border-red-600 dark:border-red-500">
-            <h4 class="font-bold text-red-900 dark:text-red-300 mb-2">❌ Actions Considered Cheating:</h4>
-            <ul class="list-disc list-inside space-y-1 text-red-800 dark:text-red-200 ml-2">
-              <li>Reusing old photos for new games/events</li>
-              <li>Pretending to be at a game/event that you are not</li>
-            </ul>
-          </div>
-          <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-orange-500 dark:border-orange-400">
-            <h4 class="font-bold text-orange-900 dark:text-orange-300 mb-2">⚠️ Actions Considered Misconduct:</h4>
-            <ul class="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-200 ml-2">
-              <li>Being thrown out of a game for unsportsmanlike behavior</li>
-              <li>Being banned/suspended from events and/or school</li>
-            </ul>
-          </div>
-          <div class="bg-red-600 dark:bg-red-800 p-4 rounded-lg shadow-lg">
-            <h4 class="font-bold text-white mb-2 flex items-center gap-2">
-              <span class="material-symbols-outlined">block</span>
-              Consequences:
-            </h4>
-            <p class="text-white font-semibold">Anyone found to be guilty of cheating or misconduct will be <span class="text-yellow-300 font-bold">DISQUALIFIED</span> from the competition.</p>
-          </div>
-        </div>`,
-        5,
+        `<p><strong>Any form of cheating, including submitting false photos or misrepresenting attendance, will result in immediate disqualification from The Spartan Cup and potential disciplinary action from the school.</strong></p>
+        <p class="mt-3"><strong>❌ Actions Considered Cheating:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Reusing old photos for new games/events</li>
+          <li>Pretending to be at a game/event that you are not</li>
+          <li>Submitting photos taken by others</li>
+        </ul>
+        <p class="mt-3"><strong>⚠️ Actions Considered Misconduct:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Being thrown out of a game for unsportsmanlike behavior</li>
+          <li>Being banned/suspended from events and/or school</li>
+          <li>Inappropriate behavior at school events</li>
+        </ul>`,
+        4,
         true
       ]
     ];
