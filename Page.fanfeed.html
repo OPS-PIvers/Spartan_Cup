@@ -96,11 +96,15 @@
     google.script.run
       .withSuccessHandler((response) => {
         handleFanFeedResponse(response, container);
+        // Remove loading state
+        refreshBtn.classList.remove('animate-spin');
+        isRefreshing = false;
+        // Reset pull distance
+        pullDistance = 0;
+        updatePullRefreshUI();
       })
       .withFailureHandler((error) => {
         container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
-      })
-      .withFinally(() => {
         // Remove loading state
         refreshBtn.classList.remove('animate-spin');
         isRefreshing = false;

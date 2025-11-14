@@ -1457,6 +1457,7 @@ function populateSampleBadges() {
  */
 function clearAllCaches() {
   try {
+    // Clear script-level caches (shared across all users)
     const cache = CacheService.getScriptCache();
     cache.removeAll([
       'admin_emails',
@@ -1465,6 +1466,12 @@ function clearAllCaches() {
       'badge_map_cache',
       'active_events_data',
       'active_season'
+    ]);
+
+    // Clear user-level caches (fan feed, personal data, etc.)
+    const userCache = CacheService.getUserCache();
+    userCache.removeAll([
+      'fanfeed_cache'
     ]);
 
     const message = '✅ Cache Cleared!\n\nAll cached data has been removed.\nRefresh the web app to see your spreadsheet changes.';
@@ -1476,7 +1483,7 @@ function clearAllCaches() {
     } catch (uiError) {
       // No UI available - running from Apps Script editor
       Logger.log(message);
-      Logger.log('Successfully cleared all caches: admin_emails, student_profiles_data, event_map_cache, badge_map_cache, active_events_data, active_season');
+      Logger.log('Successfully cleared all caches: admin_emails, student_profiles_data, event_map_cache, badge_map_cache, active_events_data, active_season, fanfeed_cache');
     }
 
     return 'Success: All caches cleared';
@@ -5288,17 +5295,23 @@ function getFanFeed() {
 
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
       const photoId = verifiedData[i][11]; // Photo_ID (column L, index 11)
-      const photoUrl = verifiedData[i][10]; // Photo_URL (fallback for older submissions, column K)
 
-      // Skip if no photo ID and no photo URL (very old submissions)
-      if (!photoId && !photoUrl) continue;
+      // Skip if no photo ID (we need it to generate base64 data URL like admin page does)
+      if (!photoId) continue;
 
-      // Generate image URL: prefer Drive direct link for photoId, fallback to photoUrl
+      // Convert photo to base64 data URL (same approach as admin dashboard)
       let imageUrl = '';
-      if (photoId) {
-        imageUrl = getDriveImageUrl(photoId);
-      } else if (photoUrl) {
-        imageUrl = photoUrl;
+      try {
+        const imageResponse = serveImage(photoId);
+        if (imageResponse.status === 'success') {
+          imageUrl = imageResponse.dataUrl;
+        } else {
+          Logger.log('DEBUG: serveImage failed for photoId ' + photoId);
+          continue;
+        }
+      } catch (e) {
+        Logger.log('DEBUG: Error getting image for photoId ' + photoId + ': ' + e.message);
+        continue;
       }
 
       feedItems.push({
@@ -5310,10 +5323,11 @@ function getFanFeed() {
         studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
-        imageUrl: imageUrl, // Direct Drive URL, cached by browser
+        imageUrl: imageUrl, // Base64 data URL (like admin page uses)
         likes: 0
       });
     }
+
 
     // Add badge awards
     const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
