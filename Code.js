@@ -3520,8 +3520,7 @@ function getEventsList() {
           sportArt: activityMap[activityCode] || activityCode, // Add sportArt field (activity name)
           eventName: String(data[i][2] || '').trim(),
           date: eventDate,
-          location: String(data[i][4] || '').trim(),
-          locationName: String(data[i][4] || '').trim(), // Add locationName for consistency with frontend
+          locationName: String(data[i][4] || '').trim(),
           lat: parseFloat(data[i][5]) || 0,
           lon: parseFloat(data[i][6]) || 0,
           startTime: eventStartTime,

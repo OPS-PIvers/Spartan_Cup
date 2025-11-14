@@ -31,9 +31,9 @@
     });
 
     function loadPrizes() {
-      google.script.run.withSuccessHandler((response) => {
-        const prizesList = document.querySelector('ul.list-disc');
+      const prizesList = document.querySelector('ul.list-disc');
 
+      google.script.run.withSuccessHandler((response) => {
         if (response.status === 'error') {
           prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error loading prizes</li>';
           return;
@@ -55,7 +55,6 @@
           `;
         }
       }).withFailureHandler((error) => {
-        const prizesList = document.querySelector('ul.list-disc');
         prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + error.message + '</li>';
       }).getAllSeasonPrizes();
     }
