@@ -4661,14 +4661,15 @@ function calculateBadges(email) {
         const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
         shouldEarn = percentage >= requiredPercentage;
       } else if (triggerType === 'Activity_Event_Count_Lifetime') {
-        // Count of events attended for a specific activity ACROSS ALL SEASONS (LIFETIME)
-        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events total
+        // Count of events attended for one or more activities ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT" e.g., "VB,BB:5" for 5 combined volleyball+basketball events across all time
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
-        const [activityCode, countStr] = triggerValue.split(':');
+        const [activityCodesStr, countStr] = triggerValue.split(':');
+        const activityCodes = activityCodesStr.split(','); // Parse multiple activity codes
         const requiredCount = parseInt(countStr);
 
-        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
+        if (!activityCodesStr || isNaN(requiredCount) || requiredCount <= 0) continue;
 
         // Build map of event IDs to activity codes
         const eventToActivity = {};
@@ -4676,12 +4677,13 @@ function calculateBadges(email) {
           eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
         }
 
-        // Count attended events for this activity
+        // Count attended events for ANY of the selected activities (combined total)
         let attendedActivityEvents = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) {
             const eventId = verifiedData[j][4];
-            if (eventToActivity[eventId] === activityCode) {
+            const eventActivity = eventToActivity[eventId];
+            if (eventActivity && activityCodes.includes(eventActivity)) {
               attendedActivityEvents++;
             }
           }
@@ -4722,33 +4724,41 @@ function calculateBadges(email) {
         const percentage = totalHomeGames > 0 ? attendedHomeGames / totalHomeGames : 0;
         shouldEarn = percentage >= triggerValue;
       } else if (triggerType === 'Activity_Pct_Season') {
-        // Percentage of a specific activity's games attended WITHIN THE CURRENT SEASON
-        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of basketball games THIS SEASON
+        // Percentage of one or more activities' games attended WITHIN THE CURRENT SEASON
+        // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:PERCENTAGE" e.g., "BB,VB:0.75" for 75% of combined basketball+volleyball games THIS SEASON
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
-        const [activityCode, percentageStr] = triggerValue.split(':');
+        const [activityCodesStr, percentageStr] = triggerValue.split(':');
+        const activityCodes = activityCodesStr.split(','); // Parse multiple activity codes
         const requiredPercentage = parseFloat(percentageStr);
 
-        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
+        if (!activityCodesStr || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
 
-        // Check if this activity belongs to the current season
-        if (activitySeasonMap[activityCode] !== activeSeason) {
-          // Activity not in current season, badge cannot be earned yet
+        // Check if ALL selected activities belong to the current season
+        let allInCurrentSeason = true;
+        for (const code of activityCodes) {
+          if (activitySeasonMap[code] !== activeSeason) {
+            allInCurrentSeason = false;
+            break;
+          }
+        }
+        if (!allInCurrentSeason) {
+          // Not all activities in current season, badge cannot be earned yet
           continue;
         }
 
-        // Count total events for this activity in the current season
+        // Count total events for ALL selected activities in the current season
         let totalActivityEvents = 0;
         const activityEventIds = new Set();
         for (let j = 1; j < eventData.length; j++) {
           const eventActivityCode = eventData[j][1]; // Activity_Code column
-          if (eventActivityCode === activityCode && activitySeasonMap[eventActivityCode] === activeSeason) {
+          if (activityCodes.includes(eventActivityCode) && activitySeasonMap[eventActivityCode] === activeSeason) {
             totalActivityEvents++;
             activityEventIds.add(eventData[j][0]); // Event_ID
           }
         }
 
-        // Count attended events for this activity
+        // Count attended events for ANY of the selected activities (combined total)
         let attendedActivityEvents = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) {
@@ -4762,26 +4772,27 @@ function calculateBadges(email) {
         const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
         shouldEarn = percentage >= requiredPercentage;
       } else if (triggerType === 'Activity_Pct_Lifetime') {
-        // Percentage of a specific activity's games attended ACROSS ALL SEASONS (LIFETIME)
-        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.50" for 50% of ALL basketball games ever
+        // Percentage of one or more activities' games attended ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:PERCENTAGE" e.g., "BB,VB:0.50" for 50% of combined basketball+volleyball games across all time
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
-        const [activityCode, percentageStr] = triggerValue.split(':');
+        const [activityCodesStr, percentageStr] = triggerValue.split(':');
+        const activityCodes = activityCodesStr.split(','); // Parse multiple activity codes
         const requiredPercentage = parseFloat(percentageStr);
 
-        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
+        if (!activityCodesStr || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
 
-        // Count total events for this activity across ALL seasons
+        // Count total events for ALL selected activities across ALL seasons
         let totalActivityEvents = 0;
         const activityEventIds = new Set();
         for (let j = 1; j < eventData.length; j++) {
-          if (eventData[j][1] === activityCode) { // Activity_Code column
+          if (activityCodes.includes(eventData[j][1])) { // Activity_Code column - check if in selected activities
             totalActivityEvents++;
             activityEventIds.add(eventData[j][0]); // Event_ID
           }
         }
 
-        // Count attended events for this activity
+        // Count attended events for ANY of the selected activities (combined total)
         let attendedActivityEvents = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) {
@@ -4795,18 +4806,26 @@ function calculateBadges(email) {
         const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
         shouldEarn = percentage >= requiredPercentage;
       } else if (triggerType === 'Activity_Event_Count_Season') {
-        // Count of events attended for a specific activity WITHIN THE CURRENT SEASON
-        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events THIS SEASON
+        // Count of events attended for one or more activities WITHIN THE CURRENT SEASON
+        // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT" e.g., "VB,BB:5" for 5 combined volleyball+basketball events THIS SEASON
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
-        const [activityCode, countStr] = triggerValue.split(':');
+        const [activityCodesStr, countStr] = triggerValue.split(':');
+        const activityCodes = activityCodesStr.split(','); // Parse multiple activity codes
         const requiredCount = parseInt(countStr);
 
-        if (!activityCode || isNaN(requiredCount) || requiredCount <= 0) continue;
+        if (!activityCodesStr || isNaN(requiredCount) || requiredCount <= 0) continue;
 
-        // Check if this activity belongs to the current season
-        if (activitySeasonMap[activityCode] !== activeSeason) {
-          // Activity not in current season, badge cannot be earned yet
+        // Check if ALL selected activities belong to the current season
+        let allInCurrentSeason = true;
+        for (const code of activityCodes) {
+          if (activitySeasonMap[code] !== activeSeason) {
+            allInCurrentSeason = false;
+            break;
+          }
+        }
+        if (!allInCurrentSeason) {
+          // Not all activities in current season, badge cannot be earned yet
           continue;
         }
 
@@ -4819,12 +4838,13 @@ function calculateBadges(email) {
           }
         }
 
-        // Count attended events for this activity
+        // Count attended events for ANY of the selected activities (combined total)
         let attendedActivityEvents = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) {
             const eventId = verifiedData[j][4];
-            if (eventToActivity[eventId] === activityCode) {
+            const eventActivity = eventToActivity[eventId];
+            if (eventActivity && activityCodes.includes(eventActivity)) {
               attendedActivityEvents++;
             }
           }

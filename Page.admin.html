@@ -336,19 +336,19 @@
         </div>
 
         <!-- Hidden field to store selected template (for compatibility with existing code) -->
-        <select id="badge-template" class="hidden" required>
+        <select id="badge-template" class="hidden">
           <option value="">Select a Badge Template</option>
         </select>
-        <select id="badge-category" class="hidden" required>
+        <select id="badge-category" class="hidden">
           <option value="">Category (auto-filled)</option>
         </select>
 
-        <!-- Activity Selection (for activity-specific badges) -->
+        <!-- Activity Selection (for activity-specific badges) - Toggle Buttons -->
         <div id="activity-field" class="hidden">
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Select Sport/Activity</label>
-          <select id="badge-activity-code" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
-            <option value="">Loading activities...</option>
-          </select>
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Select Sport(s)/Activity(ies)</label>
+          <div id="badge-activity-buttons" class="flex flex-wrap gap-2">
+            <p class="text-xs text-gray-500 dark:text-gray-400 w-full">Loading activities...</p>
+          </div>
         </div>
 
         <!-- Value Input (dynamic based on template) -->
@@ -1697,24 +1697,61 @@
 
     // Load activities when badge tab is opened
     function loadActivitiesForBadges() {
+      console.log('[Badge Debug] loadActivitiesForBadges() called');
       google.script.run.withSuccessHandler((response) => {
+        console.log('[Badge Debug] getActivitiesForSeason response:', response);
         if (response.status === 'success' && response.activities) {
+          console.log(`[Badge Debug] Loaded ${response.activities.length} activities:`, response.activities);
           activitiesData = response.activities;
           populateBadgeActivityDropdown();
+        } else {
+          console.error('[Badge Debug] Failed to load activities:', response.message || 'Unknown error');
         }
+      }).withFailureHandler((error) => {
+        console.error('[Badge Debug] getActivitiesForSeason error:', error);
       }).getActivitiesForSeason();
     }
 
     function populateBadgeActivityDropdown() {
-      const select = document.getElementById('badge-activity-code');
-      select.innerHTML = '<option value="">Select Sport/Activity</option>';
+      console.log('[Badge Debug] populateBadgeActivityDropdown() called with activities:', activitiesData);
+      const buttonsContainer = document.getElementById('badge-activity-buttons');
+      if (!buttonsContainer) {
+        console.error('[Badge Debug] Could not find badge-activity-buttons container!');
+        return;
+      }
 
+      // Clear existing buttons
+      buttonsContainer.innerHTML = '';
+
+      // Create toggle button for each activity
       activitiesData.forEach(activity => {
-        const option = document.createElement('option');
-        option.value = activity.activityCode;
-        option.textContent = `${activity.activityName} (${activity.activityCode})`;
-        select.appendChild(option);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'px-3 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm font-medium hover:border-blue-400 dark:hover:border-blue-400 transition-all';
+        button.textContent = `${activity.activityName}`;
+        button.dataset.activityCode = activity.activityCode;
+        button.dataset.selected = 'false';
+
+        button.addEventListener('click', (e) => {
+          e.preventDefault();
+          // Toggle selection
+          const isSelected = button.dataset.selected === 'true';
+          button.dataset.selected = isSelected ? 'false' : 'true';
+
+          // Update button styling
+          if (button.dataset.selected === 'true') {
+            button.classList.add('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+          } else {
+            button.classList.remove('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+          }
+
+          // Update preview
+          updateBadgePreview();
+        });
+
+        buttonsContainer.appendChild(button);
       });
+      console.log(`[Badge Debug] Activity toggle buttons created for ${activitiesData.length} activities`);
     }
 
     // Scope-based template grouping for UI organization
@@ -1722,8 +1759,7 @@
       'current-season': [
         'season_points',
         'activity_pct_season',
-        'activity_count_season',
-        'home_game_pct'
+        'activity_count_season'
       ],
       'lifetime': [
         'event_count',
@@ -1801,10 +1837,13 @@
         valueHelp: 'How many events of this activity (all-time)?',
         valuePlaceholder: 'e.g., 5',
         help: 'Awarded when student attends X events of a specific sport/activity ACROSS ALL SEASONS (lifetime). For season-specific, use Activity Count (Season).',
-        previewFn: (val, activityCode) => {
-          const activity = activitiesData.find(a => a.activityCode === activityCode);
-          const activityName = activity ? activity.activityName : activityCode;
-          return `Student attends ${val} or more ${activityName} events (lifetime)`;
+        previewFn: (val, activityCodes) => {
+          const codes = activityCodes ? activityCodes.split(',') : [];
+          const names = codes.map(code => {
+            const activity = activitiesData.find(a => a.activityCode === code);
+            return activity ? activity.activityName : code;
+          }).join(', ');
+          return `Student attends ${val} or more events from ${names} (lifetime)`;
         }
       },
       distinct_sports: {
@@ -1847,10 +1886,13 @@
         needsPercentage: true,
         needsActivity: true,
         help: 'Awarded when student attends X% of a specific sport games IN CURRENT SEASON ONLY',
-        previewFn: (pct, activityCode) => {
-          const activity = activitiesData.find(a => a.activityCode === activityCode);
-          const activityName = activity ? activity.activityName : activityCode;
-          return `Student attends ${pct}% or more of ${activityName} games THIS SEASON`;
+        previewFn: (pct, activityCodes) => {
+          const codes = activityCodes ? activityCodes.split(',') : [];
+          const names = codes.map(code => {
+            const activity = activitiesData.find(a => a.activityCode === code);
+            return activity ? activity.activityName : code;
+          }).join(', ');
+          return `Student attends ${pct}% or more of ${names} games THIS SEASON`;
         }
       },
       activity_pct_lifetime: {
@@ -1860,10 +1902,13 @@
         needsPercentage: true,
         needsActivity: true,
         help: 'Awarded when student attends X% of a specific sport games ACROSS ALL SEASONS (LIFETIME)',
-        previewFn: (pct, activityCode) => {
-          const activity = activitiesData.find(a => a.activityCode === activityCode);
-          const activityName = activity ? activity.activityName : activityCode;
-          return `Student attends ${pct}% or more of ${activityName} games (lifetime)`;
+        previewFn: (pct, activityCodes) => {
+          const codes = activityCodes ? activityCodes.split(',') : [];
+          const names = codes.map(code => {
+            const activity = activitiesData.find(a => a.activityCode === code);
+            return activity ? activity.activityName : code;
+          }).join(', ');
+          return `Student attends ${pct}% or more of ${names} games (lifetime)`;
         }
       },
       activity_count_season: {
@@ -1876,10 +1921,13 @@
         valueHelp: 'How many events of this activity in current season?',
         valuePlaceholder: 'e.g., 3',
         help: 'Awarded when student attends X events of a specific sport IN CURRENT SEASON ONLY',
-        previewFn: (val, activityCode) => {
-          const activity = activitiesData.find(a => a.activityCode === activityCode);
-          const activityName = activity ? activity.activityName : activityCode;
-          return `Student attends ${val} or more ${activityName} events THIS SEASON`;
+        previewFn: (val, activityCodes) => {
+          const codes = activityCodes ? activityCodes.split(',') : [];
+          const names = codes.map(code => {
+            const activity = activitiesData.find(a => a.activityCode === code);
+            return activity ? activity.activityName : code;
+          }).join(', ');
+          return `Student attends ${val} or more events from ${names} THIS SEASON`;
         }
       },
       season_placement: {
@@ -1980,6 +2028,25 @@
       }
     };
 
+    // Populate hidden badge-template select with all template options
+    // This is required for the hidden select to accept all template values
+    function populateHiddenTemplateSelect() {
+      const select = document.getElementById('badge-template');
+      console.log('[Badge Debug] Populating hidden badge-template select with all templates');
+
+      Object.keys(badgeTemplates).forEach(templateId => {
+        const option = document.createElement('option');
+        option.value = templateId;
+        option.textContent = templateId;
+        select.appendChild(option);
+      });
+
+      console.log(`[Badge Debug] Hidden badge-template select populated with ${Object.keys(badgeTemplates).length} options`);
+    }
+
+    // Call on initialization
+    populateHiddenTemplateSelect();
+
     // Scope selection handler - populates trigger type buttons
     document.querySelectorAll('.badge-scope-radio').forEach(radio => {
       radio.addEventListener('change', (e) => {
@@ -1995,7 +2062,12 @@
 
         // Create buttons for each template
         templateIds.forEach(templateId => {
+          console.log('[Badge Debug] Creating button for template:', templateId);
           const config = badgeTemplates[templateId];
+          if (!config) {
+            console.warn('[Badge Debug] Config not found for template:', templateId);
+            return;
+          }
           const label = triggerTypeLabels[templateId] || config.help;
           const button = document.createElement('button');
           button.type = 'button';
@@ -2003,9 +2075,11 @@
           button.textContent = label;
           button.title = config.help; // Show full help text on hover
           button.dataset.templateId = templateId;
+          console.log('[Badge Debug] Button dataset.templateId set to:', button.dataset.templateId);
 
           button.addEventListener('click', (evt) => {
             evt.preventDefault();
+            console.log('[Badge Debug] Button clicked, templateId from closure:', templateId);
             selectBadgeTemplate(templateId);
           });
 
@@ -2021,8 +2095,15 @@
 
     // Helper function to select a badge template
     function selectBadgeTemplate(templateId) {
+      console.log('[Badge Debug] selectBadgeTemplate() called with templateId:', templateId, 'type:', typeof templateId);
       const hidden_select = document.getElementById('badge-template');
+      if (!hidden_select) {
+        console.error('[Badge Debug] Could not find badge-template select element!');
+        return;
+      }
+      console.log('[Badge Debug] Setting badge-template value to:', templateId);
       hidden_select.value = templateId;
+      console.log('[Badge Debug] badge-template.value is now:', hidden_select.value);
       hidden_select.dispatchEvent(new Event('change'));
 
       // Highlight selected button
@@ -2038,8 +2119,10 @@
     // Template change handler
     document.getElementById('badge-template').addEventListener('change', (e) => {
       const template = e.target.value;
+      console.log('[Badge Debug] Template changed to:', template);
 
       if (!template) {
+        console.log('[Badge Debug] Template cleared, hiding all fields');
         // Hide all dynamic fields
         document.getElementById('activity-field').classList.add('hidden');
         document.getElementById('value-field').classList.add('hidden');
@@ -2050,6 +2133,11 @@
       }
 
       const config = badgeTemplates[template];
+      if (!config) {
+        console.error('[Badge Debug] Template config not found for:', template);
+        return;
+      }
+      console.log('[Badge Debug] Template config:', config);
 
       // Show help text
       document.getElementById('template-help').textContent = config.help;
@@ -2060,9 +2148,11 @@
 
       // Show/hide fields based on template
       if (config.needsActivity) {
+        console.log('[Badge Debug] Showing activity field for template:', template);
         document.getElementById('activity-field').classList.remove('hidden');
         document.getElementById('badge-activity-code').required = true;
       } else {
+        console.log('[Badge Debug] Hiding activity field for template:', template);
         document.getElementById('activity-field').classList.add('hidden');
         document.getElementById('badge-activity-code').required = false;
       }
@@ -2090,9 +2180,9 @@
     });
 
     // Update preview when inputs change
+    // (Note: toggle button clicks already call updateBadgePreview)
     document.getElementById('badge-value-input').addEventListener('input', updateBadgePreview);
     document.getElementById('badge-percentage-input').addEventListener('input', updateBadgePreview);
-    document.getElementById('badge-activity-code').addEventListener('change', updateBadgePreview);
 
     function updateBadgePreview() {
       const template = document.getElementById('badge-template').value;
@@ -2101,14 +2191,16 @@
       const config = badgeTemplates[template];
       const value = parseInt(document.getElementById('badge-value-input').value);
       const percentage = parseInt(document.getElementById('badge-percentage-input').value);
-      const activityCode = document.getElementById('badge-activity-code').value;
+
+      // Get all selected activity codes from toggle buttons
+      const activityCodes = getSelectedActivityCodes();
 
       let previewText = '';
 
       if (config.needsPercentage && !isNaN(percentage)) {
-        previewText = config.previewFn(percentage, activityCode);
+        previewText = config.previewFn(percentage, activityCodes);
       } else if (config.needsValue && !isNaN(value)) {
-        previewText = config.previewFn(value, activityCode);
+        previewText = config.previewFn(value, activityCodes);
       } else if (!config.needsValue && !config.needsPercentage) {
         previewText = config.previewFn();
       }
@@ -2227,11 +2319,17 @@
         // Format trigger display
         let triggerDisplay = '';
         if (badge.triggerType === 'Activity_Pct_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, pct] = badge.triggerValue.split(':');
-          triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCode} games (lifetime)`;
+          const [activityCodeStr, pct] = badge.triggerValue.split(':');
+          triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCodeStr} games (lifetime)`;
+        } else if (badge.triggerType === 'Activity_Pct_Season' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCodeStr, pct] = badge.triggerValue.split(':');
+          triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCodeStr} games (this season)`;
         } else if (badge.triggerType === 'Activity_Event_Count_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, count] = badge.triggerValue.split(':');
-          triggerDisplay = `${count} ${activityCode} events (lifetime)`;
+          const [activityCodeStr, count] = badge.triggerValue.split(':');
+          triggerDisplay = `${count} events from ${activityCodeStr} (lifetime)`;
+        } else if (badge.triggerType === 'Activity_Event_Count_Season' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCodeStr, count] = badge.triggerValue.split(':');
+          triggerDisplay = `${count} events from ${activityCodeStr} (this season)`;
         } else if (badge.triggerType === 'Home_Game_Pct') {
           triggerDisplay = `${Math.round(badge.triggerValue * 100)}% of home games`;
         } else if (badge.triggerType === 'Weekday_Coverage') {
@@ -2274,6 +2372,35 @@
       });
     }
 
+    // Helper function to get selected activity codes from toggle buttons
+    function getSelectedActivityCodes() {
+      const buttonsContainer = document.getElementById('badge-activity-buttons');
+      const buttons = Array.from(buttonsContainer.querySelectorAll('button[data-activity-code]'));
+      return buttons
+        .filter(btn => btn.dataset.selected === 'true')
+        .map(btn => btn.dataset.activityCode)
+        .join(',');
+    }
+
+    // Helper function to set selected activity codes on toggle buttons
+    function setSelectedActivityCodes(activityCodesStr) {
+      const activityCodes = activityCodesStr ? activityCodesStr.split(',') : [];
+      const buttonsContainer = document.getElementById('badge-activity-buttons');
+      const buttons = Array.from(buttonsContainer.querySelectorAll('button[data-activity-code]'));
+
+      buttons.forEach(btn => {
+        const isSelected = activityCodes.includes(btn.dataset.activityCode);
+        btn.dataset.selected = isSelected ? 'true' : 'false';
+
+        // Update button styling
+        if (isSelected) {
+          btn.classList.add('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+        } else {
+          btn.classList.remove('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+        }
+      });
+    }
+
     // Helper function to show error and hide loading modal
     function showBadgeError(message) {
       document.getElementById('loading-modal').classList.add('hidden');
@@ -2312,13 +2439,13 @@
         }
 
         if (config.needsActivity) {
-          // Activity percentage badge - format: "ACTIVITY_CODE:0.XX"
-          const activityCode = document.getElementById('badge-activity-code').value;
-          if (!activityCode) {
-            showBadgeError('Please select a sport/activity');
+          // Activity percentage badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:0.XX"
+          const activityCodes = getSelectedActivityCodes();
+          if (!activityCodes) {
+            showBadgeError('Please select at least one sport/activity');
             return;
           }
-          triggerValue = `${activityCode}:${(percentage / 100).toFixed(2)}`;
+          triggerValue = `${activityCodes}:${(percentage / 100).toFixed(2)}`;
         } else {
           // Home game percentage - store as decimal (0-1)
           triggerValue = percentage / 100;
@@ -2348,13 +2475,13 @@
           }
 
           if (config.needsActivity) {
-            // Activity count badge - format: "ACTIVITY_CODE:COUNT"
-            const activityCode = document.getElementById('badge-activity-code').value;
-            if (!activityCode) {
-              showBadgeError('Please select a sport/activity');
+            // Activity count badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT"
+            const activityCodes = getSelectedActivityCodes();
+            if (!activityCodes) {
+              showBadgeError('Please select at least one sport/activity');
               return;
             }
-            triggerValue = `${activityCode}:${value}`;
+            triggerValue = `${activityCodes}:${value}`;
           } else {
             // Regular numeric value
             triggerValue = value;
@@ -2541,13 +2668,13 @@
         selectBadgeTemplate(template);
 
         // Populate form fields based on trigger type
-        if (badge.triggerType === 'Activity_Pct_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, pct] = badge.triggerValue.split(':');
-          document.getElementById('badge-activity-code').value = activityCode;
+        if ((badge.triggerType === 'Activity_Pct_Lifetime' || badge.triggerType === 'Activity_Pct_Season') && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCodeStr, pct] = badge.triggerValue.split(':');
+          setSelectedActivityCodes(activityCodeStr);
           document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
-        } else if (badge.triggerType === 'Activity_Event_Count_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-          const [activityCode, count] = badge.triggerValue.split(':');
-          document.getElementById('badge-activity-code').value = activityCode;
+        } else if ((badge.triggerType === 'Activity_Event_Count_Lifetime' || badge.triggerType === 'Activity_Event_Count_Season') && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCodeStr, count] = badge.triggerValue.split(':');
+          setSelectedActivityCodes(activityCodeStr);
           document.getElementById('badge-value-input').value = count;
         } else if (badge.triggerType === 'Specific_Activities' && typeof badge.triggerValue === 'string') {
           // Comma-separated activity codes
