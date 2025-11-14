@@ -10,7 +10,7 @@ A gamified attendance and participation system for student events at Orono High 
 
 ## Features
 
-✅ QR code scanning at events
+✅ Location-based event check-in
 ✅ Photo submission for points
 ✅ Real-time leaderboards
 ✅ Admin dashboard for submission review
@@ -67,7 +67,7 @@ A gamified attendance and participation system for student events at Orono High 
 
 ### Client-Side (JavaScript.html)
 - Single-page app router for navigation
-- QR code scanning with html5-qrcode
+- Location-based event detection
 - Location management with fallback strategy:
   1. Firebase wrapper location (iOS Safari support)
   2. Browser cache
@@ -82,7 +82,7 @@ A gamified attendance and participation system for student events at Orono High 
 
 ### iOS Safari Geolocation
 The app uses a Firebase Hosting wrapper to solve iOS Safari's geolocation blocking in iframes:
-1. User scans QR code → Firebase wrapper loads
+1. User accesses the app via Firebase wrapper URL
 2. Wrapper requests location permission (works on iOS!)
 3. Wrapper redirects to GAS with location params
 4. GAS app displays location-verified interface
@@ -125,12 +125,6 @@ For complete spreadsheet schema documentation, see [SPREADSHEET_SCHEMA.md](SPREA
 5. Verify submission appears in Sheets
 ```
 
-### QR Code Testing
-1. Navigate to QR Code page (admin only)
-2. Verify QR code displays correctly
-3. Click "Test QR Code" to verify wrapper loads
-4. Scan with phone to test full flow
-
 ## Development
 
 - **No linting configured** - Use Google Apps Script Editor's built-in syntax checking
@@ -146,7 +140,6 @@ For complete spreadsheet schema documentation, see [SPREADSHEET_SCHEMA.md](SPREA
 | **Google Apps Script** | ✅ Active | Google Drive (bound to Sheets) |
 | **Firebase Hosting** | ✅ Active | `the-spartan-cup.web.app` |
 | **Geolocation Wrapper** | ✅ Working | Firebase public/index.html |
-| **QR Codes** | ✅ Updated | Point to `the-spartan-cup.web.app` |
 
 ## Troubleshooting
 
@@ -154,11 +147,6 @@ For complete spreadsheet schema documentation, see [SPREADSHEET_SCHEMA.md](SPREA
 - Verify Firebase wrapper URL is correct: `https://the-spartan-cup.web.app`
 - Check Settings → Safari → Location Services is enabled
 - Clear Safari cache and try again
-
-### QR code not redirecting
-- Verify QR code was generated after deploying updated wrapper URL
-- Test directly: open `https://the-spartan-cup.web.app` in browser
-- Check browser console for errors
 
 ### Submission not saving
 - Verify user is within geofence coordinates
