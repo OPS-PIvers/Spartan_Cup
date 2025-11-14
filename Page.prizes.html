@@ -25,9 +25,51 @@
   </div>
 
   <script>
+    /**
+     * Escapes HTML to prevent XSS attacks
+     * @param {string} str - String to escape
+     * @return {string} Escaped string safe for innerHTML
+     */
+    function escapeHTML(str) {
+      if (!str) return '';
+      const p = document.createElement('p');
+      p.textContent = str;
+      return p.innerHTML;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      google.script.run.withSuccessHandler(populateEvents).getEventList();
+      loadPrizes();
+      google.script.run.withSuccessHandler(populateEvents).getEventsList();
     });
+
+    function loadPrizes() {
+      const prizesList = document.querySelector('ul.list-disc');
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'error') {
+          prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error loading prizes</li>';
+          return;
+        }
+
+        if (response.prizes && response.prizes.length > 0) {
+          prizesList.innerHTML = '';
+          response.prizes.forEach(prize => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
+            prizesList.appendChild(li);
+          });
+        } else {
+          // Keep the default [TBD Prize] text if no prizes are configured
+          prizesList.innerHTML = `
+            <li><span class="font-bold">1st Place:</span> [TBD Prize]</li>
+            <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
+            <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
+          `;
+        }
+      }).withFailureHandler((error) => {
+        prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + (error.message || error.toString() || 'Unknown error') + '</li>';
+      }).getAllSeasonPrizes();
+    }
 
     function populateEvents(response) {
       if (response.status === 'error') {

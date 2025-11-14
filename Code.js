@@ -3555,6 +3555,23 @@ function getEventsList() {
       return { status: 'error', message: 'Events sheet not found' };
     }
 
+    // Load Activities_Data to get activity names
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+    const activityMap = {};
+    if (!activitiesSheet) {
+    if (!activitiesSheet) {
+      Logger.log('Warning: Activities_Data sheet not found. Events will not have user-friendly activity names.');
+      return { status: 'error', message: 'Activities_Data sheet not found' };
+    }
+    const activityMap = {};
+    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Columns: Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
+    for (let i = 1; i < activitiesData.length; i++) {
+      if (activitiesData[i][0]) {
+        activityMap[String(activitiesData[i][0]).trim()] = String(activitiesData[i][1] || '').trim();
+      }
+    }
+
     const data = sheet.getDataRange().getValues();
     const events = [];
 
@@ -3588,12 +3605,14 @@ function getEventsList() {
           eventStartTime = String(eventStartTime).trim();
         }
 
+        const activityCode = String(data[i][1] || '').trim();
         events.push({
           eventId: String(data[i][0]).trim(),
-          activityCode: String(data[i][1] || '').trim(), // Use activityCode for consistency
+          activityCode: activityCode, // Use activityCode for consistency
+          sportArt: activityMap[activityCode] || activityCode, // Add sportArt field (activity name)
           eventName: String(data[i][2] || '').trim(),
           date: eventDate,
-          location: String(data[i][4] || '').trim(),
+          locationName: String(data[i][4] || '').trim(),
           lat: parseFloat(data[i][5]) || 0,
           lon: parseFloat(data[i][6]) || 0,
           startTime: eventStartTime,
