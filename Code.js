@@ -446,6 +446,17 @@ function getUserProfilePhoto(email, displayName) {
  * @param {string} fileId - The Google Drive file ID
  * @return {object} Object with data URL or error message
  */
+/**
+ * Generates a Drive export URL for an image file.
+ * Uses Google Drive's direct view URL with browser caching.
+ * @param {string} fileId - Google Drive file ID
+ * @return {string} Direct export URL
+ */
+function getDriveImageUrl(fileId) {
+  if (!fileId) return '';
+  return 'https://drive.google.com/uc?id=' + fileId + '&export=view';
+}
+
 function serveImage(fileId) {
   try {
     if (!fileId) {
@@ -4296,7 +4307,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     const pointsMultiplier = spotlightMultiplier || 1;
     const pointsTotal = Math.round((basePoints + pointsTheme) * pointsMultiplier);
 
-    // Move to Submissions_Verified (including photo URL for fan feed)
+    // Move to Submissions_Verified (including photo URL and ID for fan feed)
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     verifiedSheet.appendRow([
       submissionInfo[0], // Submission_ID
@@ -4309,7 +4320,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       pointsTheme, // Points_Theme
       pointsMultiplier, // Points_Spotlight_Multiplier
       pointsTotal, // Points_Total
-      submissionInfo[4] // Photo_URL (added for fan feed)
+      submissionInfo[4], // Photo_URL (expired URLs)
+      submissionInfo[5] // Photo_ID (permanent - used to regenerate images)
     ]);
 
     // Delete from Submissions_Pending
@@ -5275,10 +5287,19 @@ function getFanFeed() {
       if (timestamp < cutoffDate) continue;
 
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      const photoUrl = verifiedData[i][10];
+      const photoId = verifiedData[i][11]; // Photo_ID (column L, index 11)
+      const photoUrl = verifiedData[i][10]; // Photo_URL (fallback for older submissions, column K)
 
-      // Skip if no photo URL
-      if (!photoUrl) continue;
+      // Skip if no photo ID and no photo URL (very old submissions)
+      if (!photoId && !photoUrl) continue;
+
+      // Generate image URL: prefer Drive direct link for photoId, fallback to photoUrl
+      let imageUrl = '';
+      if (photoId) {
+        imageUrl = getDriveImageUrl(photoId);
+      } else if (photoUrl) {
+        imageUrl = photoUrl;
+      }
 
       feedItems.push({
         type: 'photo',
@@ -5289,7 +5310,7 @@ function getFanFeed() {
         studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
-        photoUrl: photoUrl,
+        imageUrl: imageUrl, // Direct Drive URL, cached by browser
         likes: 0
       });
     }
@@ -5326,7 +5347,8 @@ function getFanFeed() {
     return {
       status: "success",
       items: recentItems,
-      daysShown: daysBack
+      daysShown: daysBack,
+      timestamp: new Date().getTime() // Add update timestamp for client
     };
 
   } catch (e) {
@@ -5334,6 +5356,54 @@ function getFanFeed() {
       status: "error",
       message: "Error fetching fan feed: " + e.message
     };
+  }
+}
+
+/**
+ * Cached wrapper for getFanFeed().
+ * Caches results for 5 minutes to reduce Sheet reads and improve performance.
+ * @return {object} Cached fan feed data with timestamp
+ */
+function getFanFeedCached() {
+  const cache = CacheService.getUserCache();
+  const cacheKey = 'fanfeed_cache';
+  const cacheTTL = 300; // 5 minutes in seconds
+
+  try {
+    // Try to get cached data
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      const data = JSON.parse(cached);
+      data.fromCache = true; // Indicate this came from cache
+      return data;
+    }
+
+    // Cache miss - fetch fresh data
+    const freshData = getFanFeed();
+    if (freshData.status === 'success') {
+      // Cache the successful result
+      cache.put(cacheKey, JSON.stringify(freshData), cacheTTL);
+      freshData.fromCache = false;
+    }
+    return freshData;
+
+  } catch (e) {
+    // On cache error, fall back to fresh fetch
+    return getFanFeed();
+  }
+}
+
+/**
+ * Clears the fan feed cache (useful for manual refresh or admin actions).
+ * @return {object} Status object
+ */
+function clearFanFeedCache() {
+  try {
+    const cache = CacheService.getUserCache();
+    cache.remove('fanfeed_cache');
+    return { status: "success", message: "Cache cleared" };
+  } catch (e) {
+    return { status: "error", message: "Error clearing cache: " + e.message };
   }
 }
 

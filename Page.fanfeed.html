@@ -1,19 +1,43 @@
 <!--
   This file holds the content for the 'fanfeed' page.
   It is dynamically injected into Index.html by Code.gs
+
+  Features:
+  - Pull-to-refresh UI for manual refresh
+  - Cached data (5 minutes) to reduce API calls
+  - Browser image caching via Drive URLs
+  - "Last updated" timestamp display
 -->
 <div class="page p-4 pb-20">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 mb-2">Fan Feed</h2>
-    <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
+  <!-- Pull-to-Refresh Area -->
+  <div id="pull-refresh-container" class="relative mb-4 transition-transform duration-300" style="touch-action: none;">
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h2 class="text-2xl font-bold text-primary dark:text-blue-300">Fan Feed</h2>
+          <p id="last-updated" class="text-xs text-gray-500 dark:text-gray-400 mt-1">Loading...</p>
+        </div>
+        <button id="refresh-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Refresh feed" onclick="manualRefresh()">
+          <span class="material-symbols-outlined" id="refresh-icon">refresh</span>
+        </button>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Check out the latest approved event photos and badge awards from your classmates!</p>
+    </div>
   </div>
 
+  <!-- Feed Container -->
   <div id="fanfeed-container" class="space-y-4">
     <p class="text-center text-gray-500 py-8">Loading feed...</p>
   </div>
 </div>
 
 <script>
+  let lastUpdateTime = null;
+  let isRefreshing = false;
+  let touchStartY = 0;
+  let touchCurrentY = 0;
+  let pullDistance = 0;
+
   /**
    * Escapes HTML to prevent XSS attacks
    * @param {string} str - String to escape
@@ -26,96 +50,244 @@
     return p.innerHTML;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    loadFanFeed();
-    // Refresh every 30 seconds
-    setInterval(loadFanFeed, 30000);
-  });
+  /**
+   * Formats a timestamp into a readable "last updated" string
+   * @param {number} timestamp - Milliseconds since epoch
+   * @return {string} Formatted time string
+   */
+  function formatLastUpdated(timestamp) {
+    const now = new Date();
+    const updated = new Date(timestamp);
+    const diffMs = now - updated;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
+    if (diffMins < 1) return 'Updated just now';
+    if (diffMins < 60) return `Updated ${diffMins}m ago`;
+    if (diffHours < 24) return `Updated ${diffHours}h ago`;
+    return `Updated ${diffDays}d ago`;
+  }
+
+  /**
+   * Updates the "last updated" text
+   */
+  function updateLastUpdatedText() {
+    const el = document.getElementById('last-updated');
+    if (!el) return;
+    if (lastUpdateTime) {
+      el.textContent = formatLastUpdated(lastUpdateTime);
+    } else {
+      el.textContent = 'Never updated';
+    }
+  }
+
+  /**
+   * Loads the fan feed (cached version)
+   */
   function loadFanFeed() {
     const container = document.getElementById('fanfeed-container');
+    const refreshBtn = document.getElementById('refresh-btn');
 
-    google.script.run.withSuccessHandler((response) => {
-      if (response.status === 'error') {
-        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
-        return;
-      }
+    // Show loading state
+    refreshBtn.classList.add('animate-spin');
+    isRefreshing = true;
 
-      const items = response.items || [];
-      if (items.length === 0) {
-        container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No activity in the last ' + (response.daysShown || 7) + ' days. Check in at events to see them here!</p>';
-        return;
-      }
-
-      container.innerHTML = '';
-      items.forEach(item => {
-        if (item.type === 'photo') {
-          // Photo card
-          const card = document.createElement('div');
-          card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
-          card.innerHTML = `
-            <img src="${item.photoUrl}" alt="Event photo" class="w-full h-64 object-cover" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E'">
-
-            <div class="p-4">
-              <div class="flex items-center justify-between mb-2">
-                <div>
-                  <p class="font-bold text-[#111318] dark:text-white">${escapeHTML(item.eventName)}</p>
-                  <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHTML(item.studentName)}</p>
-                </div>
-              </div>
-
-              <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
-                <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
-                ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-              </p>
-            </div>
-          `;
-          container.appendChild(card);
-        } else if (item.type === 'badge') {
-          // Badge award card
-          const card = document.createElement('div');
-          card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
-
-          // Create badge image with safe fallback handling
-          const badgeImg = document.createElement('img');
-          badgeImg.src = item.badgeImageUrl;
-          badgeImg.alt = escapeHTML(item.badgeName);
-          badgeImg.className = 'w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600';
-          badgeImg.onerror = function() {
-            this.src = APP_DATA.badgeBaseUrl + 'default-badge.svg';
-            this.onerror = null;
-          };
-
-          card.innerHTML = `
-            <div class="p-4">
-              <div class="flex items-center gap-4">
-                <div class="flex-shrink-0 badge-img-container">
-                </div>
-                <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" aria-hidden="true">emoji_events</span>
-                    <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
-                  </div>
-                  <p class="text-lg font-bold text-[#111318] dark:text-white">${escapeHTML(item.badgeName)}</p>
-                  <p class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(item.studentName)}</p>
-                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
-                    ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-                  </p>
-                </div>
-              </div>
-            </div>
-          `;
-
-          // Append badge image to its container
-          const imgContainer = card.querySelector('.badge-img-container');
-          imgContainer.appendChild(badgeImg);
-
-          container.appendChild(card);
-        }
-      });
-    }).withFailureHandler((error) => {
-      container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
-    }).getFanFeed();
+    google.script.run
+      .withSuccessHandler((response) => {
+        handleFanFeedResponse(response, container);
+      })
+      .withFailureHandler((error) => {
+        container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(error.message) + '</p>';
+      })
+      .withFinally(() => {
+        // Remove loading state
+        refreshBtn.classList.remove('animate-spin');
+        isRefreshing = false;
+        // Reset pull distance
+        pullDistance = 0;
+        updatePullRefreshUI();
+      })
+      .getFanFeedCached();
   }
+
+  /**
+   * Handles the fan feed response and renders it
+   * @param {object} response - Response from backend
+   * @param {HTMLElement} container - Container to render into
+   */
+  function handleFanFeedResponse(response, container) {
+    if (response.status === 'error') {
+      container.innerHTML = '<p class="text-center text-red-600 dark:text-red-400">Error loading feed: ' + escapeHTML(response.message) + '</p>';
+      return;
+    }
+
+    // Store the update time
+    lastUpdateTime = response.timestamp;
+    updateLastUpdatedText();
+
+    const items = response.items || [];
+    if (items.length === 0) {
+      container.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">No activity in the last ' + (response.daysShown || 7) + ' days. Check in at events to see them here!</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    items.forEach(item => {
+      if (item.type === 'photo') {
+        renderPhotoCard(item, container);
+      } else if (item.type === 'badge') {
+        renderBadgeCard(item, container);
+      }
+    });
+  }
+
+  /**
+   * Renders a photo card to the container
+   * @param {object} item - Photo item data
+   * @param {HTMLElement} container - Container to append to
+   */
+  function renderPhotoCard(item, container) {
+    const card = document.createElement('div');
+    card.className = 'bg-white dark:bg-gray-800/50 rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700';
+
+    const imgElement = document.createElement('img');
+    imgElement.alt = 'Event photo';
+    imgElement.className = 'w-full h-64 object-cover';
+    imgElement.onerror = function() {
+      this.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+    };
+
+    // Use the Drive URL directly (browser will cache it)
+    if (item.imageUrl) {
+      imgElement.src = item.imageUrl;
+    }
+
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'p-4';
+    contentDiv.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <p class="font-bold text-[#111318] dark:text-white">${escapeHTML(item.eventName)}</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHTML(item.studentName)}</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-gray-500 dark:text-gray-500 mb-2">
+        <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+        ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+      </p>
+    `;
+
+    card.appendChild(imgElement);
+    card.appendChild(contentDiv);
+    container.appendChild(card);
+  }
+
+  /**
+   * Renders a badge card to the container
+   * @param {object} item - Badge item data
+   * @param {HTMLElement} container - Container to append to
+   */
+  function renderBadgeCard(item, container) {
+    const card = document.createElement('div');
+    card.className = 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 rounded-xl overflow-hidden shadow-sm border-2 border-amber-200 dark:border-amber-700';
+
+    // Create badge image with safe fallback handling
+    const badgeImg = document.createElement('img');
+    badgeImg.src = item.badgeImageUrl;
+    badgeImg.alt = escapeHTML(item.badgeName);
+    badgeImg.className = 'w-20 h-20 rounded-full shadow-lg border-2 border-amber-300 dark:border-amber-600';
+    badgeImg.onerror = function() {
+      this.src = APP_DATA.badgeBaseUrl + 'default-badge.svg';
+      this.onerror = null;
+    };
+
+    card.innerHTML = `
+      <div class="p-4">
+        <div class="flex items-center gap-4">
+          <div class="flex-shrink-0 badge-img-container">
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="material-symbols-outlined text-amber-600 dark:text-amber-400" aria-hidden="true">emoji_events</span>
+              <p class="font-bold text-amber-900 dark:text-amber-100">Badge Earned!</p>
+            </div>
+            <p class="text-lg font-bold text-[#111318] dark:text-white">${escapeHTML(item.badgeName)}</p>
+            <p class="text-sm text-gray-700 dark:text-gray-300">${escapeHTML(item.studentName)}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <span class="material-symbols-outlined text-xs align-middle" aria-hidden="true">schedule</span>
+              ${new Date(item.timestamp).toLocaleDateString()} ${new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Append badge image to its container
+    const imgContainer = card.querySelector('.badge-img-container');
+    imgContainer.appendChild(badgeImg);
+
+    container.appendChild(card);
+  }
+
+  /**
+   * Updates the visual pull-to-refresh indicator
+   */
+  function updatePullRefreshUI() {
+    const container = document.getElementById('pull-refresh-container');
+    if (!container) return;
+
+    if (pullDistance > 0) {
+      const scale = Math.min(pullDistance / 80, 1);
+      container.style.transform = `translateY(${pullDistance}px)`;
+      container.style.opacity = 0.7 + (scale * 0.3);
+    } else {
+      container.style.transform = 'translateY(0)';
+      container.style.opacity = '1';
+    }
+  }
+
+  /**
+   * Manual refresh button click handler
+   */
+  function manualRefresh() {
+    if (!isRefreshing) {
+      loadFanFeed();
+    }
+  }
+
+  // Touch handlers for pull-to-refresh
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0) {
+      touchStartY = e.touches[0].clientY;
+      pullDistance = 0;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (window.scrollY === 0 && touchStartY > 0) {
+      touchCurrentY = e.touches[0].clientY;
+      pullDistance = Math.max(0, touchCurrentY - touchStartY);
+      updatePullRefreshUI();
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (pullDistance > 80 && !isRefreshing) {
+      loadFanFeed();
+    } else {
+      pullDistance = 0;
+      updatePullRefreshUI();
+    }
+    touchStartY = 0;
+    touchCurrentY = 0;
+  }, { passive: true });
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    loadFanFeed();
+    // Update the "last updated" text every minute
+    setInterval(updateLastUpdatedText, 60000);
+  });
 </script>
