@@ -1,341 +1,77 @@
 <!--
   This file holds the content for the 'rulebook' page.
-  It is dynamically injected into Index.html by Code.gs
+  Content is now dynamically loaded from Config_Rulebook sheet.
 -->
 <div class="page p-4 pb-24">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm space-y-6">
-    <!-- Header -->
-    <div class="border-b-2 border-primary dark:border-blue-400 pb-3">
-      <h2 class="text-2xl font-bold text-primary dark:text-blue-300 flex items-center gap-2">
-        <span class="material-symbols-outlined text-3xl">gavel</span>
-        Official Rulebook
-      </h2>
-      <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Everything you need to know about The Spartan Cup competition</p>
+  <div class="bg-white dark:bg-gray-800/50 rounded-xl shadow-sm">
+
+    <!-- Header Section -->
+    <div class="sticky top-0 bg-white dark:bg-gray-800/95 backdrop-blur-sm z-10 p-6 border-b-2 border-primary dark:border-blue-400 rounded-t-xl">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-2xl font-bold text-primary dark:text-blue-300 flex items-center gap-2">
+            <span class="material-symbols-outlined text-3xl">gavel</span>
+            Official Rulebook
+          </h2>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">Everything you need to know about The Spartan Cup competition</p>
+        </div>
+
+        <!-- Admin Edit Button (visible only to admins) -->
+        <button
+          id="adminEditButton"
+          onclick="openRulebookEditorFromWebApp()"
+          class="hidden px-4 py-2 bg-primary dark:bg-blue-600 text-white rounded-lg hover:bg-primary/80 dark:hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium shadow-md"
+        >
+          <span class="material-symbols-outlined text-lg">edit</span>
+          Edit Rulebook
+        </button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="mt-4 relative">
+        <input
+          type="text"
+          id="rulebookSearch"
+          placeholder="Search rulebook..."
+          class="w-full px-4 py-2 pl-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent"
+          onkeyup="filterRulebookSections()"
+        />
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+      </div>
+
+      <!-- Quick Navigation -->
+      <div id="quickNav" class="mt-4 flex flex-wrap gap-2"></div>
     </div>
 
-    <!-- Photo Submission Section -->
-    <div class="space-y-3">
-      <h3 class="text-xl font-bold text-secondary dark:text-red-400 flex items-center gap-2">
-        <span class="material-symbols-outlined">photo_camera</span>
-        Photo Submission
-      </h3>
-      <div class="bg-gray-50 dark:bg-gray-900/30 p-4 rounded-lg border-l-4 border-primary space-y-2">
-        <p class="text-[#111318] dark:text-white"><span class="font-semibold">Photo Requirements:</span></p>
-        <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white ml-2">
-          <li>Photos must be taken <span class="font-bold text-primary dark:text-blue-300">during the game</span> (not before or after)</li>
-          <li>Must include <span class="font-bold text-primary dark:text-blue-300">your face</span></li>
-          <li>If dressing for a theme, show <span class="font-bold text-primary dark:text-blue-300">your outfit</span></li>
-        </ul>
-
-        <p class="text-[#111318] dark:text-white mt-3"><span class="font-semibold">How to Submit:</span></p>
-        <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white ml-2">
-          <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" rel="noopener noreferrer" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
-          <li>Indicate which game you are attending</li>
-          <li>List who you are attending with</li>
-          <li>If necessary, explain how your outfit fits the theme (skip if obvious, e.g., wearing black for "blackout")</li>
-        </ul>
-      </div>
+    <!-- Loading State -->
+    <div id="rulebookLoading" class="p-6 text-center">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-blue-400"></div>
+      <p class="mt-3 text-gray-600 dark:text-gray-400">Loading rulebook...</p>
     </div>
 
-    <!-- Points Section -->
-    <div class="space-y-3">
-      <h3 class="text-xl font-bold text-secondary dark:text-red-400 flex items-center gap-2">
-        <span class="material-symbols-outlined">star</span>
-        Points System
-      </h3>
+    <!-- Dynamic Content Container -->
+    <div id="rulebookContent" class="p-6 space-y-6 hidden"></div>
 
-      <!-- Base Points -->
-      <div class="bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 p-4 rounded-lg border border-primary/30">
-        <h4 class="font-bold text-lg text-[#111318] dark:text-white mb-2">Base Points</h4>
-        <p class="text-[#111318] dark:text-white">Each game/event starts with a base value of <span class="font-bold text-2xl text-primary dark:text-blue-300">10 points</span></p>
-      </div>
+    <!-- Badge System Section (Dynamic from Config_Badges) -->
+    <div id="badgeSystemSection" class="p-6 pt-0 space-y-6">
+      <div class="border-t-2 border-gray-200 dark:border-gray-700 pt-6">
+        <h3 class="text-xl font-bold text-secondary dark:text-red-400 flex items-center gap-2 mb-3">
+          <span class="material-symbols-outlined">star</span>
+          Badge System
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
+          Earn badges by reaching milestones and achievements! Each badge grants bonus points with multipliers for higher tiers.
+        </p>
 
-      <!-- Badge System -->
-      <div class="space-y-3">
-        <h4 class="font-bold text-lg text-[#111318] dark:text-white">Badge System</h4>
-        <p class="text-sm text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">Earn badges by reaching milestones and achievements! Each badge grants bonus points with multipliers for higher tiers.</p>
-
-        <!-- Participation Badges -->
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">directions_run</span>
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">Participation Badges</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Earn badges by attending events rapidly</p>
-              <div class="mt-2 space-y-2 text-sm">
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">First Timer — 1st submission</span>
-                  <span class="font-bold text-primary dark:text-blue-300">10 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Hat Trick — 3 events in 7 days</span>
-                  <span class="font-bold text-primary dark:text-blue-300">10 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Fully Charged — 5 events in 7 days</span>
-                  <span class="font-bold text-primary dark:text-blue-300">10 pts (1.5x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white font-semibold">Unstoppable — 7 events in 7 days</span>
-                  <span class="font-bold text-green-600 dark:text-green-400">10 pts (2.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Weekday Warrior — Event M-F all week</span>
-                  <span class="font-bold text-primary dark:text-blue-300">10 pts (1.5x)</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- Badge categories will be populated here -->
+        <div id="badgeCategories" class="space-y-3">
+          <p class="text-center text-gray-500 dark:text-gray-400">Loading badge information...</p>
         </div>
-
-        <!-- Variety Badges -->
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">diversity_3</span>
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">Variety Badges</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Attend events across different sports and arts</p>
-              <div class="mt-2 space-y-2 text-sm">
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Explorer — 3 different sports/arts</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Super Supporter — 5 different sports/arts</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts (1.5x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Renaissance Fan — 7 different sports/arts</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts (1.75x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Arts Patron — Theater, Band, Choir</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts (1.5x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white font-semibold">Spartan Legend — All sports/arts</span>
-                  <span class="font-bold text-green-600 dark:text-green-400">20 pts (2.0x)</span>
-                </div>
-              </div>
-              <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-900/30 rounded">
-                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold" id="variety-season-label">Loading season...</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400" id="variety-sports-list">Loading sports/arts...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Loyalty Badges -->
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">favorite</span>
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">Loyalty Badges</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Show dedication to your favorite teams and activities</p>
-              <div class="mt-2 space-y-2 text-sm">
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Team Loyalist — 3 games for one team</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Team Superfan — 5 games for one team</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.33x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white font-semibold">Team Icon — 10 games for one team</span>
-                  <span class="font-bold text-green-600 dark:text-green-400">15 pts (2.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Rink Rat — 5 hockey games</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Court Conqueror — 50% of girls basketball games</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.33x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Thespian — All theatre productions</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.5x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">First Chair — 3 band concerts</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts (1.0x)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Points & Achievement Badges -->
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">emoji_events</span>
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">Points & Achievement Badges</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Milestone badges earned through points and special accomplishments</p>
-              <div class="mt-2 space-y-1 text-sm">
-                <p class="font-semibold text-[#111318] dark:text-white mt-3">Season Point Milestones:</p>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Bronze Points — 50 pts in season</span>
-                  <span class="font-bold text-amber-600">5 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Silver Points — 150 pts in season</span>
-                  <span class="font-bold text-gray-500">5 pts (1.4x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Gold Points — 300 pts in season</span>
-                  <span class="font-bold text-yellow-600">10 pts (2.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Platinum Fan — 500 pts in season</span>
-                  <span class="font-bold text-purple-600">15 pts (3.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white font-semibold">Diamond Fan — 1,000 pts in season</span>
-                  <span class="font-bold text-red-600">20 pts (4.0x)</span>
-                </div>
-
-                <p class="font-semibold text-[#111318] dark:text-white mt-3">Seasonal Achievements:</p>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Season Champ — 1st place in season</span>
-                  <span class="font-bold text-green-600">35 pts</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">2nd Place Finish — 2nd place in season</span>
-                  <span class="font-bold text-green-600">25 pts</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">3rd Place Finish — 3rd place in season</span>
-                  <span class="font-bold text-green-600">20 pts</span>
-                </div>
-
-                <p class="font-semibold text-[#111318] dark:text-white mt-3">Special Badges:</p>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Spartan Spirit — Dress for theme (admin verified)</span>
-                  <span class="font-bold text-primary dark:text-blue-300">15 pts</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Triple Threat — Sport + Art + Academic</span>
-                  <span class="font-bold text-primary dark:text-blue-300">25 pts</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Weekend Warrior — Events F + Sa in same week</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Career Badges -->
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex items-start gap-3">
-            <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">trending_up</span>
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">Career Badges</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Lifetime achievements across all seasons</p>
-              <div class="mt-2 space-y-2 text-sm">
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Loyalist — 50 lifetime events</span>
-                  <span class="font-bold text-primary dark:text-blue-300">25 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white font-semibold">Centurion — 100 lifetime events</span>
-                  <span class="font-bold text-green-600 dark:text-green-400">25 pts (1.4x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Badge Collector — 10 total badges earned</span>
-                  <span class="font-bold text-primary dark:text-blue-300">20 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Hall of Famer — Top 10 all-time leaderboard</span>
-                  <span class="font-bold text-primary dark:text-blue-300">30 pts (1.0x)</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-[#111318] dark:text-white">Spartan Veteran — Participate in 4 seasons</span>
-                  <span class="font-bold text-primary dark:text-blue-300">30 pts (1.0x)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Awards Section -->
-    <div class="space-y-3">
-      <h3 class="text-xl font-bold text-secondary dark:text-red-400 flex items-center gap-2">
-        <span class="material-symbols-outlined">emoji_events</span>
-        Winning the Competition/Awards
-      </h3>
-      <div class="bg-gradient-to-r from-gold/20 to-bronze/20 dark:from-gold/10 dark:to-bronze/10 p-4 rounded-lg border border-gold/50">
-        <p class="text-[#111318] dark:text-white mb-3">Awards are given out every <span class="font-bold">season</span> (Fall, Winter, or Spring) to the top 3 "Orono Super Fans".</p>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Standings are based solely on <span class="font-bold text-primary dark:text-blue-300">point totals</span>.</p>
-
-        <div class="space-y-2 mt-4">
-          <h4 class="font-bold text-[#111318] dark:text-white">Awards (Winter 25-26):</h4>
-          <div class="bg-gold/20 dark:bg-gold/10 p-3 rounded-lg border border-gold">
-            <p class="font-bold text-gold">🥇 First Place</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-          </div>
-          <div class="bg-silver/30 dark:bg-silver/10 p-3 rounded-lg border border-silver">
-            <p class="font-bold text-gray-600 dark:text-gray-400">🥈 Second Place</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-          </div>
-          <div class="bg-bronze/30 dark:bg-bronze/10 p-3 rounded-lg border border-bronze">
-            <p class="font-bold text-bronze">🥉 Third Place</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
-          </div>
-        </div>
-
-        <div class="mt-4 p-3 bg-primary/10 dark:bg-primary/20 rounded-lg">
-          <h4 class="font-bold text-[#111318] dark:text-white mb-2">Individual Sports Superfans:</h4>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">The top fan for each sport/art wins a booster-sponsored prize!</p>
-          <div id="superfan-sports-grid" class="grid grid-cols-2 gap-2 text-xs text-[#111318] dark:text-white">
-            <div>Loading sports/arts...</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Misconduct/Cheating Section -->
-    <div class="space-y-3">
-      <h3 class="text-xl font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
-        <span class="material-symbols-outlined">warning</span>
-        Misconduct & Cheating
-      </h3>
-
-      <!-- Actions Considered Cheating -->
-      <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border-l-4 border-red-600 dark:border-red-500">
-        <h4 class="font-bold text-red-900 dark:text-red-300 mb-2">❌ Actions Considered Cheating:</h4>
-        <ul class="list-disc list-inside space-y-1 text-red-800 dark:text-red-200 ml-2">
-          <li>Reusing old photos for new games/events</li>
-          <li>Pretending to be at a game/event that you are not</li>
-        </ul>
-      </div>
-
-      <!-- Actions Considered Misconduct -->
-      <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-orange-500 dark:border-orange-400">
-        <h4 class="font-bold text-orange-900 dark:text-orange-300 mb-2">⚠️ Actions Considered Misconduct:</h4>
-        <ul class="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-200 ml-2">
-          <li>Being thrown out of a game for unsportsmanlike behavior</li>
-          <li>Being banned/suspended from events and/or school</li>
-        </ul>
-      </div>
-
-      <!-- Consequences -->
-      <div class="bg-red-600 dark:bg-red-800 p-4 rounded-lg shadow-lg">
-        <h4 class="font-bold text-white mb-2 flex items-center gap-2">
-          <span class="material-symbols-outlined">block</span>
-          Consequences of Cheating or Misconduct:
-        </h4>
-        <p class="text-white font-semibold">Anyone found to be guilty of cheating or misconduct will be <span class="text-yellow-300 font-bold">DISQUALIFIED</span> from the competition.</p>
       </div>
     </div>
 
     <!-- Footer Note -->
-    <div class="mt-6 p-4 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/30">
+    <div class="mx-6 mb-6 p-4 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/30">
       <p class="text-sm text-center text-gray-600 dark:text-gray-400">
         <span class="material-symbols-outlined text-sm align-middle">info</span>
         Questions? Follow <a href="https://www.instagram.com/ohs_spartancup" target="_blank" rel="noopener noreferrer" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup</a> on Instagram for updates and announcements.
@@ -345,93 +81,309 @@
 
   <script>
     /**
-     * Load and populate sports/arts lists dynamically from backend
-     * This ensures the rulebook always reflects the current season's activities
+     * Rulebook Page - Dynamic Content Loading & Enhanced UX
+     * Loads content from Config_Rulebook sheet and Config_Badges
+     */
+
+    let allSections = [];
+    let allBadges = [];
+
+    // Check if user is admin and show edit button
+    if (APP_DATA && APP_DATA.userIsAdmin) {
+      const adminEditBtn = document.getElementById('adminEditButton');
+      if (adminEditBtn) {
+        adminEditBtn.classList.remove('hidden');
+      }
+    }
+
+    /**
+     * Opens the rulebook editor (for admins)
+     * Displays a message since we can't open Sheets dialogs from web app
+     */
+    function openRulebookEditorFromWebApp() {
+      const message = `To edit the rulebook:\n\n1. Open the Google Sheet for The Spartan Cup\n2. Click "🏆 Spartan Cup Admin" menu\n3. Select "2b. Edit Rulebook Content"\n\nOr you can edit the Config_Rulebook sheet directly in Google Sheets.`;
+      alert(message);
+    }
+
+    /**
+     * Load rulebook content and badges on page load
      */
     document.addEventListener('DOMContentLoaded', () => {
-      // Fetch active season and activities from backend
-      google.script.run
-        .withSuccessHandler((response) => {
-          if (response.status === 'success' && response.activities && response.activities.length > 0) {
-            const activities = response.activities;
-
-            // Get active season from APP_DATA or use default
-            const activeSeason = APP_DATA.activeSeason || 'Winter';
-
-            // Populate variety bonus section
-            const varietySeasonLabel = document.getElementById('variety-season-label');
-            const varietySportsList = document.getElementById('variety-sports-list');
-
-            if (varietySeasonLabel && varietySportsList) {
-              varietySeasonLabel.textContent = activeSeason + ' Sports/Arts:';
-              const sportNames = activities.map(a => a.activityName).join(', ');
-              varietySportsList.textContent = sportNames;
-            }
-
-            // Populate individual superfans section
-            const superfanGrid = document.getElementById('superfan-sports-grid');
-            if (superfanGrid) {
-              superfanGrid.innerHTML = '';
-              activities.forEach(activity => {
-                const div = document.createElement('div');
-                div.textContent = '• ' + activity.activityName;
-                superfanGrid.appendChild(div);
-              });
-            }
-          } else {
-            // Fallback to default Winter 25-26 sports if backend fails
-            console.warn('Could not load activities from backend, using fallback data');
-            const fallbackActivities = [
-              'Girls Basketball', 'Boys Basketball', 'Girls Hockey', 'Boys Hockey',
-              'Dance', 'Wrestling', 'Boys Swim & Dive', 'Nordic Ski', 'Alpine Ski',
-              'Theatre', 'Band', 'Choir'
-            ];
-
-            const varietySeasonLabel = document.getElementById('variety-season-label');
-            const varietySportsList = document.getElementById('variety-sports-list');
-            if (varietySeasonLabel && varietySportsList) {
-              varietySeasonLabel.textContent = 'Winter Sports/Arts:';
-              varietySportsList.textContent = fallbackActivities.join(', ');
-            }
-
-            const superfanGrid = document.getElementById('superfan-sports-grid');
-            if (superfanGrid) {
-              superfanGrid.innerHTML = '';
-              fallbackActivities.forEach(activity => {
-                const div = document.createElement('div');
-                div.textContent = '• ' + activity;
-                superfanGrid.appendChild(div);
-              });
-            }
-          }
-        })
-        .withFailureHandler((error) => {
-          console.error('Error loading activities:', error);
-          // Use fallback data on error (same as above)
-          const fallbackActivities = [
-            'Girls Basketball', 'Boys Basketball', 'Girls Hockey', 'Boys Hockey',
-            'Dance', 'Wrestling', 'Boys Swim & Dive', 'Nordic Ski', 'Alpine Ski',
-            'Theatre', 'Band', 'Choir'
-          ];
-
-          const varietySeasonLabel = document.getElementById('variety-season-label');
-          const varietySportsList = document.getElementById('variety-sports-list');
-          if (varietySeasonLabel && varietySportsList) {
-            varietySeasonLabel.textContent = 'Winter Sports/Arts:';
-            varietySportsList.textContent = fallbackActivities.join(', ');
-          }
-
-          const superfanGrid = document.getElementById('superfan-sports-grid');
-          if (superfanGrid) {
-            superfanGrid.innerHTML = '';
-            fallbackActivities.forEach(activity => {
-              const div = document.createElement('div');
-              div.textContent = '• ' + activity;
-              superfanGrid.appendChild(div);
-            });
-          }
-        })
-        .getActivitiesForSeason();
+      loadRulebookContent();
+      loadBadgeSystem();
     });
+
+    /**
+     * Fetch and render rulebook sections from backend
+     */
+    function loadRulebookContent() {
+      google.script.run
+        .withSuccessHandler(renderRulebookSections)
+        .withFailureHandler(handleRulebookError)
+        .getRulebookContent();
+    }
+
+    /**
+     * Render the rulebook sections
+     */
+    function renderRulebookSections(sections) {
+      const container = document.getElementById('rulebookContent');
+      const loading = document.getElementById('rulebookLoading');
+      const quickNav = document.getElementById('quickNav');
+
+      loading.classList.add('hidden');
+      container.classList.remove('hidden');
+
+      if (!sections || sections.length === 0) {
+        container.innerHTML = `
+          <div class="text-center p-8 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+            <span class="material-symbols-outlined text-5xl text-gray-400 mb-3">description</span>
+            <p class="text-gray-600 dark:text-gray-400">No rulebook content available yet.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">Admins can add content via the "Edit Rulebook" button above.</p>
+          </div>
+        `;
+        return;
+      }
+
+      allSections = sections;
+      container.innerHTML = '';
+      quickNav.innerHTML = '';
+
+      // Build quick navigation
+      sections.forEach(section => {
+        const navBtn = document.createElement('button');
+        navBtn.className = 'px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-blue-900/30 text-primary dark:text-blue-300 hover:bg-primary/20 dark:hover:bg-blue-900/50 transition-colors';
+        navBtn.textContent = section.title;
+        navBtn.onclick = () => {
+          document.getElementById(`section-${section.id}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        quickNav.appendChild(navBtn);
+      });
+
+      // Render each section
+      sections.forEach(section => {
+        const sectionDiv = document.createElement('div');
+        sectionDiv.id = `section-${section.id}`;
+        sectionDiv.className = 'rulebook-section space-y-3 p-5 bg-gray-50 dark:bg-gray-900/30 rounded-lg border border-gray-200 dark:border-gray-700';
+        sectionDiv.setAttribute('data-section-title', section.title.toLowerCase());
+        sectionDiv.setAttribute('data-section-id', section.id);
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'flex items-center justify-between';
+
+        const title = document.createElement('h3');
+        title.className = 'text-xl font-bold text-secondary dark:text-red-400 flex items-center gap-2';
+        title.innerHTML = getIconForSection(section.id) + section.title;
+        titleDiv.appendChild(title);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'text-[#111318] dark:text-white mt-3';
+        contentDiv.innerHTML = section.content;
+
+        sectionDiv.appendChild(titleDiv);
+        sectionDiv.appendChild(contentDiv);
+        container.appendChild(sectionDiv);
+      });
+    }
+
+    /**
+     * Get appropriate icon for section based on ID
+     */
+    function getIconForSection(sectionId) {
+      const icons = {
+        'photo_submission': '<span class="material-symbols-outlined">photo_camera</span>',
+        'base_points': '<span class="material-symbols-outlined">star</span>',
+        'badge_system_intro': '<span class="material-symbols-outlined">emoji_events</span>',
+        'awards': '<span class="material-symbols-outlined">emoji_events</span>',
+        'misconduct': '<span class="material-symbols-outlined">warning</span>'
+      };
+      return icons[sectionId] || '<span class="material-symbols-outlined">article</span>';
+    }
+
+    /**
+     * Handle error loading rulebook
+     */
+    function handleRulebookError(error) {
+      const container = document.getElementById('rulebookContent');
+      const loading = document.getElementById('rulebookLoading');
+
+      loading.classList.add('hidden');
+      container.classList.remove('hidden');
+
+      container.innerHTML = `
+        <div class="text-center p-8 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <span class="material-symbols-outlined text-5xl text-red-500 mb-3">error</span>
+          <p class="text-red-600 dark:text-red-400 font-semibold">Error loading rulebook content</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">${error.message || 'Unknown error'}</p>
+        </div>
+      `;
+    }
+
+    /**
+     * Filter rulebook sections based on search input
+     */
+    function filterRulebookSections() {
+      const searchInput = document.getElementById('rulebookSearch');
+      const searchTerm = searchInput.value.toLowerCase();
+      const sections = document.querySelectorAll('.rulebook-section');
+
+      sections.forEach(section => {
+        const title = section.getAttribute('data-section-title');
+        const content = section.textContent.toLowerCase();
+
+        if (title.includes(searchTerm) || content.includes(searchTerm)) {
+          section.classList.remove('hidden');
+        } else {
+          section.classList.add('hidden');
+        }
+      });
+    }
+
+    /**
+     * Load badge system information from Config_Badges
+     */
+    function loadBadgeSystem() {
+      google.script.run
+        .withSuccessHandler(renderBadgeSystem)
+        .withFailureHandler(handleBadgeError)
+        .getAllBadges();
+    }
+
+    /**
+     * Render badge categories and badges
+     */
+    function renderBadgeSystem(badges) {
+      const container = document.getElementById('badgeCategories');
+
+      if (!badges || badges.length === 0) {
+        container.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">Badge information not available.</p>`;
+        return;
+      }
+
+      allBadges = badges;
+
+      // Group badges by category
+      const categories = {};
+      badges.forEach(badge => {
+        const category = badge.category || 'Other';
+        if (!categories[category]) {
+          categories[category] = [];
+        }
+        categories[category].push(badge);
+      });
+
+      container.innerHTML = '';
+
+      // Render each category
+      Object.keys(categories).forEach(categoryName => {
+        const categoryBadges = categories[categoryName];
+
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700';
+
+        const categoryHeader = document.createElement('div');
+        categoryHeader.className = 'flex items-start gap-3 mb-3';
+        categoryHeader.innerHTML = `
+          <span class="material-symbols-outlined text-3xl text-primary dark:text-blue-300">${getCategoryIcon(categoryName)}</span>
+          <div class="flex-1">
+            <p class="font-bold text-[#111318] dark:text-white">${categoryName} Badges</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${getCategoryDescription(categoryName)}</p>
+          </div>
+        `;
+
+        const badgesList = document.createElement('div');
+        badgesList.className = 'mt-3 space-y-2 text-sm';
+
+        categoryBadges.forEach(badge => {
+          const badgeItem = document.createElement('div');
+          badgeItem.className = 'flex justify-between items-center py-1';
+
+          const badgeName = document.createElement('span');
+          badgeName.className = 'text-[#111318] dark:text-white';
+          badgeName.textContent = `${badge.badgeName} — ${badge.description}`;
+
+          const badgePoints = document.createElement('span');
+          badgePoints.className = 'font-bold text-primary dark:text-blue-300 ml-2 whitespace-nowrap';
+          badgePoints.textContent = getBadgePointsDisplay(badge);
+
+          badgeItem.appendChild(badgeName);
+          badgeItem.appendChild(badgePoints);
+          badgesList.appendChild(badgeItem);
+        });
+
+        categoryDiv.appendChild(categoryHeader);
+        categoryDiv.appendChild(badgesList);
+        container.appendChild(categoryDiv);
+      });
+    }
+
+    /**
+     * Get icon for badge category
+     */
+    function getCategoryIcon(category) {
+      const icons = {
+        'Participation': 'directions_run',
+        'Variety': 'diversity_3',
+        'Loyalty': 'favorite',
+        'Points': 'emoji_events',
+        'Career': 'trending_up',
+        'Achievement': 'emoji_events',
+        'Special': 'star'
+      };
+      return icons[category] || 'emoji_events';
+    }
+
+    /**
+     * Get description for badge category
+     */
+    function getCategoryDescription(category) {
+      const descriptions = {
+        'Participation': 'Earn badges by attending events rapidly',
+        'Variety': 'Attend events across different sports and arts',
+        'Loyalty': 'Show dedication to your favorite teams and activities',
+        'Points': 'Milestone badges earned through points',
+        'Career': 'Lifetime achievements across all seasons',
+        'Achievement': 'Special accomplishments and milestones',
+        'Special': 'Unique and special recognition badges'
+      };
+      return descriptions[category] || 'Earn badges in this category';
+    }
+
+    /**
+     * Format badge points display based on trigger type
+     */
+    function getBadgePointsDisplay(badge) {
+      // This will need to be enhanced based on your badge point calculation logic
+      // For now, just show the trigger value if it's a number
+      if (badge.triggerValue && !isNaN(badge.triggerValue)) {
+        return `${badge.triggerValue} pts`;
+      }
+      return badge.description || '';
+    }
+
+    /**
+     * Handle error loading badges
+     */
+    function handleBadgeError(error) {
+      const container = document.getElementById('badgeCategories');
+      container.innerHTML = `
+        <div class="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <p class="text-red-600 dark:text-red-400 text-sm">Error loading badge information</p>
+        </div>
+      `;
+    }
+
+    // Load activities for variety badges display
+    google.script.run
+      .withSuccessHandler((response) => {
+        if (response.status === 'success' && response.activities && response.activities.length > 0) {
+          // This data could be used to enhance badge descriptions if needed
+          console.log('Activities loaded for season:', response.activities);
+        }
+      })
+      .withFailureHandler((error) => {
+        console.warn('Could not load activities:', error);
+      })
+      .getActivitiesForSeason();
   </script>
 </div>

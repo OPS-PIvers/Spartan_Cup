@@ -377,6 +377,53 @@ Active_Season | Winter
 - Single value; update the one row in this sheet
 - Value should match season names used in Activities_Data and Events
 - Cache clears when value changes
+
+---
+
+### 10. Config_Rulebook
+**Purpose:** Editable rulebook content for the Official Rulebook page
+**Access Level:** Read-only for students, read/write for admins via Rulebook Editor
+**Updated By:** Admin "Edit Rulebook Content" menu → `openRulebookEditor()` → `updateRulebookContent()`
+
+| # | Column | Header | Type | Purpose | Notes |
+|---|--------|--------|------|---------|-------|
+| A | 1 | Section_ID | String | Unique section identifier | Format: lowercase_with_underscores (e.g., "photo_submission") |
+| B | 2 | Section_Title | String | Display title for section | E.g., "Photo Submission", "Awards" |
+| C | 3 | Content_HTML | String (long text) | HTML content for section | Supports HTML and Tailwind CSS classes |
+| D | 4 | Display_Order | Number | Sort order for display | Lower numbers appear first (1, 2, 3, ...) |
+| E | 5 | Is_Active | Boolean | Section visibility | TRUE = visible, FALSE = hidden |
+
+**Sample Data:**
+```
+photo_submission | Photo Submission | <div class="space-y-2">...</div> | 1 | TRUE
+base_points | Base Points | <div class="bg-gradient-to-r...">...</div> | 2 | TRUE
+misconduct | Misconduct & Cheating | <div class="space-y-3">...</div> | 5 | TRUE
+```
+
+**Relationships:**
+- Content fetched by `getRulebookContent()` (cached 1 hour)
+- Displayed on Rulebook page (Page.rulebook.html)
+- Admin editor dialog loads from this sheet via `openRulebookEditor()`
+
+**Content Guidelines:**
+- HTML content supports full Tailwind CSS utility classes
+- Use semantic HTML for accessibility
+- Icons via Material Symbols: `<span class="material-symbols-outlined">icon_name</span>`
+- Links should use `target="_blank" rel="noopener noreferrer"` for external sites
+- Keep content concise and scannable
+
+**Admin Workflow:**
+1. Open Google Sheet → "🏆 Spartan Cup Admin" menu → "2b. Edit Rulebook Content"
+2. Edit section titles, content, display order, or active status
+3. Click "Save All Changes" to update sheet
+4. Cache automatically clears; changes visible immediately on next page load
+
+**Notes:**
+- Sections can be temporarily hidden by setting Is_Active to FALSE
+- Display_Order determines visual stacking (use 1, 2, 3, etc.)
+- HTML content should be escaped properly when editing via dialog
+- Badge system information is NOT stored here (it's dynamically loaded from Config_Badges)
+- Admins can also edit the sheet directly for advanced formatting
 - Season names are case-sensitive in lookups
 
 ---

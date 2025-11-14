@@ -856,6 +856,7 @@ function onOpen() {
     .createMenu('🏆 Spartan Cup Admin')
     .addItem('1. Run First-Time Setup (All Files)', 'firstTimeSetup')
     .addItem('2. Configure Points Values', 'openPointsConfigDialog')
+    .addItem('2b. Edit Rulebook Content', 'openRulebookEditor')
     .addItem('3. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
     .addItem('4. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
     .addItem('5. Clear Cache (Development)', 'clearAllCaches')
@@ -1084,6 +1085,9 @@ function setupSpreadsheet() {
 
   // Initialize Config_Points with default values (this function already checks if data exists)
   initializeConfigPoints();
+
+  // Initialize Config_Rulebook with default content (this function already checks if data exists)
+  initializeConfigRulebook();
 
   // Log summary
   Logger.log('=== Spreadsheet Setup Summary ===');
@@ -1753,6 +1757,396 @@ function resetPointsToDefaults() {
     return { status: 'success', message: `Reset ${resetCount} point values to defaults` };
   } catch (e) {
     Logger.log('Error resetting points config: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+// ===============================================
+// RULEBOOK CONFIGURATION FUNCTIONS
+// ===============================================
+
+/**
+ * Initializes the Config_Rulebook sheet with default content.
+ * Called during first-time setup.
+ */
+function initializeConfigRulebook() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+    // Create sheet if it doesn't exist
+    if (!rulebookSheet) {
+      rulebookSheet = ss.insertSheet('Config_Rulebook');
+      rulebookSheet.appendRow(['Section_ID', 'Section_Title', 'Content_HTML', 'Display_Order', 'Is_Active']);
+      rulebookSheet.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#1b3b87').setFontColor('#ffffff');
+    } else {
+      // Only initialize if empty (no data rows beyond header)
+      const data = rulebookSheet.getDataRange().getValues();
+      if (data.length > 1) {
+        return; // Sheet already has data, don't overwrite
+      }
+    }
+
+    // Default rulebook sections
+    const defaultSections = [
+      [
+        'photo_submission',
+        'Photo Submission',
+        `<div class="space-y-2">
+          <p class="font-semibold">Photo Requirements:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li>Photos must be taken <span class="font-bold text-primary dark:text-blue-300">during the game</span> (not before or after)</li>
+            <li>Must include <span class="font-bold text-primary dark:text-blue-300">your face</span></li>
+            <li>If dressing for a theme, show <span class="font-bold text-primary dark:text-blue-300">your outfit</span></li>
+          </ul>
+          <p class="font-semibold mt-3">How to Submit:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
+            <li>Indicate which game you are attending</li>
+            <li>List who you are attending with</li>
+            <li>If necessary, explain how your outfit fits the theme</li>
+          </ul>
+        </div>`,
+        1,
+        true
+      ],
+      [
+        'base_points',
+        'Base Points',
+        `<div class="bg-gradient-to-r from-primary/10 to-secondary/10 dark:from-primary/20 dark:to-secondary/20 p-4 rounded-lg border border-primary/30">
+          <h4 class="font-bold text-lg mb-2">Base Points</h4>
+          <p>Each game/event starts with a base value of <span class="font-bold text-2xl text-primary dark:text-blue-300">10 points</span></p>
+        </div>`,
+        2,
+        true
+      ],
+      [
+        'badge_system_intro',
+        'Badge System Overview',
+        `<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+          <p class="text-sm text-gray-600 dark:text-gray-400">Earn badges by reaching milestones and achievements! Each badge grants bonus points with multipliers for higher tiers.</p>
+        </div>`,
+        3,
+        true
+      ],
+      [
+        'awards',
+        'Winning the Competition/Awards',
+        `<div class="space-y-3">
+          <p class="mb-3">Awards are given out every <span class="font-bold">season</span> (Fall, Winter, or Spring) to the top 3 "Orono Super Fans".</p>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Standings are based solely on <span class="font-bold text-primary dark:text-blue-300">point totals</span>.</p>
+          <div class="space-y-2 mt-4">
+            <h4 class="font-bold">Seasonal Awards:</h4>
+            <div class="bg-gold/20 dark:bg-gold/10 p-3 rounded-lg border border-gold">
+              <p class="font-bold text-gold">🥇 First Place</p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
+            </div>
+            <div class="bg-silver/30 dark:bg-silver/10 p-3 rounded-lg border border-silver">
+              <p class="font-bold text-gray-600 dark:text-gray-400">🥈 Second Place</p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
+            </div>
+            <div class="bg-bronze/30 dark:bg-bronze/10 p-3 rounded-lg border border-bronze">
+              <p class="font-bold text-bronze">🥉 Third Place</p>
+              <p class="text-sm text-gray-600 dark:text-gray-300 italic">Prize TBA</p>
+            </div>
+          </div>
+        </div>`,
+        4,
+        true
+      ],
+      [
+        'misconduct',
+        'Misconduct & Cheating',
+        `<div class="space-y-3">
+          <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border-l-4 border-red-600 dark:border-red-500">
+            <h4 class="font-bold text-red-900 dark:text-red-300 mb-2">❌ Actions Considered Cheating:</h4>
+            <ul class="list-disc list-inside space-y-1 text-red-800 dark:text-red-200 ml-2">
+              <li>Reusing old photos for new games/events</li>
+              <li>Pretending to be at a game/event that you are not</li>
+            </ul>
+          </div>
+          <div class="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border-l-4 border-orange-500 dark:border-orange-400">
+            <h4 class="font-bold text-orange-900 dark:text-orange-300 mb-2">⚠️ Actions Considered Misconduct:</h4>
+            <ul class="list-disc list-inside space-y-1 text-orange-800 dark:text-orange-200 ml-2">
+              <li>Being thrown out of a game for unsportsmanlike behavior</li>
+              <li>Being banned/suspended from events and/or school</li>
+            </ul>
+          </div>
+          <div class="bg-red-600 dark:bg-red-800 p-4 rounded-lg shadow-lg">
+            <h4 class="font-bold text-white mb-2 flex items-center gap-2">
+              <span class="material-symbols-outlined">block</span>
+              Consequences:
+            </h4>
+            <p class="text-white font-semibold">Anyone found to be guilty of cheating or misconduct will be <span class="text-yellow-300 font-bold">DISQUALIFIED</span> from the competition.</p>
+          </div>
+        </div>`,
+        5,
+        true
+      ]
+    ];
+
+    defaultSections.forEach(row => {
+      rulebookSheet.appendRow(row);
+    });
+
+    // Auto-resize columns
+    rulebookSheet.autoResizeColumns(1, 5);
+
+    // Clear cache
+    CacheService.getScriptCache().remove('rulebook_content');
+
+    Logger.log('Config_Rulebook sheet initialized with default content');
+  } catch (e) {
+    Logger.log('Error initializing Config_Rulebook: ' + e.message);
+  }
+}
+
+/**
+ * Gets the rulebook content from Config_Rulebook sheet.
+ * Results are cached for 1 hour.
+ * @return {Array} Array of section objects {id, title, content, order, active}
+ */
+function getRulebookContent() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'rulebook_content';
+    const cached = cache.get(cacheKey);
+
+    if (cached) {
+      return safeJSONParse(cached, [], 'rulebook content cache');
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+    if (!rulebookSheet) {
+      Logger.log('Config_Rulebook sheet not found');
+      return [];
+    }
+
+    const data = rulebookSheet.getDataRange().getValues();
+    const sections = [];
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] && data[i][4] !== false) { // Only include active sections
+        sections.push({
+          id: data[i][0],
+          title: data[i][1],
+          content: data[i][2],
+          order: data[i][3] || i,
+          active: data[i][4]
+        });
+      }
+    }
+
+    // Sort by display order
+    sections.sort((a, b) => a.order - b.order);
+
+    // Cache for 1 hour (3600 seconds)
+    cache.put(cacheKey, JSON.stringify(sections), 3600);
+    return sections;
+  } catch (e) {
+    Logger.log('Error reading rulebook content: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * Opens a dialog for editing rulebook content.
+ * Admin-only function.
+ */
+function openRulebookEditor() {
+  try {
+    // Admin check
+    if (!getUserIsAdmin()) {
+      SpreadsheetApp.getUi().alert('❌ Unauthorized: Admin access required');
+      return;
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+    if (!rulebookSheet) {
+      SpreadsheetApp.getUi().alert('❌ Config_Rulebook sheet not found. Run First-Time Setup first.');
+      return;
+    }
+
+    const data = rulebookSheet.getDataRange().getValues();
+
+    let html = '<style>';
+    html += 'body { font-family: Arial, sans-serif; padding: 15px; }';
+    html += 'h2 { color: #1b3b87; margin-bottom: 10px; }';
+    html += '.section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }';
+    html += '.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }';
+    html += '.section-title { font-size: 16px; font-weight: bold; color: #333; }';
+    html += 'label { display: block; margin-top: 8px; font-weight: 500; font-size: 13px; color: #555; }';
+    html += 'input[type="text"], input[type="number"] { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }';
+    html += 'textarea { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; min-height: 120px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; }';
+    html += 'input[type="checkbox"] { margin-right: 6px; }';
+    html += 'button { margin-top: 20px; padding: 10px 20px; background: #1b3b87; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; }';
+    html += 'button:hover { background: #0f2550; }';
+    html += 'button.secondary { background: #999; }';
+    html += 'button.secondary:hover { background: #777; }';
+    html += '.hint { font-size: 11px; color: #666; margin-top: 3px; font-style: italic; }';
+    html += '</style>';
+
+    html += '<h2>📖 Rulebook Editor</h2>';
+    html += '<p style="margin-bottom: 20px; color: #666;">Edit the rulebook sections below. HTML and Tailwind CSS classes are supported.</p>';
+
+    html += '<form id="rulebookForm">';
+
+    // Loop through existing sections
+    for (let i = 1; i < data.length; i++) {
+      const sectionId = data[i][0];
+      const title = data[i][1];
+      const content = data[i][2];
+      const order = data[i][3] || i;
+      const active = data[i][4] !== false;
+
+      html += '<div class="section">';
+      html += '<div class="section-header">';
+      html += '<div class="section-title">' + title + '</div>';
+      html += '<label><input type="checkbox" id="active_' + i + '" ' + (active ? 'checked' : '') + '> Active</label>';
+      html += '</div>';
+
+      html += '<input type="hidden" id="section_id_' + i + '" value="' + sectionId + '" />';
+
+      html += '<label>Section Title:</label>';
+      html += '<input type="text" id="title_' + i + '" value="' + escapeHtml(title) + '" />';
+
+      html += '<label>Display Order:</label>';
+      html += '<input type="number" id="order_' + i + '" value="' + order + '" min="1" />';
+
+      html += '<label>Content (HTML):</label>';
+      html += '<div class="hint">Supports HTML and Tailwind CSS classes</div>';
+      html += '<textarea id="content_' + i + '">' + escapeHtml(content) + '</textarea>';
+
+      html += '</div>';
+    }
+
+    html += '<button type="button" onclick="submitForm(' + (data.length - 1) + ')">💾 Save All Changes</button>';
+    html += '<button type="button" onclick="google.script.host.close()" class="secondary" style="margin-left: 8px;">Cancel</button>';
+    html += '<button type="button" onclick="openSheetDirectly()" class="secondary" style="margin-left: 8px;">📊 Open Sheet</button>';
+
+    html += '</form>';
+
+    html += '<script>';
+    html += 'function submitForm(sectionCount) {';
+    html += '  const sections = [];';
+    html += '  for (let i = 1; i <= sectionCount; i++) {';
+    html += '    sections.push({';
+    html += '      id: document.getElementById("section_id_" + i).value,';
+    html += '      title: document.getElementById("title_" + i).value,';
+    html += '      content: document.getElementById("content_" + i).value,';
+    html += '      order: parseInt(document.getElementById("order_" + i).value),';
+    html += '      active: document.getElementById("active_" + i).checked';
+    html += '    });';
+    html += '  }';
+    html += '  google.script.run.withSuccessHandler(onSuccess).withFailureHandler(onError).updateRulebookContent(sections);';
+    html += '}';
+    html += 'function onSuccess(result) {';
+    html += '  if (result.status === "success") {';
+    html += '    alert("✅ " + result.message);';
+    html += '    google.script.host.close();';
+    html += '  } else {';
+    html += '    alert("❌ " + result.message);';
+    html += '  }';
+    html += '}';
+    html += 'function onError(error) {';
+    html += '  alert("❌ Error: " + error.message);';
+    html += '}';
+    html += 'function openSheetDirectly() {';
+    html += '  google.script.run.openRulebookSheet();';
+    html += '}';
+    html += '</script>';
+
+    const ui = SpreadsheetApp.getUi();
+    const dialog = HtmlService.createHtmlOutput(html).setWidth(700).setHeight(600);
+    ui.showModalDialog(dialog, 'Rulebook Editor');
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error opening editor: ' + e.message);
+  }
+}
+
+/**
+ * Helper function to escape HTML for dialog display.
+ * @param {string} text - Text to escape
+ * @return {string} Escaped text
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Opens the Config_Rulebook sheet directly.
+ * Helper function for admin convenience.
+ */
+function openRulebookSheet() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rulebookSheet = ss.getSheetByName('Config_Rulebook');
+    if (rulebookSheet) {
+      rulebookSheet.activate();
+    }
+  } catch (e) {
+    Logger.log('Error activating rulebook sheet: ' + e.message);
+  }
+}
+
+/**
+ * Updates the rulebook content in Config_Rulebook sheet.
+ * Called from the editor dialog.
+ * @param {Array} sections - Array of section objects to update
+ * @return {Object} Status object with success/error
+ */
+function updateRulebookContent(sections) {
+  try {
+    // Admin check
+    if (!getUserIsAdmin()) {
+      return { status: 'error', message: 'Unauthorized: Admin access required' };
+    }
+
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return { status: 'error', message: 'No sections provided' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const rulebookSheet = ss.getSheetByName('Config_Rulebook');
+
+    if (!rulebookSheet) {
+      return { status: 'error', message: 'Config_Rulebook sheet not found' };
+    }
+
+    // Update each section
+    let updatedCount = 0;
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      const rowIndex = i + 2; // Row 1 is headers, data starts at row 2
+
+      rulebookSheet.getRange(rowIndex, 1).setValue(section.id);
+      rulebookSheet.getRange(rowIndex, 2).setValue(section.title);
+      rulebookSheet.getRange(rowIndex, 3).setValue(section.content);
+      rulebookSheet.getRange(rowIndex, 4).setValue(section.order);
+      rulebookSheet.getRange(rowIndex, 5).setValue(section.active);
+
+      updatedCount++;
+    }
+
+    // Clear cache so new content is picked up
+    CacheService.getScriptCache().remove('rulebook_content');
+
+    Logger.log(`Rulebook content updated: ${updatedCount} sections changed by ${Session.getActiveUser().getEmail()}`);
+
+    return { status: 'success', message: `Successfully updated ${updatedCount} sections!` };
+  } catch (e) {
+    Logger.log('Error updating rulebook content: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -5595,6 +5989,45 @@ function calculateComplexBonuses() {
  * Gets all badges from Config_Badges sheet for admin management.
  * @return {Object} Response with badges array
  */
+/**
+ * Gets all badges from Config_Badges sheet (for public display).
+ * Returns array of badge objects.
+ * @return {Array} Array of badge objects
+ */
+function getAllBadges() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+
+    if (!badgesSheet) {
+      Logger.log('Config_Badges sheet not found');
+      return [];
+    }
+
+    const badgesData = badgesSheet.getDataRange().getValues();
+    const badges = [];
+
+    for (let i = 1; i < badgesData.length; i++) {
+      if (badgesData[i][0]) { // Only include rows with badge ID
+        badges.push({
+          badgeId: badgesData[i][0],
+          badgeName: badgesData[i][1],
+          category: badgesData[i][2],
+          triggerType: badgesData[i][3],
+          triggerValue: badgesData[i][4],
+          description: badgesData[i][5],
+          imageUrl: badgesData[i][6]
+        });
+      }
+    }
+
+    return badges;
+  } catch (e) {
+    Logger.log('Error in getAllBadges: ' + e.message);
+    return [];
+  }
+}
+
 function getAllBadgesForAdmin() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
