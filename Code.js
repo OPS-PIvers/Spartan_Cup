@@ -5234,33 +5234,25 @@ function getEventList(category) {
  * @return {Array} Array of approved submission photos with metadata
  */
 function getFanFeed() {
-  Logger.log('getFanFeed() called');
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const daysBack = 7;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
-    Logger.log('getFanFeed: Initialized, looking for sheets');
 
     // Get student name mapping
-    Logger.log('Getting Student_Profiles sheet');
     const profileSheet = ss.getSheetByName('Student_Profiles');
     if (!profileSheet) throw new Error("Sheet 'Student_Profiles' not found");
-    Logger.log('Getting Student_Profiles data range');
     const profileData = profileSheet.getDataRange().getValues();
-    Logger.log('Parsing Student_Profiles data - ' + profileData.length + ' rows');
     const studentMap = {};
     for (let i = 1; i < profileData.length; i++) {
       studentMap[profileData[i][0]] = profileData[i][1]; // email -> display name
     }
 
     // Get event details map
-    Logger.log('Getting Events sheet');
     const eventSheet = ss.getSheetByName('Events');
     if (!eventSheet) throw new Error("Sheet 'Events' not found");
-    Logger.log('Getting Events data range');
     const eventData = eventSheet.getDataRange().getValues();
-    Logger.log('Parsing Events data - ' + eventData.length + ' rows');
     const eventMap = {};
     for (let i = 1; i < eventData.length; i++) {
       eventMap[eventData[i][0]] = {
@@ -5272,37 +5264,21 @@ function getFanFeed() {
     const feedItems = [];
 
     // Get photo submissions
-    Logger.log('Getting Submissions_Verified sheet');
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     if (!verifiedSheet) throw new Error("Sheet 'Submissions_Verified' not found");
-    Logger.log('Getting Submissions_Verified data range');
     const verifiedData = verifiedSheet.getDataRange().getValues();
-    Logger.log('Got ' + verifiedData.length + ' verified submissions');
-    if (verifiedData.length > 1) {
-      Logger.log('First row columns: ' + verifiedData[1].length);
-      Logger.log('Column values: [0]=' + verifiedData[1][0] + ', [4]=' + verifiedData[1][4] + ', [9]=' + verifiedData[1][9] + ', [10]=' + verifiedData[1][10]);
-    }
 
     for (let i = 1; i < verifiedData.length; i++) {
-      Logger.log('Processing submission ' + i);
       const timestamp = new Date(verifiedData[i][2]); // Timestamp_Approved
 
       // Filter by date
-      if (timestamp < cutoffDate) {
-        Logger.log('Submission ' + i + ' is too old, skipping');
-        continue;
-      }
+      if (timestamp < cutoffDate) continue;
 
-      Logger.log('Submission ' + i + ' is recent, getting event info for event ' + verifiedData[i][4]);
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
-      Logger.log('Getting photoUrl from column 10: ' + verifiedData[i][10]);
       const photoUrl = verifiedData[i][10];
 
       // Skip if no photo URL
-      if (!photoUrl) {
-        Logger.log('Submission ' + i + ' has no photo URL, skipping');
-        continue;
-      }
+      if (!photoUrl) continue;
 
       feedItems.push({
         type: 'photo',
@@ -5318,27 +5294,17 @@ function getFanFeed() {
       });
     }
 
-    Logger.log('Finished processing submissions, got ' + feedItems.length + ' items so far');
-
     // Add badge awards
-    Logger.log('Getting Badge_Awards sheet');
     const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
     if (badgeAwardsSheet) {
-      Logger.log('Badge_Awards sheet exists, getting data');
       const badgeAwardsData = badgeAwardsSheet.getDataRange().getValues();
-      Logger.log('Badge_Awards has ' + badgeAwardsData.length + ' rows');
 
       for (let i = 1; i < badgeAwardsData.length; i++) {
-        Logger.log('Processing badge award ' + i);
         const timestamp = new Date(badgeAwardsData[i][1]); // Timestamp
 
         // Filter by date
-        if (timestamp < cutoffDate) {
-          Logger.log('Badge award ' + i + ' is too old, skipping');
-          continue;
-        }
+        if (timestamp < cutoffDate) continue;
 
-        Logger.log('Adding badge award ' + i + ' with name: ' + badgeAwardsData[i][5]);
         feedItems.push({
           type: 'badge',
           awardId: badgeAwardsData[i][0],
@@ -5351,18 +5317,12 @@ function getFanFeed() {
           badgeImageUrl: badgeAwardsData[i][6]
         });
       }
-    } else {
-      Logger.log('Badge_Awards sheet does not exist');
     }
 
     // Sort by cached _time (most recent first) and limit to 50 items
-    Logger.log('Sorting ' + feedItems.length + ' total items');
     feedItems.sort((a, b) => b._time - a._time);
-    Logger.log('Sort complete');
     const recentItems = feedItems.slice(0, 50);
-    Logger.log('Sliced to ' + recentItems.length + ' items');
 
-    Logger.log('Returning success response');
     return {
       status: "success",
       items: recentItems,
@@ -5370,8 +5330,6 @@ function getFanFeed() {
     };
 
   } catch (e) {
-    Logger.log('Error in getFanFeed: ' + e.message);
-    Logger.log('Stack: ' + e.stack);
     return {
       status: "error",
       message: "Error fetching fan feed: " + e.message
