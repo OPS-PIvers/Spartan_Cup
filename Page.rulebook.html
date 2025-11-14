@@ -29,7 +29,7 @@
 
         <p class="text-[#111318] dark:text-white mt-3"><span class="font-semibold">How to Submit:</span></p>
         <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white ml-2">
-          <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
+          <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" rel="noopener noreferrer" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
           <li>Indicate which game you are attending</li>
           <li>List who you are attending with</li>
           <li>If necessary, explain how your outfit fits the theme (skip if obvious, e.g., wearing black for "blackout")</li>
@@ -87,7 +87,7 @@
               <p class="font-bold text-[#111318] dark:text-white">Spotlight Games</p>
               <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Certain games designated as "spotlight games" each week</p>
               <p class="text-lg font-bold text-yellow-600 dark:text-yellow-400 mt-2">2x POINTS (Double)</p>
-              <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">Find spotlight games on <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></p>
+              <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">Find spotlight games on <a href="https://www.instagram.com/ohs_spartancup" target="_blank" rel="noopener noreferrer" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup Instagram</a></p>
             </div>
           </div>
         </div>
@@ -147,8 +147,8 @@
                 </div>
               </div>
               <div class="mt-2 p-2 bg-gray-50 dark:bg-gray-900/30 rounded">
-                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Winter Sports/Arts:</p>
-                <p class="text-xs text-gray-600 dark:text-gray-400">Girls/Boys Basketball, Girls/Boys Hockey, Boys Swim & Dive, Nordic Ski, Alpine Ski, Dance, Wrestling, Theatre, Band, Choir</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold" id="variety-season-label">Loading season...</p>
+                <p class="text-xs text-gray-600 dark:text-gray-400" id="variety-sports-list">Loading sports/arts...</p>
               </div>
             </div>
           </div>
@@ -185,19 +185,8 @@
         <div class="mt-4 p-3 bg-primary/10 dark:bg-primary/20 rounded-lg">
           <h4 class="font-bold text-[#111318] dark:text-white mb-2">Individual Sports Superfans:</h4>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">The top fan for each sport/art wins a booster-sponsored prize!</p>
-          <div class="grid grid-cols-2 gap-2 text-xs text-[#111318] dark:text-white">
-            <div>• Girls Basketball</div>
-            <div>• Boys Basketball</div>
-            <div>• Girls Hockey</div>
-            <div>• Boys Hockey</div>
-            <div>• Dance</div>
-            <div>• Wrestling</div>
-            <div>• Boys Swim & Dive</div>
-            <div>• Nordic Ski</div>
-            <div>• Alpine Ski</div>
-            <div>• Theatre</div>
-            <div>• Band</div>
-            <div>• Choir</div>
+          <div id="superfan-sports-grid" class="grid grid-cols-2 gap-2 text-xs text-[#111318] dark:text-white">
+            <div>Loading sports/arts...</div>
           </div>
         </div>
       </div>
@@ -242,8 +231,100 @@
     <div class="mt-6 p-4 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/30">
       <p class="text-sm text-center text-gray-600 dark:text-gray-400">
         <span class="material-symbols-outlined text-sm align-middle">info</span>
-        Questions? Follow <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup</a> on Instagram for updates and announcements.
+        Questions? Follow <a href="https://www.instagram.com/ohs_spartancup" target="_blank" rel="noopener noreferrer" class="text-primary dark:text-blue-300 font-semibold hover:underline">@ohs_spartancup</a> on Instagram for updates and announcements.
       </p>
     </div>
   </div>
+
+  <script>
+    /**
+     * Load and populate sports/arts lists dynamically from backend
+     * This ensures the rulebook always reflects the current season's activities
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+      // Fetch active season and activities from backend
+      google.script.run
+        .withSuccessHandler((response) => {
+          if (response.status === 'success' && response.activities && response.activities.length > 0) {
+            const activities = response.activities;
+
+            // Get active season from APP_DATA or use default
+            const activeSeason = APP_DATA.activeSeason || 'Winter';
+
+            // Populate variety bonus section
+            const varietySeasonLabel = document.getElementById('variety-season-label');
+            const varietySportsList = document.getElementById('variety-sports-list');
+
+            if (varietySeasonLabel && varietySportsList) {
+              varietySeasonLabel.textContent = activeSeason + ' Sports/Arts:';
+              const sportNames = activities.map(a => a.activityName).join(', ');
+              varietySportsList.textContent = sportNames;
+            }
+
+            // Populate individual superfans section
+            const superfanGrid = document.getElementById('superfan-sports-grid');
+            if (superfanGrid) {
+              superfanGrid.innerHTML = '';
+              activities.forEach(activity => {
+                const div = document.createElement('div');
+                div.textContent = '• ' + activity.activityName;
+                superfanGrid.appendChild(div);
+              });
+            }
+          } else {
+            // Fallback to default Winter 25-26 sports if backend fails
+            console.warn('Could not load activities from backend, using fallback data');
+            const fallbackActivities = [
+              'Girls Basketball', 'Boys Basketball', 'Girls Hockey', 'Boys Hockey',
+              'Dance', 'Wrestling', 'Boys Swim & Dive', 'Nordic Ski', 'Alpine Ski',
+              'Theatre', 'Band', 'Choir'
+            ];
+
+            const varietySeasonLabel = document.getElementById('variety-season-label');
+            const varietySportsList = document.getElementById('variety-sports-list');
+            if (varietySeasonLabel && varietySportsList) {
+              varietySeasonLabel.textContent = 'Winter Sports/Arts:';
+              varietySportsList.textContent = fallbackActivities.join(', ');
+            }
+
+            const superfanGrid = document.getElementById('superfan-sports-grid');
+            if (superfanGrid) {
+              superfanGrid.innerHTML = '';
+              fallbackActivities.forEach(activity => {
+                const div = document.createElement('div');
+                div.textContent = '• ' + activity;
+                superfanGrid.appendChild(div);
+              });
+            }
+          }
+        })
+        .withFailureHandler((error) => {
+          console.error('Error loading activities:', error);
+          // Use fallback data on error (same as above)
+          const fallbackActivities = [
+            'Girls Basketball', 'Boys Basketball', 'Girls Hockey', 'Boys Hockey',
+            'Dance', 'Wrestling', 'Boys Swim & Dive', 'Nordic Ski', 'Alpine Ski',
+            'Theatre', 'Band', 'Choir'
+          ];
+
+          const varietySeasonLabel = document.getElementById('variety-season-label');
+          const varietySportsList = document.getElementById('variety-sports-list');
+          if (varietySeasonLabel && varietySportsList) {
+            varietySeasonLabel.textContent = 'Winter Sports/Arts:';
+            varietySportsList.textContent = fallbackActivities.join(', ');
+          }
+
+          const superfanGrid = document.getElementById('superfan-sports-grid');
+          if (superfanGrid) {
+            superfanGrid.innerHTML = '';
+            fallbackActivities.forEach(activity => {
+              const div = document.createElement('div');
+              div.textContent = '• ' + activity;
+              superfanGrid.appendChild(div);
+            });
+          }
+        })
+        .getActivitiesForSeason();
+    });
+  </script>
 </div>
