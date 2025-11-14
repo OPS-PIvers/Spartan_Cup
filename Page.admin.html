@@ -298,50 +298,49 @@
     <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-amber-600 mb-4 flex-shrink-0">
       <h2 class="text-xl font-bold text-amber-600 dark:text-amber-400 mb-3">Add/Edit Badge</h2>
       <form id="badge-form" class="space-y-3">
-        <!-- Badge ID (Display Only) -->
-        <div class="flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-white">
-          <label class="text-sm text-gray-600 dark:text-gray-400">Badge ID:</label>
-          <span id="badge-id-display" class="font-semibold">Auto-generated</span>
-        </div>
-
-        <!-- Badge Template Selection -->
-        <div>
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Badge Template</label>
-          <select id="badge-template" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
-            <option value="">Select a Badge Template</option>
-            <option value="event_count">📊 Event Count - Attend X events total</option>
-            <option value="season_points">⭐ Season Points - Earn X points this season</option>
-            <option value="activity_pct">🏀 Activity Percentage - Attend X% of specific sport games (all seasons)</option>
-            <option value="activity_count">🎯 Activity Event Count - Attend X events of specific sport (all seasons)</option>
-            <option value="activity_pct_season">🏆 Activity % (Season Only) - Attend X% of sport games THIS SEASON</option>
-            <option value="activity_pct_lifetime">🌟 Activity % (Lifetime) - Attend X% of sport games LIFETIME</option>
-            <option value="activity_count_season">📅 Activity Count (Season Only) - Attend X events THIS SEASON</option>
-            <option value="activity_count_lifetime">💎 Activity Count (Lifetime) - Attend X events LIFETIME</option>
-            <option value="distinct_sports">🎨 Distinct Sports - Attend X different sports/activities</option>
-            <option value="weekly_streak">🔥 Weekly Streak - Attend X events in 7 days</option>
-            <option value="home_game_pct">🏠 Home Games Percentage - Attend X% of all home games</option>
-            <option value="season_placement">🥇 Season Placement - Award 1st/2nd/3rd place at season end</option>
-            <option value="alltime_placement">👑 All-Time Rank Achievement - Reach Top X on lifetime leaderboard</option>
-            <option value="career_events">🎯 Career Events - Attend X total events (lifetime)</option>
-            <option value="career_seasons">🗓️ Multi-Season - Participate in X different seasons</option>
-            <option value="career_badges">🏅 Badge Collector - Earn X total badges</option>
-            <option value="weekday_coverage">📅 Weekday Warrior - Attend events on all weekdays (M-F)</option>
-            <option value="specific_activities">🎭 Specific Activities - Attend specific sports/activities</option>
-            <option value="manual">✋ Manual Award - Custom admin-awarded badge</option>
-          </select>
-          <p id="template-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden"></p>
-        </div>
-
         <!-- Badge Name -->
         <input id="badge-name" type="text" placeholder="Badge Name (e.g., Basketball Superfan)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
 
-        <!-- Category (Auto-filled based on template) -->
-        <select id="badge-category" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+        <!-- Description -->
+        <div>
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Description</label>
+          <textarea id="badge-description" placeholder="Describe what this badge represents..." rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required></textarea>
+        </div>
+
+        <!-- Scope Selection (Radio Buttons) -->
+        <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-3">Badge Type Scope</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="badge-scope" value="current-season" class="badge-scope-radio">
+              <span class="text-sm text-[#111318] dark:text-white">Current Season Only</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="badge-scope" value="lifetime" class="badge-scope-radio">
+              <span class="text-sm text-[#111318] dark:text-white">Lifetime/Career</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="badge-scope" value="special" class="badge-scope-radio">
+              <span class="text-sm text-[#111318] dark:text-white">Special/Manual</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Trigger Type Selection (Dynamic based on scope) -->
+        <div id="trigger-types-container" class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 hidden">
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-3">Select Badge Type</label>
+          <div id="trigger-types-buttons" class="grid grid-cols-2 gap-2">
+            <!-- Buttons populated by JavaScript -->
+          </div>
+          <p id="template-help" class="text-xs text-gray-500 dark:text-gray-400 mt-3 hidden"></p>
+        </div>
+
+        <!-- Hidden field to store selected template (for compatibility with existing code) -->
+        <select id="badge-template" class="hidden" required>
+          <option value="">Select a Badge Template</option>
+        </select>
+        <select id="badge-category" class="hidden" required>
           <option value="">Category (auto-filled)</option>
-          <option value="Participation">Participation</option>
-          <option value="Points">Points</option>
-          <option value="Special">Special</option>
-          <option value="Season">Season</option>
         </select>
 
         <!-- Activity Selection (for activity-specific badges) -->
@@ -366,12 +365,6 @@
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter as whole number (1-100)</p>
         </div>
 
-        <!-- Description -->
-        <div>
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Description</label>
-          <textarea id="badge-description" placeholder="Describe what this badge represents..." rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required></textarea>
-        </div>
-
         <!-- Preview Badge Criteria -->
         <div id="badge-preview" class="hidden p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
           <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">Badge Will Be Awarded When:</p>
@@ -380,9 +373,8 @@
 
         <!-- Image Upload -->
         <div class="space-y-2">
-          <label class="block text-sm font-semibold text-[#111318] dark:text-white">Badge Image (SVG or PNG recommended)</label>
+          <label class="block text-sm font-semibold text-[#111318] dark:text-white">Badge Image</label>
           <input id="badge-image-input" type="file" accept="image/svg+xml,image/png,image/jpeg" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm">
-          <p class="text-xs text-gray-500 dark:text-gray-400">Max 2MB. File will be renamed to snake_case automatically.</p>
           <img id="badge-image-preview" src="" alt="Badge preview" class="hidden w-24 h-24 rounded-lg border border-gray-300 dark:border-gray-600 object-cover">
           <p id="badge-image-filename" class="hidden text-xs text-gray-600 dark:text-gray-400"></p>
         </div>
@@ -397,13 +389,6 @@
           </button>
         </div>
       </form>
-
-      <!-- Auto-Deployment Notice -->
-      <div class="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
-        <p class="text-xs font-semibold text-green-800 dark:text-green-300 mb-1">✨ Automated Upload</p>
-        <p class="text-xs text-green-700 dark:text-green-400">Badge images are automatically uploaded to Firebase Storage and immediately available. No manual deployment needed!</p>
-        <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">Backup copy saved to Google Drive: "The Spartan Cup" → "Assets_Badges"</p>
-      </div>
     </div>
 
     <!-- Badges List -->
@@ -1732,6 +1717,54 @@
       });
     }
 
+    // Scope-based template grouping for UI organization
+    const badgeTemplatesByScope = {
+      'current-season': [
+        'season_points',
+        'activity_pct_season',
+        'activity_count_season',
+        'home_game_pct'
+      ],
+      'lifetime': [
+        'event_count',
+        'activity_pct_lifetime',
+        'activity_count_lifetime',
+        'distinct_sports',
+        'weekly_streak',
+        'alltime_placement',
+        'career_events',
+        'career_seasons',
+        'career_badges'
+      ],
+      'special': [
+        'season_placement',
+        'weekday_coverage',
+        'specific_activities',
+        'manual'
+      ]
+    };
+
+    // User-friendly labels for trigger types
+    const triggerTypeLabels = {
+      'season_points': 'Season Points',
+      'activity_pct_season': 'Activity %',
+      'activity_count_season': 'Activity Count',
+      'home_game_pct': 'Home Games %',
+      'event_count': 'Total Events',
+      'activity_pct_lifetime': 'Activity % (Lifetime)',
+      'activity_count_lifetime': 'Activity Count (Lifetime)',
+      'distinct_sports': 'Different Sports',
+      'weekly_streak': 'Events in 7 Days',
+      'alltime_placement': 'All-Time Rank',
+      'career_events': 'Career Events',
+      'career_seasons': 'Career Seasons',
+      'career_badges': 'Total Badges',
+      'season_placement': 'Season Placement',
+      'weekday_coverage': 'Weekday Coverage',
+      'specific_activities': 'Specific Activities',
+      'manual': 'Manual Award'
+    };
+
     // Template configuration
     const badgeTemplates = {
       event_count: {
@@ -1758,22 +1791,9 @@
         help: 'Awarded when student earns X points in current season',
         previewFn: (val) => `Student earns ${val} or more points this season`
       },
-      activity_pct: {
-        category: 'Participation',
-        triggerType: 'Activity_Pct',
-        needsValue: false,
-        needsPercentage: true,
-        needsActivity: true,
-        help: 'Awarded when student attends X% of a specific sport/activity games',
-        previewFn: (pct, activityCode) => {
-          const activity = activitiesData.find(a => a.activityCode === activityCode);
-          const activityName = activity ? activity.activityName : activityCode;
-          return `Student attends ${pct}% or more of ${activityName} games`;
-        }
-      },
-      activity_count: {
-        category: 'Participation',
-        triggerType: 'Activity_Event_Count',
+      activity_count_lifetime: {
+        category: 'Career',
+        triggerType: 'Activity_Event_Count_Lifetime',
         needsValue: true,
         needsPercentage: false,
         needsActivity: true,
@@ -1959,6 +1979,61 @@
         previewFn: () => 'Badge must be manually awarded by an admin'
       }
     };
+
+    // Scope selection handler - populates trigger type buttons
+    document.querySelectorAll('.badge-scope-radio').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const scope = e.target.value;
+        const container = document.getElementById('trigger-types-container');
+        const buttonsDiv = document.getElementById('trigger-types-buttons');
+
+        // Clear previous buttons
+        buttonsDiv.innerHTML = '';
+
+        // Get templates for this scope
+        const templateIds = badgeTemplatesByScope[scope] || [];
+
+        // Create buttons for each template
+        templateIds.forEach(templateId => {
+          const config = badgeTemplates[templateId];
+          const label = triggerTypeLabels[templateId] || config.help;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+          button.textContent = label;
+          button.title = config.help; // Show full help text on hover
+          button.dataset.templateId = templateId;
+
+          button.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            selectBadgeTemplate(templateId);
+          });
+
+          buttonsDiv.appendChild(button);
+        });
+
+        // Show trigger types container
+        container.classList.remove('hidden');
+        document.getElementById('badge-template').value = '';
+        document.getElementById('badge-category').value = '';
+      });
+    });
+
+    // Helper function to select a badge template
+    function selectBadgeTemplate(templateId) {
+      const hidden_select = document.getElementById('badge-template');
+      hidden_select.value = templateId;
+      hidden_select.dispatchEvent(new Event('change'));
+
+      // Highlight selected button
+      document.querySelectorAll('#trigger-types-buttons button').forEach(btn => {
+        if (btn.dataset.templateId === templateId) {
+          btn.classList.add('ring-2', 'ring-amber-600', 'bg-amber-50', 'dark:bg-amber-900/20');
+        } else {
+          btn.classList.remove('ring-2', 'ring-amber-600', 'bg-amber-50', 'dark:bg-amber-900/20');
+        }
+      });
+    }
 
     // Template change handler
     document.getElementById('badge-template').addEventListener('change', (e) => {
@@ -2151,12 +2226,12 @@
 
         // Format trigger display
         let triggerDisplay = '';
-        if (badge.triggerType === 'Activity_Pct' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        if (badge.triggerType === 'Activity_Pct_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
           const [activityCode, pct] = badge.triggerValue.split(':');
-          triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCode} games`;
-        } else if (badge.triggerType === 'Activity_Event_Count' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCode} games (lifetime)`;
+        } else if (badge.triggerType === 'Activity_Event_Count_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
           const [activityCode, count] = badge.triggerValue.split(':');
-          triggerDisplay = `${count} ${activityCode} events`;
+          triggerDisplay = `${count} ${activityCode} events (lifetime)`;
         } else if (badge.triggerType === 'Home_Game_Pct') {
           triggerDisplay = `${Math.round(badge.triggerValue * 100)}% of home games`;
         } else if (badge.triggerType === 'Weekday_Coverage') {
@@ -2408,8 +2483,12 @@
       badgeImageData = null;
       document.getElementById('badge-image-preview').classList.add('hidden');
       document.getElementById('badge-image-filename').classList.add('hidden');
-      document.getElementById('badge-id-display').textContent = 'Auto-generated';
       document.querySelector('#badge-form button[type="submit"]').textContent = 'Create Badge';
+
+      // Reset scope selection
+      document.querySelectorAll('.badge-scope-radio').forEach(radio => radio.checked = false);
+      document.getElementById('trigger-types-container').classList.add('hidden');
+      document.getElementById('trigger-types-buttons').innerHTML = '';
 
       // Hide dynamic fields and clear required attributes
       document.getElementById('activity-field').classList.add('hidden');
@@ -2434,9 +2513,7 @@
     triggerTypeToTemplate['season_points'] = 'season_points';
 
     function editBadge(badge) {
-      document.getElementById('badge-id-display').textContent = badge.badgeId;
       document.getElementById('badge-name').value = badge.badgeName;
-      document.getElementById('badge-category').value = badge.category;
       document.getElementById('badge-description').value = badge.description;
 
       // Reverse lookup: find template from trigger type
@@ -2446,28 +2523,42 @@
         alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
       }
 
-      // Populate form fields based on trigger type
-      if (badge.triggerType === 'Activity_Pct' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-        const [activityCode, pct] = badge.triggerValue.split(':');
-        document.getElementById('badge-activity-code').value = activityCode;
-        document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
-      } else if (badge.triggerType === 'Activity_Event_Count' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
-        const [activityCode, count] = badge.triggerValue.split(':');
-        document.getElementById('badge-activity-code').value = activityCode;
-        document.getElementById('badge-value-input').value = count;
-      } else if (badge.triggerType === 'Specific_Activities' && typeof badge.triggerValue === 'string') {
-        // Comma-separated activity codes
-        document.getElementById('badge-value-input').value = badge.triggerValue;
-      } else if (badge.triggerType === 'Home_Game_Pct') {
-        document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
-      } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
-        // Numeric trigger value (event_count, Points_Season, Distinct_Sports, etc.)
-        document.getElementById('badge-value-input').value = badge.triggerValue;
+      // Find which scope this template belongs to
+      let scope = 'special'; // default
+      for (const [scopeName, templateIds] of Object.entries(badgeTemplatesByScope)) {
+        if (templateIds.includes(template)) {
+          scope = scopeName;
+          break;
+        }
       }
 
-      // Set template (this will trigger the change handler)
-      document.getElementById('badge-template').value = template;
-      document.getElementById('badge-template').dispatchEvent(new Event('change'));
+      // Select the scope and trigger its change handler
+      document.querySelector(`input[name="badge-scope"][value="${scope}"]`).checked = true;
+      document.querySelector(`input[name="badge-scope"][value="${scope}"]`).dispatchEvent(new Event('change'));
+
+      // Wait a bit for scope change to populate buttons, then select template
+      setTimeout(() => {
+        selectBadgeTemplate(template);
+
+        // Populate form fields based on trigger type
+        if (badge.triggerType === 'Activity_Pct_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCode, pct] = badge.triggerValue.split(':');
+          document.getElementById('badge-activity-code').value = activityCode;
+          document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
+        } else if (badge.triggerType === 'Activity_Event_Count_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+          const [activityCode, count] = badge.triggerValue.split(':');
+          document.getElementById('badge-activity-code').value = activityCode;
+          document.getElementById('badge-value-input').value = count;
+        } else if (badge.triggerType === 'Specific_Activities' && typeof badge.triggerValue === 'string') {
+          // Comma-separated activity codes
+          document.getElementById('badge-value-input').value = badge.triggerValue;
+        } else if (badge.triggerType === 'Home_Game_Pct') {
+          document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
+        } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
+          // Numeric trigger value (event_count, Points_Season, Distinct_Sports, etc.)
+          document.getElementById('badge-value-input').value = badge.triggerValue;
+        }
+      }, 0);
 
       if (badge.imageUrl) {
         document.getElementById('badge-image-preview').src = badge.imageUrl;

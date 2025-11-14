@@ -267,6 +267,8 @@ Home_Game_Bonus | 10 | Bonus points for home games (currently unused)
 
 **Trigger Types Reference:**
 
+**Naming Convention:** Trigger types with `_Season` suffix filter to current season only. Trigger types with `_Lifetime` suffix count across all seasons (or omit a suffix variant for all-time).
+
 | Trigger Type | Trigger_Value Format | Example | Notes |
 |--------------|---------------------|---------|-------|
 | Points_Season | Number | 100 | Earned when season points ≥ value |
@@ -274,12 +276,11 @@ Home_Game_Bonus | 10 | Bonus points for home games (currently unused)
 | Submission_Count_Week_1 | Number | 3 | Earned if 3+ submissions in first week |
 | Events_In_7_Days | Number | 4 | Earned when 4+ events attended in rolling 7 days |
 | Distinct_Sports | Number | 3 | Earned when attended 3+ different activities |
-| Activity_Pct | "CODE:0.25" | "BB:0.25" | 25% of all Basketball games attended |
-| Activity_Event_Count | "CODE:5" | "VB:5" | Attended 5 or more Volleyball events |
-| Home_Game_Pct | Number (0-1) | 0.5 | Attended 50% of home games |
 | Activity_Pct_Season | "CODE:0.25" | "BB:0.25" | 25% of Basketball games THIS season |
 | Activity_Pct_Lifetime | "CODE:0.50" | "BB:0.50" | 50% of ALL Basketball games across all seasons |
 | Activity_Event_Count_Season | "CODE:5" | "VB:5" | Attended 5+ Volleyball events THIS season |
+| Activity_Event_Count_Lifetime | "CODE:5" | "VB:5" | Attended 5+ Volleyball events ACROSS ALL SEASONS (lifetime) |
+| Home_Game_Pct | Number (0-1) | 0.5 | Attended 50% of all home games (all-time) |
 | Season_Placement | 1, 2, or 3 | 1 | 1st, 2nd, or 3rd place badge (end-of-season only) |
 | AllTime_Placement_Reached | Number | 10 | Reached Top 10 on all-time leaderboard |
 | Career_Events_Attended | Number | 50 | Lifetime attendance milestone (50 events) |
@@ -564,11 +565,11 @@ List: Points, Participation, Variety, Loyalty, Special, Career, Achievement, Act
 
 **Column D (Trigger_Type):**
 ```
-List: Points_Season, Submission_Count, Submission_Count_Week_1, Events_In_7_Days, 
-Distinct_Sports, Activity_Pct, Activity_Event_Count, Home_Game_Pct, 
-Activity_Pct_Season, Activity_Pct_Lifetime, Activity_Event_Count_Season, 
-Season_Placement, AllTime_Placement_Reached, Career_Events_Attended, 
-Career_Seasons_Participated, Career_Badges_Earned, Weekday_Coverage, 
+List: Points_Season, Submission_Count, Submission_Count_Week_1, Events_In_7_Days,
+Distinct_Sports, Activity_Pct_Season, Activity_Pct_Lifetime, Home_Game_Pct,
+Activity_Event_Count_Season, Activity_Event_Count_Lifetime,
+Season_Placement, AllTime_Placement_Reached, Career_Events_Attended,
+Career_Seasons_Participated, Career_Badges_Earned, Weekday_Coverage,
 Specific_Activities, manual
 ```
 

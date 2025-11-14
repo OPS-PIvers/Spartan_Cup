@@ -79,7 +79,7 @@ function getAdminEmails() {
 
     return adminEmails;
   } catch (e) {
-    // Logger.log('Error reading admin emails: ' + e.message);
+    Logger.log('ERROR in getAdminEmails: ' + e.message + ' | Stack: ' + e.stack);
     return [];
   }
 }
@@ -4291,8 +4291,13 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Find the pending submission
+    // Validate required sheets exist before attempting operations
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
+    }
+
+    // Find the pending submission
     const pendingData = pendingSheet.getDataRange().getValues();
     let submissionRow = null;
     let submissionInfo = null;
@@ -4316,6 +4321,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     // Move to Submissions_Verified (including photo URL and ID for fan feed)
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+    if (!verifiedSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Verified sheet not found. Check spreadsheet schema." };
+    }
     verifiedSheet.appendRow([
       submissionInfo[0], // Submission_ID
       submissionInfo[1], // Timestamp_Submitted
@@ -4336,6 +4344,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     // Update Student_Profiles with points
     const studentSheet = ss.getSheetByName('Student_Profiles');
+    if (!studentSheet) {
+      return { status: "error", message: "CRITICAL: Student_Profiles sheet not found. Check spreadsheet schema." };
+    }
     const studentData = studentSheet.getDataRange().getValues();
 
     for (let i = 1; i < studentData.length; i++) {
@@ -4375,7 +4386,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     };
 
   } catch (e) {
-    // Logger.log('Error in approveSubmission: ' + e.message);
+    Logger.log('ERROR in approveSubmission: ' + e.message + ' | Stack: ' + e.stack);
     return {
       status: "error",
       message: "Error approving submission: " + e.message
@@ -4399,8 +4410,13 @@ function denySubmission(submissionId, reason) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Find the pending submission
+    // Validate required sheets exist before attempting operations
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
+    }
+
+    // Find the pending submission
     const pendingData = pendingSheet.getDataRange().getValues();
     let submissionRow = null;
     let submissionInfo = null;
@@ -4433,7 +4449,7 @@ function denySubmission(submissionId, reason) {
     };
 
   } catch (e) {
-    // Logger.log('Error in denySubmission: ' + e.message);
+    Logger.log('ERROR in denySubmission: ' + e.message + ' | Stack: ' + e.stack);
     return {
       status: "error",
       message: "Error denying submission: " + e.message
@@ -4611,9 +4627,9 @@ function calculateBadges(email) {
           }
         }
         shouldEarn = distinctActivities.size >= triggerValue;
-      } else if (triggerType === 'Activity_Pct') {
-        // Percentage of a specific activity's games attended
-        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of basketball games
+      } else if (triggerType === 'Activity_Pct_Lifetime') {
+        // Percentage of a specific activity's games attended ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of all basketball games
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
         const [activityCode, percentageStr] = triggerValue.split(':');
@@ -4644,9 +4660,9 @@ function calculateBadges(email) {
 
         const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
         shouldEarn = percentage >= requiredPercentage;
-      } else if (triggerType === 'Activity_Event_Count') {
-        // Count of events attended for a specific activity
-        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events
+      } else if (triggerType === 'Activity_Event_Count_Lifetime') {
+        // Count of events attended for a specific activity ACROSS ALL SEASONS (LIFETIME)
+        // Format: "ACTIVITY_CODE:COUNT" e.g., "VB:5" for 5 volleyball events total
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
         const [activityCode, countStr] = triggerValue.split(':');
@@ -4999,7 +5015,7 @@ function calculateBadges(email) {
     studentSheet.getRange(studentRow, 5).setValue(JSON.stringify(studentProfile.earnedBadges));
 
   } catch (e) {
-    // Logger.log('Error in calculateBadges: ' + e.message);
+    Logger.log('ERROR in calculateBadges for ' + email + ': ' + e.message + ' | Stack: ' + e.stack);
   }
 }
 
