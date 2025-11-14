@@ -4347,8 +4347,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       }
     }
 
-    // Calculate badges for the student
-    calculateBadges(submissionInfo[2]);
+    // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
+    calculateBadges(submissionInfo[2], true);
 
     // Get event details map for notification
     const eventSheet = ss.getSheetByName('Events');
@@ -4502,7 +4502,7 @@ function getBadgeData() {
  * Called after a submission is approved.
  * @param {string} email - Student email
  */
-function calculateBadges(email) {
+function calculateBadges(email, skipSeasonEndBadges = false) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -4712,6 +4712,8 @@ function calculateBadges(email) {
       } else if (triggerType === 'Activity_Pct_Season') {
         // Percentage of one or more activities' games attended WITHIN THE CURRENT SEASON
         // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:PERCENTAGE" e.g., "BB,VB:0.75" for 75% of combined basketball+volleyball games THIS SEASON
+        // NOTE: Season-end badge - skipped during regular submission approvals, only calculated at season-end
+        if (skipSeasonEndBadges) continue;
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
         const [activityCodesStr, percentageStr] = triggerValue.split(':');
@@ -4794,6 +4796,8 @@ function calculateBadges(email) {
       } else if (triggerType === 'Activity_Event_Count_Season') {
         // Count of events attended for one or more activities WITHIN THE CURRENT SEASON
         // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT" e.g., "VB,BB:5" for 5 combined volleyball+basketball events THIS SEASON
+        // NOTE: Season-end badge - skipped during regular submission approvals, only calculated at season-end
+        if (skipSeasonEndBadges) continue;
         if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
 
         const [activityCodesStr, countStr] = triggerValue.split(':');
