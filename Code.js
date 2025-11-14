@@ -1007,7 +1007,7 @@ function setupSpreadsheet() {
   if (headersAdded.length > 0) {
     Logger.log(`Sheets with headers added: ${headersAdded.join(', ')}`);
   }
-  if (sheetsCreated.length === 0 && headersAdded.length === 0) {
+  if (sheetsCreated.length === 0 && headersAdded.length === 0 && sheetsValidated.length === 0) {
     Logger.log('No changes needed: all sheets and headers are already set up correctly');
   }
 
