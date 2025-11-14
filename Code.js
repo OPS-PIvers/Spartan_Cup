@@ -798,6 +798,11 @@ function getProfileData() {
     const pendingData = pendingSheet.getDataRange().getValues();
 
     for (let i = 1; i < pendingData.length; i++) {
+      // Skip empty rows (cleared submissions)
+      if (!pendingData[i][0] || pendingData[i][0] === '') {
+        continue;
+      }
+
       if (pendingData[i][2] === email) {
         const eventInfo = eventMap[pendingData[i][3]] || { name: 'Unknown Event', date: 'N/A', sportArt: 'Other' };
         history.push({
@@ -983,7 +988,8 @@ function setupSpreadsheet() {
     'Events': ['Event_ID', 'Activity_Code', 'Event_Name', 'Date', 'Location_Name', 'Event_Lat', 'Event_Lon', 'Start_Time', 'Duration_Hours', 'Is_Home_Game', 'Is_Spotlight_Game', 'Theme', 'Is_Active'],
     'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
-    'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL'],
+    'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL', 'Photo_ID'],
+    'Submissions_Denied': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Denied', 'Email', 'Event_ID', 'Admin_Email', 'Denial_Reason', 'Photo_URL', 'Photo_ID'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
     'Config_Points': ['Setting_Name', 'Points_Value', 'Description'],
@@ -4210,9 +4216,14 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
     const eventMap = getEventMapCache();
     // Logger.log('Event map retrieved from cache');
 
-    // Build full queue
+    // Build full queue (skip empty rows from cleared submissions)
     const fullQueue = [];
     for (let i = 1; i < pendingData.length; i++) {
+      // Skip empty rows (cleared submissions)
+      if (!pendingData[i][0] || pendingData[i][0] === '') {
+        continue;
+      }
+
       const eventInfo = eventMap[pendingData[i][3]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
       fullQueue.push({
         submissionId: pendingData[i][0],
@@ -4325,8 +4336,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       submissionInfo[5] // Photo_ID (permanent - used to regenerate images)
     ]);
 
-    // Delete from Submissions_Pending
-    pendingSheet.deleteRow(submissionRow);
+    // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)
+    const numColumns = pendingSheet.getLastColumn();
+    pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
 
     // Update Student_Profiles with points
     const studentSheet = ss.getSheetByName('Student_Profiles');
@@ -4419,8 +4431,27 @@ function denySubmission(submissionId, reason) {
       return { status: "error", message: "Submission not found." };
     }
 
-    // Delete from Submissions_Pending
-    pendingSheet.deleteRow(submissionRow);
+    // Move to Submissions_Denied for record keeping
+    const deniedSheet = ss.getSheetByName('Submissions_Denied');
+    if (deniedSheet) {
+      deniedSheet.appendRow([
+        submissionInfo[0], // Submission_ID
+        submissionInfo[1], // Timestamp_Submitted
+        new Date(), // Timestamp_Denied
+        submissionInfo[2], // Email
+        submissionInfo[3], // Event_ID
+        email, // Admin_Email
+        reason || "No reason provided", // Denial_Reason
+        submissionInfo[4], // Photo_URL
+        submissionInfo[5] // Photo_ID
+      ]);
+    } else {
+      Logger.log('WARNING: Submissions_Denied sheet not found. Denial not archived.');
+    }
+
+    // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)
+    const numColumns = pendingSheet.getLastColumn();
+    pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
 
     // Optionally delete photo from Drive
     try {
