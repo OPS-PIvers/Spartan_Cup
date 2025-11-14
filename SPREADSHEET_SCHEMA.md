@@ -177,21 +177,22 @@ a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | student@orono.k12.mn.us | GBB-001 | htt
 
 | # | Column | Header | Type | Purpose | Notes |
 |---|--------|--------|------|---------|-------|
-| A | 1 | Submission_ID | String | Unique submission identifier | UUID; copied from Submissions_Pending |
-| B | 2 | Timestamp_Submitted | DateTime | When student submitted | Copied from Submissions_Pending |
-| C | 3 | Timestamp_Approved | DateTime | When admin approved | Auto-set to `new Date()` on approval |
-| D | 4 | Email | String | Student email | Links to Student_Profiles |
-| E | 5 | Event_ID | String | Event attended | Foreign key to Events |
-| F | 6 | Admin_Email | String | Approving admin's email | For audit trail |
-| G | 7 | Points_Base | Number | Base points awarded | Admin decides; typically 50-75 |
-| H | 8 | Points_Theme | Number | Theme bonus points | Admin decides; typically 0 or 25 |
-| I | 9 | Points_Spotlight_Multiplier | Number | Spotlight multiplier | Typically 1.0 or 1.5 |
-| J | 10 | Points_Total | Number | Final calculated points | (Points_Base + Points_Theme) × Points_Spotlight_Multiplier |
-| K | 11 | Photo_URL | String | URL to submission photo | Google Drive export link; used for fan feed |
+| A | 0 | Submission_ID | String | Unique submission identifier | UUID; copied from Submissions_Pending |
+| B | 1 | Timestamp_Submitted | DateTime | When student submitted | Copied from Submissions_Pending |
+| C | 2 | Timestamp_Approved | DateTime | When admin approved | Auto-set to `new Date()` on approval |
+| D | 3 | Email | String | Student email | Links to Student_Profiles |
+| E | 4 | Event_ID | String | Event attended | Foreign key to Events |
+| F | 5 | Admin_Email | String | Approving admin's email | For audit trail |
+| G | 6 | Points_Base | Number | Base points awarded | Admin decides; typically 50-75 |
+| H | 7 | Points_Theme | Number | Theme bonus points | Admin decides; typically 0 or 25 |
+| I | 8 | Points_Spotlight_Multiplier | Number | Spotlight multiplier | Typically 1.0 or 1.5 |
+| J | 9 | Points_Total | Number | Final calculated points | (Points_Base + Points_Theme) × Points_Spotlight_Multiplier |
+| K | 10 | Photo_URL | String | URL to submission photo | Google Drive export link; used for fan feed |
+| L | 11 | Photo_ID | String | Google Drive file ID | Permanent ID for regenerating image data URLs |
 
 **Sample Data:**
 ```
-a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | 2025-11-16 09:15:00 | student@orono.k12.mn.us | GBB-001 | admin@orono.k12.mn.us | 75 | 25 | 1.5 | 150 | https://drive.google.com/uc?...
+a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | 2025-11-16 09:15:00 | student@orono.k12.mn.us | GBB-001 | admin@orono.k12.mn.us | 75 | 25 | 1.5 | 150 | https://drive.google.com/uc?... | abc123def456
 ```
 
 **Relationships:**
@@ -210,8 +211,9 @@ Example: (75 + 25) × 1.5 = 150 points
 
 **Notes:**
 - Immutable once created; no updates or deletions
-- Photo_URL may expire; can be regenerated from Photo_ID in Submissions_Pending archive
-- Used as canonical record for points distribution
+- Photo_URL is a Google Drive export link that may become inaccessible over time
+- Photo_ID (column L) is the permanent Google Drive file ID used to regenerate image data when needed
+- Used as canonical record for points distribution and fan feed display
 - Admin email stored for transparency and auditing
 
 ---

@@ -5365,25 +5365,11 @@ function getFanFeed() {
       if (timestamp < cutoffDate) continue;
 
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
+      const photoUrl = verifiedData[i][10]; // Photo_URL (column K, index 10)
       const photoId = verifiedData[i][11]; // Photo_ID (column L, index 11)
 
-      // Skip if no photo ID (we need it to generate base64 data URL like admin page does)
-      if (!photoId) continue;
-
-      // Convert photo to base64 data URL (same approach as admin dashboard)
-      let imageUrl = '';
-      try {
-        const imageResponse = serveImage(photoId);
-        if (imageResponse.status === 'success') {
-          imageUrl = imageResponse.dataUrl;
-        } else {
-          Logger.log('DEBUG: serveImage failed for photoId ' + photoId);
-          continue;
-        }
-      } catch (e) {
-        Logger.log('DEBUG: Error getting image for photoId ' + photoId + ': ' + e.message);
-        continue;
-      }
+      // Skip if no photo URL or ID
+      if (!photoUrl && !photoId) continue;
 
       feedItems.push({
         type: 'photo',
@@ -5394,7 +5380,8 @@ function getFanFeed() {
         studentName: studentMap[verifiedData[i][3]] || verifiedData[i][3],
         eventName: eventInfo.eventName,
         eventId: verifiedData[i][4],
-        imageUrl: imageUrl, // Base64 data URL (like admin page uses)
+        imageUrl: photoUrl || '', // Use Photo_URL directly (Google Drive export link)
+        photoId: photoId || '', // Include Photo_ID for fallback/regeneration if needed
         likes: 0
       });
     }

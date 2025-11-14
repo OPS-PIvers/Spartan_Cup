@@ -158,13 +158,42 @@
     const imgElement = document.createElement('img');
     imgElement.alt = 'Event photo';
     imgElement.className = 'w-full h-64 object-cover';
+
+    let fallbackAttempted = false;
     imgElement.onerror = function() {
-      this.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+      // If the Drive URL fails and we have a Photo_ID, try loading via serveImage as fallback
+      if (!fallbackAttempted && item.photoId) {
+        fallbackAttempted = true;
+        google.script.run
+          .withSuccessHandler(function(response) {
+            if (response.status === 'success') {
+              imgElement.src = response.dataUrl;
+            } else {
+              imgElement.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+            }
+          })
+          .withFailureHandler(function() {
+            imgElement.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+          })
+          .serveImage(item.photoId);
+      } else {
+        // No fallback available or fallback already tried
+        this.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23ddd%22 width=%22400%22 height=%22300%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22%3EImage unavailable%3C/text%3E%3C/svg%3E';
+      }
     };
 
-    // Use the Drive URL directly (browser will cache it)
+    // Use the Drive URL directly first (browser will cache it)
     if (item.imageUrl) {
       imgElement.src = item.imageUrl;
+    } else if (item.photoId) {
+      // If no URL but we have a Photo_ID, load via serveImage
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response.status === 'success') {
+            imgElement.src = response.dataUrl;
+          }
+        })
+        .serveImage(item.photoId);
     }
 
     const contentDiv = document.createElement('div');
