@@ -1208,18 +1208,8 @@ function setupBadgeDropdowns() {
     return;
   }
 
-
-
-
-
-  // Get the last row with data (or use a large number to cover future rows)
-  const lastRow = Math.max(badgesSheet.getLastRow(), 100);
-
-
-
-
-
-
+  // TODO: Implement data validation dropdowns for badge configuration
+  // This function is a placeholder for future implementation
 }
 
 /**
