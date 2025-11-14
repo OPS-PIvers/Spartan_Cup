@@ -239,13 +239,11 @@
       'history': 'Event History',
       'prizes': 'Prizes & Awards',
       'fanfeed': 'Fan Feed',
-      'scanner': 'Scan Event Code',
       'event-select': 'Select Event',
       'submit': 'Submit Attendance',
       'settings': 'Settings',
       'all-badges': 'All Badges',
-      'admin': 'Admin Dashboard',
-      'qr-code': 'QR Code'
+      'admin': 'Admin Dashboard'
     };
 
     /**
@@ -293,8 +291,6 @@
         }, 250);  // 250ms delay gives a clear visual indication
       }
     }
-
-    // --- QR SCANNER REMOVED - Location-based check-in now used ---
 
     /** Load and display events sorted by distance for selection */
     function loadEventsByDistance() {
@@ -371,14 +367,6 @@
     function selectEvent(eventCode) {
       navigateToPage('submit&eventCode=' + eventCode);
     }
-
-    /** COMMENTED OUT: Show modal for manually entering an event code - users should scan QR codes instead
-    function enterCodeManually() {
-      stopScanner();
-      document.getElementById('manual-code-modal').classList.remove('hidden');
-      document.getElementById('manual-code-input').focus();
-    }
-    */
 
     // --- EVENT LISTENERS ----------------------------------------------------
     
@@ -472,8 +460,6 @@
         }
       }
 
-      // Scanner page removed - users now check in via location-based auto-detection
-
       if (pageKey === 'history') {
         // Load dynamic history data
         google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
@@ -481,14 +467,6 @@
       
       if (pageKey === 'all-badges') {
         document.getElementById('view-all-badges-button').addEventListener('click', () => navigateToPage('all-badges'));
-      }
-
-      if (pageKey === 'qr-code') {
-        // QR code page - admin only, auto-initializes via script in the page
-        if (!APP_DATA.isAdmin) {
-          document.getElementById('page-title').innerText = 'Access Denied';
-          document.body.innerHTML = '<div class="p-4"><p class="text-red-500">Admin access required.</p></div>';
-        }
       }
 
       if (pageKey === 'admin') {
@@ -513,7 +491,7 @@
           document.getElementById('event-name').value = APP_DATA.autoEventError;
           // Error already displayed in event-name field
         } else {
-          // Fallback: Try to get event code from URL parameter (old QR scanner flow or manual selection)
+          // Fallback: Try to get event code from URL parameter (manual selection)
           const urlParams = new URLSearchParams(window.location.search);
           const eventCode = urlParams.get('eventCode');
 

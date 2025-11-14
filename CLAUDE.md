@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Spartan Cup** is a Google Apps Script-based web application that gamifies student attendance and participation at school events. It's a single-page application (SPA) allowing students to scan QR codes at events, submit photos to earn points, and compete on leaderboards. The admin dashboard enables staff to review and approve submissions. The application is tailored for Orono High School with custom branding and geolocation verification to prevent cheating.
+**Spartan Cup** is a Google Apps Script-based web application that gamifies student attendance and participation at school events. It's a single-page application (SPA) allowing students to check in at events via location-based detection, submit photos to earn points, and compete on leaderboards. The admin dashboard enables staff to review and approve submissions. The application is tailored for Orono High School with custom branding and geolocation verification to prevent cheating.
 
 ## Technology Stack
 
@@ -14,7 +14,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Frontend Framework:** Vanilla JavaScript SPA with server-driven routing
 - **CSS:** Tailwind CSS (CDN-hosted)
 - **Libraries:**
-  - html5-qrcode for QR code scanning
   - Google Material Icons for icons
   - Google Fonts (Public Sans) for typography
 - **Deployment Tools:** Clasp (Google Apps Script CLI), Firebase Hosting (geolocation wrapper)
@@ -28,10 +27,10 @@ The project combines Google Apps Script files (flat structure required by GAS) w
 Spartan_Cup/
 ├── Code.js                 # Server-side business logic (V8 Apps Script)
 ├── Index.html              # Main SPA template entry point
-├── JavaScript.html         # Client-side JS (SPA router, QR scanning, form handling)
+├── JavaScript.html         # Client-side JS (SPA router, form handling, location services)
 ├── CSS.html                # Styling and theme configuration
 ├── Modals.html             # Modal dialog components
-├── Page.*.html             # Modular page components (scanner, profile, history, etc.)
+├── Page.*.html             # Modular page components (profile, history, submit, etc.)
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
 ├── firebase.json           # Firebase configuration
@@ -85,11 +84,10 @@ Spartan_Cup/
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
 **Key Components:**
-- `Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-- `JavaScript.html` (337 lines): Client-side routing, page navigation, QR scanner initialization, form submission handlers
+- `Code.js`: All backend functions, spreadsheet operations, Drive API, authentication, photo handling
+- `JavaScript.html`: Client-side routing, page navigation, location services, form submission handlers
 - `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
-- `Page.scanner.html`: QR code scanning interface with geolocation verification
-- `Page.submit.html`: Event submission form
+- `Page.submit.html`: Event submission form with location-based check-in
 - `Page.admin.html`: Admin approval dashboard
 
 **Geofencing:** Location verification is hardcoded (coordinates in Code.js lines 16-19) to prevent cheating submissions from outside campus.
@@ -174,10 +172,10 @@ python3 scripts/write_sheet.py Test_Sheet clear
 
 There is no automated test framework configured. Testing is manual:
 - Open the deployed web app URL in a browser
-- Test QR code scanning with generated QR codes
+- Test location-based check-in at events
 - Verify spreadsheet data updates correctly
 - Test admin approval workflow
-- Test on iOS Safari to verify geolocation now works
+- Test on iOS Safari to verify geolocation works via Firebase wrapper
 
 ### Linting
 

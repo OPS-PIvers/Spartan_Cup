@@ -1773,8 +1773,7 @@ function createHtmlFiles() {
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-  
+
   <script>
     tailwind.config = {
       darkMode: "class",
@@ -1870,25 +1869,14 @@ function createHtmlFiles() {
     }
     .nav-item.active .material-symbols-outlined { color: #1b3b87; }
     .nav-item.active span { color: #1b3b87; font-weight: 700; }
-    #qr-reader video {
-      width: 100% !important;
-      height: auto !important;
-      border-radius: 1.5rem;
-    }
-    @keyframes scan {
-      0% { transform: translateY(0); }
-      50% { transform: translateY(calc(280px - 2px)); }
-      100% { transform: translateY(0); }
-    }
   </style>`,
     'JavaScript.html': `<script>
     // --- STATE & PAGE ROUTING -----------------------------------------------
-    let html5QrCode = null;
     let currentProfileData = null; // Store full profile data for leaderboard toggling
 
     const TITLES = {
       'profile': 'My Profile', 'history': 'Event History', 'prizes': 'Prizes & Awards',
-      'fanfeed': 'Fan Feed', 'scanner': 'Scan Event Code', 'submit': 'Submit Attendance',
+      'fanfeed': 'Fan Feed', 'submit': 'Submit Attendance',
       'settings': 'Settings', 'all-badges': 'All Badges', 'admin': 'Admin Dashboard'
     };
 
@@ -1898,18 +1886,6 @@ function createHtmlFiles() {
     function navigateToPage(pageName) {
       if (pageName) {
         window.top.location.href = APP_DATA.appUrl + '?page=' + pageName;
-      }
-    }
-
-    // --- QR SCANNER LOGIC ---------------------------------------------------
-    // NOTE: startScanner() and stopScanner() are defined in JavaScript.html
-    // Do not duplicate them here to avoid multiple camera initialization
-
-    function enterCodeManually() {
-      stopScanner();
-      const eventId = prompt("Please enter the 6-digit event code:");
-      if (eventId && eventId.length > 3) { // Simple validation
-        navigateToPage('submit&event=' + eventId);
       }
     }
 
@@ -2112,8 +2088,8 @@ function createHtmlFiles() {
       <h3 class="text-2xl font-bold text-primary dark:text-blue-300">Welcome to The Spartan Cup!</h3>
       <p class="py-4 text-gray-600 dark:text-gray-300">Earn points by supporting Orono events!</p>
       <ol class="list-decimal list-inside text-sm space-y-2 text-gray-600 dark:text-gray-300">
-        <li>Tap "Scan QR" on your profile to attend an event.</li>
-        <li>Scan the event's QR code & submit your photo.</li>
+        <li>Tap "Check In" on your profile to attend an event.</li>
+        <li>Your location will be detected automatically and you can submit your photo.</li>
         <li>Earn points, get badges, and climb the leaderboard!</li>
       </ol>
       <p class="text-xs text-secondary dark:text-red-400 bg-secondary/10 p-2 rounded mt-4">
@@ -2175,10 +2151,6 @@ function createHtmlFiles() {
     </template>
   </div>
   <div class="flex flex-col gap-3 px-4 mt-6">
-    <button id="scan-qr-button" class="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-14 px-5 bg-gradient-button text-white text-base font-bold leading-normal tracking-[0.015em] w-full shadow-lg shadow-primary/30 active:scale-95 transition-transform" style="background-image: linear-gradient(to right, #b5121b, #1b3b87)">
-      <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
-      <span class="truncate">Scan QR to Earn Points</span>
-    </button>
     <button id="event-history-button" class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gray-200 dark:bg-gray-700/50 text-[#111318] dark:text-white text-base font-bold leading-normal tracking-[0.015em] w-full active:scale-95 transition-transform">
       <span class="truncate">Previously Attended Events &amp; Point Earnings</span>
     </button>
@@ -2297,10 +2269,6 @@ function createHtmlFiles() {
               <p><span class="material-symbols-outlined text-sm align-middle mr-1">location_on</span>\${event.locationName || 'TBD'}</p>
               \${event.theme && event.theme !== 'None' ? '<p><span class="material-symbols-outlined text-sm align-middle mr-1">style</span>Theme: ' + event.theme + '</p>' : ''}
             </div>
-
-            <button class="w-full bg-primary text-white font-bold py-2 px-4 rounded-lg active:scale-95 transition-transform text-sm" onclick="navigateToPage('scanner')">
-              Scan to Attend
-            </button>
           \`;
           container.appendChild(card);
         });
@@ -2382,7 +2350,7 @@ function createHtmlFiles() {
 
         const photos = response.photos || [];
         if (photos.length === 0) {
-          container.innerHTML = '<p class="text-center text-gray-500 py-8">No approved photos yet. Scan an event code to get started!</p>';
+          container.innerHTML = '<p class="text-center text-gray-500 py-8">No approved photos yet. Check in at an event to get started!</p>';
           return;
         }
 
@@ -2438,38 +2406,6 @@ function createHtmlFiles() {
       // console.log('Liked submission:', submissionId);
     }
   </script>`,
-    'Page.scanner.html': `<div class="page fixed inset-0 z-50 bg-background-dark text-white">
-    <div class="relative flex h-full min-h-screen w-full flex-col overflow-hidden">
-      <div class="relative z-10 flex h-full min-h-screen flex-col">
-        <header class="flex items-center justify-between p-4">
-          <button id="scanner-close-button" aria-label="Go back" class="flex size-10 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm">
-            <span class="material-symbols-outlined text-2xl">arrow_back</span>
-          </button>
-        </header>
-        <main class="flex flex-1 flex-col items-center justify-center p-6 text-center">
-          <h1 class="text-xl font-bold">Scan Event QR Code</h1>
-          <p class="mt-2 text-light-gray">Position the QR code within the frame to check in.</p>
-          <div class="relative mt-8 flex aspect-square w-full max-w-[280px] items-center justify-center">
-            <div id="qr-reader" class="w-full max-w-[280px] aspect-square rounded-2xl overflow-hidden"></div>
-            <div class="scanner-overlay absolute h-[280px] w-[280px] rounded-2xl" style="box-shadow: 0 0 0 9999px rgba(18, 18, 18, 0.7);"></div>
-            <div class="absolute w-[280px] h-[280px]">
-              <div class="scanning-frame-corner" style="position: absolute; width: 48px; height: 48px; border-style: solid; border-color: #ffffff; top: -4px; left: -4px; border-width: 4px 0 0 4px; border-top-left-radius: 1.75rem;"></div>
-              <div class="scanning-frame-corner" style="position: absolute; width: 48px; height: 48px; border-style: solid; border-color: #ffffff; top: -4px; right: -4px; border-width: 4px 4px 0 0; border-top-right-radius: 1.75rem;"></div>
-              <div class="scanning-frame-corner" style="position: absolute; width: 48px; height: 48px; border-style: solid; border-color: #ffffff; bottom: -4px; left: -4px; border-width: 0 0 4px 4px; border-bottom-left-radius: 1.75rem;"></div>
-              <div class="scanning-frame-corner" style="position: absolute; width: 48px; height: 48px; border-style: solid; border-color: #ffffff; bottom: -4px; right: -4px; border-width: 0 4px 4px 0; border-bottom-right-radius: 1.75rem;"></div>
-              <div class="scan-line" style="position: absolute; top: 0; left: 5%; right: 5%; height: 2px; background: linear-gradient(90deg, transparent, rgba(181, 18, 27, 0.8), transparent); box-shadow: 0 0 10px 1px #b5121b; animation: scan 2.5s infinite cubic-bezier(0.4, 0, 0.2, 1);"></div>
-            </div>
-          </div>
-        </main>
-        <footer class="flex flex-col items-center gap-6 p-6 pb-12">
-          <button id="manual-entry-button" class="flex flex-col items-center justify-center gap-2 rounded-2xl bg-black/30 backdrop-blur-sm px-6 py-4 text-center">
-            <span class="material-symbols-outlined text-3xl">edit_document</span>
-            <span class="text-sm font-medium">Enter Code Manually</span>
-          </button>
-        </footer>
-      </div>
-    </div>
-  </div>`,
     'Page.submit.html': `<div class="p-4">
     <form id="submission-form" class="space-y-4">
       <div>
@@ -3575,7 +3511,7 @@ function getEventsByDistance(userLat, userLon) {
 /**
  * Gets the closest event that the user is within the geofence of.
  * Auto-selects the event that user is closest to the center of.
- * Used for direct check-in flow without QR scanning.
+ * Used for location-based direct check-in flow.
  * @param {number} userLat - User's latitude
  * @param {number} userLon - User's longitude
  * @return {Object} {status, eventCode, eventName, distance} or {status: 'error', message}
