@@ -13,10 +13,12 @@
  * - findPendingSubmission/findVerifiedSubmission(): Duplicate detection helpers
  */
 
-/** Utility function to find a pending submission. */
+/**
+ * Utility function to find a pending submission.
+ * Uses cached pending submissions data to reduce API calls.
+ */
 function findPendingSubmission(email, eventId) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending');
-  const data = sheet.getDataRange().getValues();
+  const data = getPendingSubmissionsData();
   for (let i = 1; i < data.length; i++) {
     if (data[i][2] === email && data[i][3] === eventId) {
       return { row: i + 1, photoId: data[i][5] };
@@ -25,10 +27,12 @@ function findPendingSubmission(email, eventId) {
   return null;
 }
 
-/** Utility function to find a verified submission. */
+/**
+ * Utility function to find a verified submission.
+ * Uses cached verified submissions data to reduce API calls.
+ */
 function findVerifiedSubmission(email, eventId) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Verified');
-  const data = sheet.getDataRange().getValues();
+  const data = getVerifiedSubmissionsData();
   for (let i = 1; i < data.length; i++) {
     if (data[i][3] === email && data[i][4] === eventId) {
       return { row: i + 1 };
@@ -213,16 +217,8 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    // Logger.log('Spreadsheet accessed');
-
-    // Get pending submissions
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    if (!pendingSheet) {
-      // Logger.log('Submissions_Pending sheet not found');
-      return { status: "error", message: "Submissions_Pending sheet not found." };
-    }
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Get pending submissions using cached data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
     // Logger.log('Pending submissions data retrieved: ' + pendingData.length + ' rows');
 
     // Get event details map (cached)

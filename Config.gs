@@ -34,7 +34,8 @@ const CACHE_TTL = {
   BADGE_MAP: 86400,         // 24 hours
   ACTIVE_SEASON: 3600,      // 1 hour
   SUBMISSIONS_VERIFIED: 600, // 10 minutes (changes when admins approve)
-  SUBMISSIONS_PENDING: 300   // 5 minutes (changes frequently as users submit)
+  SUBMISSIONS_PENDING: 300,  // 5 minutes (changes frequently as users submit)
+  ACTIVITIES_DATA: 86400     // 24 hours (very static - only changes when sports/activities added)
 };
 
 /**
@@ -254,6 +255,34 @@ function getPendingSubmissionsData() {
   return pendingData;
 }
 
+/**
+ * Gets Activities_Data with caching.
+ * Cached for 24 hours since activities rarely change (only when admins add new sports/activities).
+ * @return {Array} 2D array of activities data
+ */
+function getActivitiesData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'activities_data';
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    const parsed = safeJSONParse(cachedData, null, 'activities data cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
+  }
+
+  // Cache miss or parse error: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activitiesSheet = ss.getSheetByName('Activities_Data');
+  const activitiesData = activitiesSheet.getDataRange().getValues();
+
+  // Cache for 24 hours
+  cache.put(cacheKey, JSON.stringify(activitiesData), CACHE_TTL.ACTIVITIES_DATA);
+
+  return activitiesData;
+}
+
 function clearAllCaches() {
   try {
     // Clear script-level caches (shared across all users)
@@ -266,7 +295,8 @@ function clearAllCaches() {
       'active_events_data',
       'active_season',
       'verified_submissions_data',
-      'pending_submissions_data'
+      'pending_submissions_data',
+      'activities_data'
     ]);
 
     // Clear user-level caches (fan feed, personal data, etc.)
