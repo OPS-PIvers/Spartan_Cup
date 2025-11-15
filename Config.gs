@@ -28,7 +28,7 @@ const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
 // Cache TTL (Time To Live) values in seconds
 const CACHE_TTL = {
   ADMIN_EMAILS: 21600,      // 6 hours
-  STUDENT_PROFILES: 600,    // 10 minutes
+  STUDENT_PROFILES: 1800,   // 30 minutes (increased from 10 to reduce cache misses)
   BADGES: 86400,            // 24 hours
   EVENTS: 3600,             // 1 hour
   BADGE_MAP: 86400,         // 24 hours
