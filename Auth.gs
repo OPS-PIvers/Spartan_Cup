@@ -285,8 +285,8 @@ function getProfileData() {
       const cache = CacheService.getScriptCache();
       cache.remove('student_profiles_data');
 
-      // Read the newly added row (will be at the end)
-      const updatedData = studentSheet.getDataRange().getValues();
+      // Read the newly added row using cached function (rebuilds cache with new user)
+      const updatedData = getStudentProfilesData();
       const newRowIndex = updatedData.length - 1;
       const newRow = updatedData[newRowIndex];
 

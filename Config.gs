@@ -283,6 +283,34 @@ function getActivitiesData() {
   return activitiesData;
 }
 
+/**
+ * Gets Events data with caching.
+ * Cached for 1 hour since events are relatively static but may be added/modified.
+ * @return {Array} 2D array of events data
+ */
+function getEventsData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'events_data';
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    const parsed = safeJSONParse(cachedData, null, 'events data cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
+  }
+
+  // Cache miss or parse error: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const eventsSheet = ss.getSheetByName('Events');
+  const eventsData = eventsSheet.getDataRange().getValues();
+
+  // Cache for 1 hour (same as event map cache)
+  cache.put(cacheKey, JSON.stringify(eventsData), CACHE_TTL.EVENTS);
+
+  return eventsData;
+}
+
 function clearAllCaches() {
   try {
     // Clear script-level caches (shared across all users)
@@ -291,6 +319,7 @@ function clearAllCaches() {
       'admin_emails',
       'student_profiles_data',
       'event_map_cache',
+      'events_data',
       'badge_map_cache',
       'active_events_data',
       'active_season',

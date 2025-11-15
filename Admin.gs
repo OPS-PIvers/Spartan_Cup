@@ -29,16 +29,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Validate required sheets exist before attempting operations
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    if (!pendingSheet) {
-      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
-    }
-
-    // Find the pending submission
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
     let submissionRow = null;
     let submissionInfo = null;
 
@@ -52,6 +44,14 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     if (!submissionRow) {
       return { status: "error", message: "Submission not found." };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validate required sheets exist before attempting operations
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
     }
 
     // Calculate total points
@@ -153,16 +153,8 @@ function denySubmission(submissionId, reason) {
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Validate required sheets exist before attempting operations
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    if (!pendingSheet) {
-      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
-    }
-
-    // Find the pending submission
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
     let submissionRow = null;
     let submissionInfo = null;
 
@@ -176,6 +168,14 @@ function denySubmission(submissionId, reason) {
 
     if (!submissionRow) {
       return { status: "error", message: "Submission not found." };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validate required sheets exist before attempting operations
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
     }
 
     // Move to Submissions_Denied for record keeping
