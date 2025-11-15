@@ -64,7 +64,7 @@ function toSnakeCase(str) {
   return str
     .toLowerCase()
     .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '') // Remove all non-alphanumeric characters except underscore
+    .replace(/[^a-z0-9_]/g, '') // After lowercasing, remove all non-lowercase-alphanumeric characters except underscore
     .replace(/_+/g, '_'); // Collapse consecutive underscores into a single underscore
 }
 
