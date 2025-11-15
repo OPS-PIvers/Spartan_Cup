@@ -420,8 +420,8 @@ function getProfileData() {
     }).filter(b => b !== null);
 
     // --- FETCH SUBMISSION HISTORY ---
-    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-    const verifiedData = verifiedSheet.getDataRange().getValues();
+    // Use cached verified submissions data (reduces Sheets API calls)
+    const verifiedData = getVerifiedSubmissionsData();
     const userSubmissions = [];
 
     for (let i = 1; i < verifiedData.length; i++) {
@@ -457,8 +457,8 @@ function getProfileData() {
     });
 
     // Fetch pending submissions for history
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
 
     for (let i = 1; i < pendingData.length; i++) {
       // Skip empty rows (cleared submissions)

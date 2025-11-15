@@ -1,7 +1,9 @@
 <script>
-    // --- LOCATION CACHING UTILITIES (Fixed Geolocation) ---------------------
+    // --- CACHING UTILITIES ---------------------
     const LOCATION_CACHE_KEY = 'spartan_cup_location_cache';
     const LOCATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const PROFILE_CACHE_KEY = 'spartan_cup_profile_cache';
+    const PROFILE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
     /**
      * Get cached location if it exists and hasn't expired
@@ -44,6 +46,103 @@
       } catch (e) {
         console.error('Error caching location:', e);
       }
+    }
+
+    /**
+     * Get cached profile data if it exists and hasn't expired
+     * @return {Object|null} Profile data object or null
+     */
+    function getCachedProfileData() {
+      try {
+        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+        if (!cached) return null;
+
+        const data = JSON.parse(cached);
+        const now = Date.now();
+
+        // Check if cache has expired
+        if (now - data.timestamp > PROFILE_CACHE_DURATION) {
+          sessionStorage.removeItem(PROFILE_CACHE_KEY);
+          return null;
+        }
+
+        return data.profileData;
+      } catch (e) {
+        console.error('Error reading profile cache:', e);
+        return null;
+      }
+    }
+
+    /**
+     * Cache profile data for 5 minutes
+     * @param {Object} profileData - Profile data from getProfileData()
+     */
+    function cacheProfileData(profileData) {
+      try {
+        const data = {
+          profileData: profileData,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error('Error caching profile data:', e);
+      }
+    }
+
+    /**
+     * Clear profile cache (called after submission approval or settings change)
+     */
+    function clearProfileCache() {
+      try {
+        sessionStorage.removeItem(PROFILE_CACHE_KEY);
+      } catch (e) {
+        console.error('Error clearing profile cache:', e);
+      }
+    }
+
+    /**
+     * Wrapper for google.script.run with automatic retry on rate limit errors (429).
+     * Implements exponential backoff: 1s, 2s, 4s delays between retries.
+     * @param {Function} scriptFunction - The backend function to call (from google.script.run)
+     * @param {Array} args - Arguments to pass to the function
+     * @param {Function} onSuccess - Success callback
+     * @param {Function} onFailure - Failure callback (optional)
+     * @param {number} attempt - Current attempt number (used internally for recursion)
+     */
+    function callWithRetry(scriptFunction, args, onSuccess, onFailure, attempt = 1) {
+      const MAX_RETRIES = 3;
+      const BASE_DELAY = 1000; // 1 second
+
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(function(error) {
+          // Check if it's a rate limit error and we haven't exceeded max retries
+          const isRateLimitError = error && (
+            error.message && error.message.includes('429') ||
+            error.toString().includes('429') ||
+            error.message && error.message.includes('Service invoked too many times')
+          );
+
+          if (isRateLimitError && attempt < MAX_RETRIES) {
+            // Calculate delay with exponential backoff
+            const delay = BASE_DELAY * Math.pow(2, attempt - 1);
+            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] Rate limit hit, retrying in ${delay}ms...`);
+
+            // Retry after delay
+            setTimeout(function() {
+              callWithRetry(scriptFunction, args, onSuccess, onFailure, attempt + 1);
+            }, delay);
+          } else {
+            // Either not a rate limit error, or we've exhausted retries
+            if (isRateLimitError) {
+              console.error('[Retry Failed] Exceeded max retries for rate limit error');
+            }
+            // Call the failure handler if provided
+            if (onFailure) {
+              onFailure(error);
+            }
+          }
+        })[scriptFunction](...args);
     }
 
     /**
@@ -439,8 +538,20 @@
           }
         });
         
-        // Load dynamic profile data
-        google.script.run.withSuccessHandler(populateProfile).getProfileData();
+        // Load dynamic profile data (use cache if available to reduce API calls)
+        const cachedProfile = getCachedProfileData();
+        if (cachedProfile) {
+          // Use cached data - no backend call needed
+          console.log('[Profile Cache] Using cached profile data');
+          populateProfile(cachedProfile);
+        } else {
+          // Cache miss - fetch from backend
+          console.log('[Profile Cache] Cache miss, fetching from backend');
+          google.script.run.withSuccessHandler(function(data) {
+            cacheProfileData(data); // Cache the response
+            populateProfile(data);
+          }).getProfileData();
+        }
       }
 
       if (pageKey === 'welcome') {
@@ -462,8 +573,20 @@
       }
 
       if (pageKey === 'history') {
-        // Load dynamic history data
-        google.script.run.withSuccessHandler(populateHistory).getProfileData(); // Re-using getProfileData
+        // Load dynamic history data (use cache if available to reduce API calls)
+        const cachedProfile = getCachedProfileData();
+        if (cachedProfile) {
+          // Use cached data - no backend call needed
+          console.log('[Profile Cache] Using cached profile data for history');
+          populateHistory(cachedProfile);
+        } else {
+          // Cache miss - fetch from backend
+          console.log('[Profile Cache] Cache miss, fetching from backend for history');
+          google.script.run.withSuccessHandler(function(data) {
+            cacheProfileData(data); // Cache the response
+            populateHistory(data);
+          }).getProfileData(); // Re-using getProfileData
+        }
       }
       
       if (pageKey === 'all-badges') {
@@ -998,6 +1121,9 @@
 
     function handleSubmissionResponse(response) {
       if (response.status === "success") {
+        // Clear profile cache so user sees updated history when they return
+        clearProfileCache();
+
         // Show success message in styled modal (not alert, which breaks user activation)
         document.getElementById('loading-modal').classList.add('hidden');
         document.getElementById('success-message').innerText = response.message;

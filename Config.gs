@@ -32,7 +32,9 @@ const CACHE_TTL = {
   BADGES: 86400,            // 24 hours
   EVENTS: 3600,             // 1 hour
   BADGE_MAP: 86400,         // 24 hours
-  ACTIVE_SEASON: 3600       // 1 hour
+  ACTIVE_SEASON: 3600,      // 1 hour
+  SUBMISSIONS_VERIFIED: 600, // 10 minutes (changes when admins approve)
+  SUBMISSIONS_PENDING: 300   // 5 minutes (changes frequently as users submit)
 };
 
 /**
@@ -196,6 +198,62 @@ function getEventMapCache() {
   return eventMap;
 }
 
+/**
+ * Gets verified submissions data with caching.
+ * Cached for 10 minutes since it changes when admins approve submissions.
+ * @return {Array} 2D array of verified submission data
+ */
+function getVerifiedSubmissionsData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'verified_submissions_data';
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    const parsed = safeJSONParse(cachedData, null, 'verified_submissions cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
+  }
+
+  // Cache miss or parse error: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const verifiedSheet = ss.getSheetByName('Submissions_Verified');
+  const verifiedData = verifiedSheet.getDataRange().getValues();
+
+  // Cache for 10 minutes
+  cache.put(cacheKey, JSON.stringify(verifiedData), CACHE_TTL.SUBMISSIONS_VERIFIED);
+
+  return verifiedData;
+}
+
+/**
+ * Gets pending submissions data with caching.
+ * Cached for 5 minutes since it changes frequently as users submit.
+ * @return {Array} 2D array of pending submission data
+ */
+function getPendingSubmissionsData() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'pending_submissions_data';
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    const parsed = safeJSONParse(cachedData, null, 'pending_submissions cache');
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
+  }
+
+  // Cache miss or parse error: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const pendingSheet = ss.getSheetByName('Submissions_Pending');
+  const pendingData = pendingSheet.getDataRange().getValues();
+
+  // Cache for 5 minutes
+  cache.put(cacheKey, JSON.stringify(pendingData), CACHE_TTL.SUBMISSIONS_PENDING);
+
+  return pendingData;
+}
+
 function clearAllCaches() {
   try {
     // Clear script-level caches (shared across all users)
@@ -206,7 +264,9 @@ function clearAllCaches() {
       'event_map_cache',
       'badge_map_cache',
       'active_events_data',
-      'active_season'
+      'active_season',
+      'verified_submissions_data',
+      'pending_submissions_data'
     ]);
 
     // Clear user-level caches (fan feed, personal data, etc.)

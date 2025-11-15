@@ -110,6 +110,11 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       }
     }
 
+    // Clear submission caches since we moved submission from pending to verified
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
+    cache.remove('verified_submissions_data');
+
     // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
     calculateBadges(submissionInfo[2], true);
 

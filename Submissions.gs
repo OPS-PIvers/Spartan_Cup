@@ -129,6 +129,10 @@ function submitEvent(formObject, photoBlob) {
       formObject.theme, formObject.notes
     ]);
 
+    // Clear pending submissions cache since we added a new submission
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
+
     return { status: "success", message: "Submission received! You can view it in your 'My History' page." };
 
   } catch (e) {
@@ -171,6 +175,10 @@ function resubmitEvent(formObject, photoBlob) {
       file.url, file.id, JSON.stringify(formObject.location),
       formObject.theme, formObject.notes
     ]);
+
+    // Clear pending submissions cache since we modified submissions
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
 
     return { status: "success", message: "Your previous submission has been replaced." };
 
