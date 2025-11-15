@@ -29,6 +29,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
   }
 
   try {
+    // Get cache instance once and reuse throughout function (reduces API calls)
+    const cache = CacheService.getScriptCache();
+
     // Use cached pending submissions data (reduces Sheets API calls)
     const pendingData = getPendingSubmissionsData();
     let submissionRow = null;
@@ -103,7 +106,6 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
         studentSheet.getRange(i + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
 
         // Clear cache since we modified the data
-        const cache = CacheService.getScriptCache();
         cache.remove('student_profiles_data');
 
         break;
@@ -111,7 +113,6 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     }
 
     // Clear submission caches since we moved submission from pending to verified
-    const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
     cache.remove('verified_submissions_data');
 

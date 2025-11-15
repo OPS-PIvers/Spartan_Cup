@@ -82,7 +82,7 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
     // Use cached badge data (reduces Sheets API calls)
     const badgeMap = getBadgeMapCache();
     // Convert badge map to array format for compatibility with existing badge logic
-    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL']]; // Header row
+    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL', 'Badge_Points_Base', 'Badge_Points_Multiplier']]; // Header row
     Object.values(badgeMap).forEach(badge => {
       badgesData.push([
         badge.id,
@@ -91,7 +91,9 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
         badge.triggerType,
         badge.triggerValue,
         badge.description,
-        badge.imageUrl
+        badge.imageUrl,
+        badge.pointsBase,
+        badge.pointsMultiplier
       ]);
     });
 
@@ -647,7 +649,7 @@ function processSeasonEndBadges() {
     // Use cached badge data (reduces Sheets API calls)
     const badgeMap = getBadgeMapCache();
     // Convert badge map to array format for compatibility
-    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL']];
+    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL', 'Badge_Points_Base', 'Badge_Points_Multiplier']];
     Object.values(badgeMap).forEach(badge => {
       badgesData.push([
         badge.id,
@@ -656,7 +658,9 @@ function processSeasonEndBadges() {
         badge.triggerType,
         badge.triggerValue,
         badge.description,
-        badge.imageUrl
+        badge.imageUrl,
+        badge.pointsBase,
+        badge.pointsMultiplier
       ]);
     });
 
@@ -837,7 +841,6 @@ function getAllBadgesForAdmin() {
     const badgeMap = getBadgeMapCache();
 
     const badges = [];
-    let rowIndex = 2; // Start at row 2 (header is row 1)
     Object.values(badgeMap).forEach(badge => {
       badges.push({
         badgeId: badge.id,
@@ -846,10 +849,8 @@ function getAllBadgesForAdmin() {
         triggerType: badge.triggerType,
         triggerValue: badge.triggerValue,
         description: badge.description,
-        imageUrl: badge.imageUrl,
-        rowIndex: rowIndex // Store row index for updates
+        imageUrl: badge.imageUrl
       });
-      rowIndex++;
     });
 
     return {

@@ -151,7 +151,9 @@ function getBadgeMapCache() {
       triggerType: badgesData[i][3],
       triggerValue: badgesData[i][4],
       description: badgesData[i][5],
-      imageUrl: badgesData[i][6]
+      imageUrl: badgesData[i][6],
+      pointsBase: badgesData[i][7] || 0,         // Badge_Points_Base
+      pointsMultiplier: badgesData[i][8] || 1.0  // Badge_Points_Multiplier
     };
   }
 
@@ -200,17 +202,20 @@ function getEventMapCache() {
 }
 
 /**
- * Gets verified submissions data with caching.
- * Cached for 10 minutes since it changes when admins approve submissions.
- * @return {Array} 2D array of verified submission data
+ * Generic helper function to get cached sheet data.
+ * Eliminates code duplication across all sheet caching functions.
+ * @param {string} sheetName - Name of the sheet to read
+ * @param {string} cacheKey - Cache key for storing the data
+ * @param {number} ttl - Time to live in seconds
+ * @param {string} description - Description for error logging
+ * @return {Array} 2D array of sheet data
  */
-function getVerifiedSubmissionsData() {
+function getCachedSheetData(sheetName, cacheKey, ttl, description) {
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'verified_submissions_data';
   let cachedData = cache.get(cacheKey);
 
   if (cachedData) {
-    const parsed = safeJSONParse(cachedData, null, 'verified_submissions cache');
+    const parsed = safeJSONParse(cachedData, null, description);
     if (parsed) return parsed;
     // If parse failed, clear cache and rebuild
     cache.remove(cacheKey);
@@ -218,13 +223,27 @@ function getVerifiedSubmissionsData() {
 
   // Cache miss or parse error: read from Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-  const verifiedData = verifiedSheet.getDataRange().getValues();
+  const sheet = ss.getSheetByName(sheetName);
+  const data = sheet.getDataRange().getValues();
 
-  // Cache for 10 minutes
-  cache.put(cacheKey, JSON.stringify(verifiedData), CACHE_TTL.SUBMISSIONS_VERIFIED);
+  // Cache the data
+  cache.put(cacheKey, JSON.stringify(data), ttl);
 
-  return verifiedData;
+  return data;
+}
+
+/**
+ * Gets verified submissions data with caching.
+ * Cached for 10 minutes since it changes when admins approve submissions.
+ * @return {Array} 2D array of verified submission data
+ */
+function getVerifiedSubmissionsData() {
+  return getCachedSheetData(
+    'Submissions_Verified',
+    'verified_submissions_data',
+    CACHE_TTL.SUBMISSIONS_VERIFIED,
+    'verified_submissions cache'
+  );
 }
 
 /**
@@ -233,26 +252,12 @@ function getVerifiedSubmissionsData() {
  * @return {Array} 2D array of pending submission data
  */
 function getPendingSubmissionsData() {
-  const cache = CacheService.getScriptCache();
-  const cacheKey = 'pending_submissions_data';
-  let cachedData = cache.get(cacheKey);
-
-  if (cachedData) {
-    const parsed = safeJSONParse(cachedData, null, 'pending_submissions cache');
-    if (parsed) return parsed;
-    // If parse failed, clear cache and rebuild
-    cache.remove(cacheKey);
-  }
-
-  // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const pendingSheet = ss.getSheetByName('Submissions_Pending');
-  const pendingData = pendingSheet.getDataRange().getValues();
-
-  // Cache for 5 minutes
-  cache.put(cacheKey, JSON.stringify(pendingData), CACHE_TTL.SUBMISSIONS_PENDING);
-
-  return pendingData;
+  return getCachedSheetData(
+    'Submissions_Pending',
+    'pending_submissions_data',
+    CACHE_TTL.SUBMISSIONS_PENDING,
+    'pending_submissions cache'
+  );
 }
 
 /**
@@ -261,26 +266,12 @@ function getPendingSubmissionsData() {
  * @return {Array} 2D array of activities data
  */
 function getActivitiesData() {
-  const cache = CacheService.getScriptCache();
-  const cacheKey = 'activities_data';
-  let cachedData = cache.get(cacheKey);
-
-  if (cachedData) {
-    const parsed = safeJSONParse(cachedData, null, 'activities data cache');
-    if (parsed) return parsed;
-    // If parse failed, clear cache and rebuild
-    cache.remove(cacheKey);
-  }
-
-  // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const activitiesSheet = ss.getSheetByName('Activities_Data');
-  const activitiesData = activitiesSheet.getDataRange().getValues();
-
-  // Cache for 24 hours
-  cache.put(cacheKey, JSON.stringify(activitiesData), CACHE_TTL.ACTIVITIES_DATA);
-
-  return activitiesData;
+  return getCachedSheetData(
+    'Activities_Data',
+    'activities_data',
+    CACHE_TTL.ACTIVITIES_DATA,
+    'activities data cache'
+  );
 }
 
 /**
@@ -289,26 +280,12 @@ function getActivitiesData() {
  * @return {Array} 2D array of events data
  */
 function getEventsData() {
-  const cache = CacheService.getScriptCache();
-  const cacheKey = 'events_data';
-  let cachedData = cache.get(cacheKey);
-
-  if (cachedData) {
-    const parsed = safeJSONParse(cachedData, null, 'events data cache');
-    if (parsed) return parsed;
-    // If parse failed, clear cache and rebuild
-    cache.remove(cacheKey);
-  }
-
-  // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const eventsSheet = ss.getSheetByName('Events');
-  const eventsData = eventsSheet.getDataRange().getValues();
-
-  // Cache for 1 hour (same as event map cache)
-  cache.put(cacheKey, JSON.stringify(eventsData), CACHE_TTL.EVENTS);
-
-  return eventsData;
+  return getCachedSheetData(
+    'Events',
+    'events_data',
+    CACHE_TTL.EVENTS,
+    'events data cache'
+  );
 }
 
 function clearAllCaches() {
