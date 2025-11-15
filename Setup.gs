@@ -997,7 +997,7 @@ function createHtmlFiles() {
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      google.script.run.withSuccessHandler(populateEvents).getEventList();
+      google.script.run.withSuccessHandler(populateEvents).getEventsList();
     });
 
     function populateEvents(response) {

@@ -105,17 +105,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
     calculateBadges(submissionInfo[2], true);
 
-    // Get event details map for notification
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1],
-        date: eventData[i][3]
-      };
-    }
+    // Get event details from cache for notification
+    const eventMap = getEventMapCache();
 
     // Send notification to student
     const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };

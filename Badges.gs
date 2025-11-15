@@ -170,39 +170,6 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
           }
         }
         shouldEarn = distinctActivities.size >= triggerValue;
-      } else if (triggerType === 'Activity_Pct_Lifetime') {
-        // Percentage of a specific activity's games attended ACROSS ALL SEASONS (LIFETIME)
-        // Format: "ACTIVITY_CODE:PERCENTAGE" e.g., "BB:0.25" for 25% of all basketball games
-        if (typeof triggerValue !== 'string' || !triggerValue.includes(':')) continue;
-
-        const [activityCode, percentageStr] = triggerValue.split(':');
-        const requiredPercentage = parseFloat(percentageStr);
-
-        if (!activityCode || isNaN(requiredPercentage) || requiredPercentage < 0 || requiredPercentage > 1) continue;
-
-        // Count total events for this activity
-        let totalActivityEvents = 0;
-        const activityEventIds = new Set();
-        for (let j = 1; j < eventData.length; j++) {
-          if (eventData[j][1] === activityCode) { // Activity_Code column
-            totalActivityEvents++;
-            activityEventIds.add(eventData[j][0]); // Event_ID
-          }
-        }
-
-        // Count attended events for this activity
-        let attendedActivityEvents = 0;
-        for (let j = 1; j < verifiedData.length; j++) {
-          if (verifiedData[j][3] === email) {
-            const eventId = verifiedData[j][4];
-            if (activityEventIds.has(eventId)) {
-              attendedActivityEvents++;
-            }
-          }
-        }
-
-        const percentage = totalActivityEvents > 0 ? attendedActivityEvents / totalActivityEvents : 0;
-        shouldEarn = percentage >= requiredPercentage;
       } else if (triggerType === 'Activity_Event_Count_Lifetime') {
         // Count of events attended for one or more activities ACROSS ALL SEASONS (LIFETIME)
         // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT" e.g., "VB,BB:5" for 5 combined volleyball+basketball events across all time
@@ -541,8 +508,7 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
         shouldEarn = studentProfile.seasonPoints >= triggerValue;
       } else if (triggerType === 'event_count') {
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-        const verifiedData = verifiedSheet.getDataRange().getValues();
+        // Use already-fetched verifiedData instead of re-reading the sheet
         let submissionCount = 0;
         for (let j = 1; j < verifiedData.length; j++) {
           if (verifiedData[j][3] === email) submissionCount++;

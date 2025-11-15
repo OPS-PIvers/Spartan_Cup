@@ -204,20 +204,6 @@ function getEventDetails(eventId) {
 }
 
 /**
- * Calculates distance between two coordinates using Haversine formula (in meters).
- */
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-/**
  * Gets all currently active events (where current time is within Start_Time + Duration_Hours).
  * @param {number} userLat - Optional: user's latitude for distance calculation
  * @param {number} userLon - Optional: user's longitude for distance calculation
@@ -497,9 +483,10 @@ function findEventIdByCode(eventId) {
 
 /**
  * Gets all events from Events sheet for admin management
+ * @param {string} category - Optional: filter events by activity/sport category
  * @return {Object} {status, events: [{eventId, name, sportArt, date, location, lat, lon, startTime, duration, isHomeGame, isSpotlight, theme}, ...]}
  */
-function getEventsList() {
+function getEventsList(category) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName('Events');
@@ -604,6 +591,13 @@ function getEventsList() {
 
         if (!isExpired) {
           const activityCode = String(data[i][1] || '').trim();
+          const activityName = activityMap[activityCode] || activityCode;
+
+          // Filter by category if provided
+          if (category && !activityName.toLowerCase().includes(category.toLowerCase())) {
+            continue; // Skip this event if it doesn't match the category filter
+          }
+
           events.push({
             eventId: String(data[i][0]).trim(),
             activityCode: activityCode, // Use activityCode for consistency
@@ -892,50 +886,6 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
     return {
       valid: false,
       message: 'Error validating submission. Please try again.'
-    };
-  }
-}
-
-function getEventList(category) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
-
-    const events = [];
-    // Columns: Event_ID, Sport_Art, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
-    for (let i = 1; i < eventData.length; i++) {
-      const event = {
-        eventId: eventData[i][0],
-        sportArt: eventData[i][1],
-        eventName: eventData[i][2],
-        date: eventData[i][3],
-        locationName: eventData[i][4],
-        eventLat: eventData[i][5],
-        eventLon: eventData[i][6],
-        startTime: eventData[i][7],
-        durationHours: eventData[i][8],
-        isHomeGame: eventData[i][9] || false,
-        isSpotlightGame: eventData[i][10] || false,
-        theme: eventData[i][11] || 'None'
-      };
-
-      // Filter by category if provided
-      if (!category || event.sportArt.toLowerCase().includes(category.toLowerCase())) {
-        events.push(event);
-      }
-    }
-
-    return {
-      status: "success",
-      events: events
-    };
-
-  } catch (e) {
-    // Logger.log('Error in getEventList: ' + e.message);
-    return {
-      status: "error",
-      message: "Error fetching events: " + e.message
     };
   }
 }

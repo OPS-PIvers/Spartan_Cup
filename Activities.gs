@@ -134,8 +134,8 @@ function getActivitiesWithSeasonStatus(season) {
 
 /**
  * Updates season assignments for activities.
- * Takes a season and array of activity codes, assigns all those activities to the season
- * and removes the season from any activities not in the array.
+ * Takes a season and array of activity codes, assigns all those activities to the season.
+ * Activities not in the array keep their existing season assignment (no removal).
  * @param {string} season - The season name to assign
  * @param {Array} activityCodes - Array of activity codes to assign to this season
  * @return {Object} Status object with success/error message

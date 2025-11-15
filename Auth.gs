@@ -125,7 +125,7 @@ function getUserProfilePhoto(email, displayName) {
         const files = folder.getFilesByName(email + '.jpg');
         if (files.hasNext()) {
           const file = files.next();
-          file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.VIEW);
+          // Note: Sharing permissions should be set once during upload, not on every read
           return file.getDownloadUrl();
         }
       }
