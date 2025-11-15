@@ -765,11 +765,11 @@
     let lastTapTime = 0;
     let isProcessing = false;  // Prevent multiple simultaneous swipes
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Initialize the Review tab as active (lazy loading handled by switchTab)
-      switchTab('review');
-      setupGestureHandlers();
-    });
+    // Initialize immediately since this script runs after DOM is already ready
+    // (the page is server-side rendered and included in Index.html)
+    // Initialize the Review tab as active (lazy loading handled by switchTab)
+    switchTab('review');
+    setupGestureHandlers();
 
     function setupGestureHandlers() {
       const card = document.getElementById('swipe-card');

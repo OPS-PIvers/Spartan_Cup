@@ -317,10 +317,9 @@
     touchCurrentY = 0;
   }, { passive: true });
 
-  // Initialize on page load
-  document.addEventListener('DOMContentLoaded', () => {
-    loadFanFeed();
-    // Update the "last updated" text every minute
-    setInterval(updateLastUpdatedText, 60000);
-  });
+  // Initialize immediately since this script runs after DOM is already ready
+  // (the page is server-side rendered and included in Index.html)
+  loadFanFeed();
+  // Update the "last updated" text every minute
+  setInterval(updateLastUpdatedText, 60000);
 </script>

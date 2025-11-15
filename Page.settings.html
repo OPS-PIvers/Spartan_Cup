@@ -93,7 +93,9 @@
     // Store current settings in memory
     let currentSettings = {};
 
-    document.addEventListener('DOMContentLoaded', () => {
+    // Execute immediately since this script runs after DOM is already ready
+    // (the page is server-side rendered and included in Index.html)
+    (function() {
       // Load user data
       document.getElementById('settings-email').textContent = APP_DATA.userEmail;
       document.getElementById('settings-name').textContent = APP_DATA.userName;
@@ -129,7 +131,7 @@
           saveSettingsToServer();
         });
       });
-    });
+    })(); // Execute the IIFE immediately
 
     function toggleDarkMode() {
       const isDarkMode = document.documentElement.classList.contains('dark');

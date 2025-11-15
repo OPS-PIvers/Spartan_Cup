@@ -37,10 +37,10 @@
       return p.innerHTML;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadPrizes();
-      google.script.run.withSuccessHandler(populateEvents).getEventsList();
-    });
+    // Execute immediately since this script runs after DOM is already ready
+    // (the page is server-side rendered and included in Index.html)
+    loadPrizes();
+    google.script.run.withSuccessHandler(populateEvents).getEventsList();
 
     function loadPrizes() {
       const prizesList = document.querySelector('ul.list-disc');

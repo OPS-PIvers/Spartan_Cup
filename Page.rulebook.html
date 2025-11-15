@@ -1,7 +1,7 @@
 <!--
   This file holds the content for the 'rulebook' page.
-  Content is now dynamically loaded from Config_Rulebook sheet.
-  Uses accordion/details layout for better mobile UX.
+  Content is now STATIC (hardcoded below) for simplicity.
+  Badge System section remains dynamic (loads from Config_Badges sheet).
 -->
 <div class="page pb-24">
   <!-- Top App Bar -->
@@ -17,18 +17,7 @@
       <span class="material-symbols-outlined text-2xl">arrow_back</span>
     </div>
     <h2 class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Rulebook</h2>
-
-    <!-- Admin Edit Button -->
-    <div id="adminEditButton" class="hidden flex size-12 shrink-0 items-center justify-end">
-      <button
-        onclick="openRulebookEditorFromWebApp()"
-        class="flex items-center justify-center rounded-full h-10 w-10 bg-primary dark:bg-blue-600 text-white hover:bg-primary/80 dark:hover:bg-blue-700 transition-colors"
-        title="Edit Rulebook"
-      >
-        <span class="material-symbols-outlined text-xl">edit</span>
-      </button>
-    </div>
-    <div id="adminEditPlaceholder" class="flex size-12 shrink-0 items-center"></div>
+    <div class="flex size-12 shrink-0 items-center"></div>
   </div>
 
   <!-- Search Bar -->
@@ -45,14 +34,116 @@
     </div>
   </div>
 
-  <!-- Loading State -->
-  <div id="rulebookLoading" class="p-8 text-center">
-    <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-primary dark:border-blue-400"></div>
-    <p class="mt-3 text-gray-600 dark:text-gray-400 text-sm">Loading rulebook...</p>
-  </div>
+  <!-- Static Rulebook Sections -->
+  <div class="flex flex-col p-4 gap-4">
 
-  <!-- Accordions Section -->
-  <div id="rulebookContent" class="hidden flex flex-col p-4 gap-4"></div>
+    <!-- Section 1: Photo Submission -->
+    <details class="rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group" data-section-title="photo submission" data-section-id="photo_submission">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-blue-400">
+            <span class="material-symbols-outlined">photo_camera</span>
+          </div>
+          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Photo Submission</p>
+        </div>
+        <div class="text-gray-900 dark:text-gray-300 group-open:rotate-180 transition-transform">
+          <span class="material-symbols-outlined">expand_more</span>
+        </div>
+      </summary>
+      <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4">
+        <p>All event participation must be verified with a photo. Photos must be clear, well-lit, and include you at the event location. Submissions must be made within 48 hours of the event's conclusion.</p>
+        <p class="mt-3"><strong>Photo Requirements:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Photos must be taken <strong>during the game</strong> (not before or after)</li>
+          <li>Must include <strong>your face</strong></li>
+          <li>If dressing for a theme, show <strong>your outfit</strong></li>
+        </ul>
+        <p class="mt-3"><strong>How to Submit:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Use the link in the <a href="https://www.instagram.com/ohs_spartancup" target="_blank" class="text-primary dark:text-blue-400 font-semibold hover:underline">@ohs_spartancup Instagram</a></li>
+          <li>Indicate which game you are attending</li>
+          <li>List who you are attending with</li>
+          <li>If necessary, explain how your outfit fits the theme</li>
+        </ul>
+      </div>
+    </details>
+
+    <!-- Section 2: Points System -->
+    <details class="rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group" data-section-title="points system" data-section-id="points_system">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-blue-400">
+            <span class="material-symbols-outlined">stars</span>
+          </div>
+          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Points System</p>
+        </div>
+        <div class="text-gray-900 dark:text-gray-300 group-open:rotate-180 transition-transform">
+          <span class="material-symbols-outlined">expand_more</span>
+        </div>
+      </summary>
+      <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4">
+        <p>Earn points by attending events and collecting badges. Your total points determine your rank in The Spartan Cup.</p>
+        <p class="mt-3"><strong>Base Points:</strong> Each game/event starts with a base value of <span class="font-bold text-lg">10 points</span>. Additional points can be earned through themed attendance, spotlight games, and badge collection.</p>
+        <p class="mt-3"><strong>Badge Bonuses:</strong> Collect badges to earn bonus points and multipliers. Each badge category (Participation, Variety, Loyalty, etc.) has its own point values and tier-based multipliers.</p>
+      </div>
+    </details>
+
+    <!-- Section 3: Winning & Awards -->
+    <details class="rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group" data-section-title="winning awards" data-section-id="awards">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-blue-400">
+            <span class="material-symbols-outlined">emoji_events</span>
+          </div>
+          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Winning & Awards</p>
+        </div>
+        <div class="text-gray-900 dark:text-gray-300 group-open:rotate-180 transition-transform">
+          <span class="material-symbols-outlined">expand_more</span>
+        </div>
+      </summary>
+      <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4">
+        <p>Awards are given out every <strong>season</strong> (Fall, Winter, or Spring) to the top participants. Standings are based solely on <strong>point totals</strong>.</p>
+        <p class="mt-3"><strong>Seasonal Awards:</strong></p>
+        <ul class="list-none space-y-2 mt-2">
+          <li>🥇 <strong>First Place</strong> - Prize TBA</li>
+          <li>🥈 <strong>Second Place</strong> - Prize TBA</li>
+          <li>🥉 <strong>Third Place</strong> - Prize TBA</li>
+        </ul>
+        <p class="mt-3">Top 10 participants will receive recognition at the end-of-season ceremony.</p>
+      </div>
+    </details>
+
+    <!-- Section 4: Misconduct & Cheating (Warning Section) -->
+    <details class="rulebook-section flex flex-col rounded-xl border-2 border-red-500/50 dark:border-red-500/70 bg-red-500/5 dark:bg-red-500/10 p-4 group" data-section-title="misconduct cheating" data-section-id="misconduct">
+      <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-600 dark:text-red-500">
+            <span class="material-symbols-outlined">gavel</span>
+          </div>
+          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Misconduct & Cheating</p>
+        </div>
+        <div class="text-red-600 group-open:rotate-180 transition-transform">
+          <span class="material-symbols-outlined">expand_more</span>
+        </div>
+      </summary>
+      <div class="text-gray-700 dark:text-red-200 text-sm font-normal leading-relaxed pt-4">
+        <p><strong>Any form of cheating, including submitting false photos or misrepresenting attendance, will result in immediate disqualification from The Spartan Cup and potential disciplinary action from the school.</strong></p>
+        <p class="mt-3"><strong>❌ Actions Considered Cheating:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Reusing old photos for new games/events</li>
+          <li>Pretending to be at a game/event that you are not</li>
+          <li>Submitting photos taken by others</li>
+        </ul>
+        <p class="mt-3"><strong>⚠️ Actions Considered Misconduct:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-2 mt-1">
+          <li>Being thrown out of a game for unsportsmanlike behavior</li>
+          <li>Being banned/suspended from events and/or school</li>
+          <li>Inappropriate behavior at school events</li>
+        </ul>
+      </div>
+    </details>
+
+  </div>
 
   <!-- Badge System Section (Dynamic) -->
   <div id="badgeSystemContainer" class="hidden px-4 pb-4">
@@ -79,180 +170,10 @@
 
   <script>
     /**
-     * Rulebook Page - Accordion-based Dynamic Content
-     * Loads content from Config_Rulebook sheet with improved mobile UX
+     * Rulebook Page - Static Content with Dynamic Badge System
      */
 
-    let allSections = [];
     let allBadges = [];
-
-    // Check if user is admin and show edit button
-    if (APP_DATA && APP_DATA.userIsAdmin) {
-      const adminEditBtn = document.getElementById('adminEditButton');
-      const adminPlaceholder = document.getElementById('adminEditPlaceholder');
-      if (adminEditBtn && adminPlaceholder) {
-        adminEditBtn.classList.remove('hidden');
-        adminPlaceholder.classList.add('hidden');
-      }
-    }
-
-    /**
-     * Opens the rulebook editor (for admins)
-     */
-    function openRulebookEditorFromWebApp() {
-      const message = `To edit the rulebook:\n\n1. Open the Google Sheet for The Spartan Cup\n2. Click "🏆 Spartan Cup Admin" menu\n3. Select "2b. Edit Rulebook Content"\n\nOr you can edit the Config_Rulebook sheet directly in Google Sheets.`;
-      alert(message);
-    }
-
-    /**
-     * Load rulebook content and badges on page load
-     */
-    document.addEventListener('DOMContentLoaded', () => {
-      loadRulebookContent();
-      loadBadgeSystem();
-    });
-
-    /**
-     * Fetch and render rulebook sections from backend
-     */
-    function loadRulebookContent() {
-      google.script.run
-        .withSuccessHandler(renderRulebookSections)
-        .withFailureHandler(handleRulebookError)
-        .getRulebookContent();
-    }
-
-    /**
-     * Render the rulebook sections as accordions
-     */
-    function renderRulebookSections(sections) {
-      const container = document.getElementById('rulebookContent');
-      const loading = document.getElementById('rulebookLoading');
-
-      loading.classList.add('hidden');
-      container.classList.remove('hidden');
-
-      if (!sections || sections.length === 0) {
-        container.innerHTML = `
-          <div class="text-center p-8 bg-gray-50 dark:bg-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-700">
-            <span class="material-symbols-outlined text-5xl text-gray-400 mb-3">description</span>
-            <p class="text-gray-600 dark:text-gray-400 text-sm">No rulebook content available yet.</p>
-            <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">Admins can add content via the edit button above.</p>
-          </div>
-        `;
-        return;
-      }
-
-      allSections = sections;
-      container.innerHTML = '';
-
-      // Render each section as an accordion
-      sections.forEach(section => {
-        const accordion = createAccordion(section);
-        container.appendChild(accordion);
-      });
-    }
-
-    /**
-     * Escape HTML to prevent XSS attacks
-     */
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    /**
-     * Create an accordion element for a section
-     */
-    function createAccordion(section) {
-      const details = document.createElement('details');
-
-      // Determine if this is a special/warning section
-      const isWarning = section.id.includes('misconduct') || section.id.includes('cheat');
-
-      if (isWarning) {
-        details.className = 'rulebook-section flex flex-col rounded-xl border-2 border-red-500/50 dark:border-red-500/70 bg-red-500/5 dark:bg-red-500/10 p-4 group';
-      } else {
-        details.className = 'rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group';
-      }
-
-      details.setAttribute('data-section-title', section.title.toLowerCase());
-      details.setAttribute('data-section-id', section.id);
-
-      // Summary (accordion header)
-      const summary = document.createElement('summary');
-      summary.className = 'flex cursor-pointer list-none items-center justify-between gap-4';
-
-      const icon = getIconForSection(section.id);
-      const iconColor = isWarning ? 'bg-red-500/10 text-red-600 dark:text-red-500' : 'bg-primary/10 text-primary dark:text-blue-400';
-
-      // Build summary with escaped title to prevent XSS
-      const titleContainer = document.createElement('div');
-      titleContainer.className = 'flex items-center gap-4';
-      titleContainer.innerHTML = `
-        <div class="flex h-10 w-10 items-center justify-center rounded-full ${iconColor}">
-          <span class="material-symbols-outlined">${icon}</span>
-        </div>
-      `;
-      const titleText = document.createElement('p');
-      titleText.className = 'text-gray-900 dark:text-white text-base font-semibold leading-normal';
-      titleText.textContent = section.title; // Use textContent to prevent XSS
-      titleContainer.appendChild(titleText);
-
-      const expandIcon = document.createElement('div');
-      expandIcon.className = `${isWarning ? 'text-red-600' : 'text-gray-900 dark:text-gray-300'} group-open:rotate-180 transition-transform`;
-      expandIcon.innerHTML = '<span class="material-symbols-outlined">expand_more</span>';
-
-      summary.appendChild(titleContainer);
-      summary.appendChild(expandIcon);
-
-      // Content (HTML is intentionally allowed here for rich formatting)
-      const content = document.createElement('div');
-      content.className = isWarning
-        ? 'text-gray-700 dark:text-red-200 text-sm font-normal leading-relaxed pt-4'
-        : 'text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4';
-      content.innerHTML = section.content; // Admins control this content
-
-      details.appendChild(summary);
-      details.appendChild(content);
-
-      return details;
-    }
-
-    /**
-     * Get appropriate icon for section based on ID
-     */
-    function getIconForSection(sectionId) {
-      const icons = {
-        'photo_submission': 'photo_camera',
-        'base_points': 'stars',
-        'badge_system_intro': 'emoji_events',
-        'awards': 'emoji_events',
-        'misconduct': 'gavel',
-        'points_system': 'stars'
-      };
-      return icons[sectionId] || 'article';
-    }
-
-    /**
-     * Handle error loading rulebook
-     */
-    function handleRulebookError(error) {
-      const container = document.getElementById('rulebookContent');
-      const loading = document.getElementById('rulebookLoading');
-
-      loading.classList.add('hidden');
-      container.classList.remove('hidden');
-
-      container.innerHTML = `
-        <div class="text-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-          <span class="material-symbols-outlined text-5xl text-red-500 mb-3">error</span>
-          <p class="text-red-600 dark:text-red-400 font-semibold text-sm">Error loading rulebook content</p>
-          <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">${error.message || 'Unknown error'}</p>
-        </div>
-      `;
-    }
 
     /**
      * Filter rulebook sections based on search input
@@ -374,10 +295,8 @@
 
     /**
      * Format badge trigger condition display
-     * Note: Badges are recognition milestones, not point awards
      */
     function getBadgePointsDisplay(badge) {
-      // Show trigger condition instead of points (badges don't award points)
       if (!badge.triggerType || !badge.triggerValue) {
         return '';
       }
@@ -406,5 +325,8 @@
       badgeSystemContainer.classList.add('hidden');
       console.error('Error loading badges:', error);
     }
+
+    // Load badge system immediately
+    loadBadgeSystem();
   </script>
 </div>

@@ -861,7 +861,7 @@ function onOpen() {
     .createMenu('🏆 Spartan Cup Admin')
     .addItem('1. Run First-Time Setup (All Files)', 'firstTimeSetup')
     .addItem('2. Configure Points Values', 'openPointsConfigDialog')
-    .addItem('2b. Edit Rulebook Content', 'openRulebookEditor')
+    // .addItem('2b. Edit Rulebook Content', 'openRulebookEditor')  // DEPRECATED: Edit Page.rulebook.html directly
     .addItem('3. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
     .addItem('4. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
     .addItem('5. Clear Cache (Development)', 'clearAllCaches')
@@ -1093,7 +1093,8 @@ function setupSpreadsheet() {
   initializeConfigPoints();
 
   // Initialize Config_Rulebook with default content (this function already checks if data exists)
-  initializeConfigRulebook();
+  // DEPRECATED: Rulebook is now static HTML in Page.rulebook.html
+  // initializeConfigRulebook();
 
   // Log summary
   Logger.log('=== Spreadsheet Setup Summary ===');
@@ -1771,9 +1772,24 @@ function resetPointsToDefaults() {
 // RULEBOOK CONFIGURATION FUNCTIONS
 // ===============================================
 
+/*
+ * ============================================================================
+ * DEPRECATED RULEBOOK FUNCTIONS (Disabled - Rulebook is now static HTML)
+ * ============================================================================
+ * The rulebook page now uses static HTML content in Page.rulebook.html
+ * instead of loading from Config_Rulebook sheet. These functions are
+ * preserved for reference but are no longer called.
+ *
+ * If you need to edit the rulebook, edit Page.rulebook.html directly.
+ * ============================================================================
+ */
+
+if (false) { // Disabled code block - functions are deprecated
+
 /**
  * Initializes the Config_Rulebook sheet with default content.
  * Called during first-time setup.
+ * DEPRECATED: Rulebook is now static HTML in Page.rulebook.html
  */
 function initializeConfigRulebook() {
   try {
@@ -2153,6 +2169,14 @@ function updateRulebookContent(sections) {
     return { status: 'error', message: e.message };
   }
 }
+
+} // End of disabled code block - deprecated rulebook functions
+
+/*
+ * ============================================================================
+ * END OF DEPRECATED RULEBOOK FUNCTIONS
+ * ============================================================================
+ */
 
 /**
  * Creates all the necessary HTML files in the Apps Script project.

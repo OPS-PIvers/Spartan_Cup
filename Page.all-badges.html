@@ -21,9 +21,9 @@
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      google.script.run.withSuccessHandler(populateAllBadges).getProfileData();
-    });
+    // Execute immediately since this script runs after DOM is already ready
+    // (the page is server-side rendered and included in Index.html)
+    google.script.run.withSuccessHandler(populateAllBadges).getProfileData();
 
     function populateAllBadges(data) {
       const grid = document.getElementById('badges-grid');
