@@ -55,12 +55,16 @@ function savePhotoToDrive(photoBlob, eventId, email) {
       parentFolder = DriveApp.createFolder('The Spartan Cup');
     }
 
+    // Get active season for folder naming
+    const activeSeason = getActiveSeason();
+    const seasonFolderName = `Submissions_${activeSeason}_25-26`;
+
     let submissionFolder;
-    const submissionFolders = parentFolder.getFoldersByName('Submissions_Winter_25-26');
+    const submissionFolders = parentFolder.getFoldersByName(seasonFolderName);
     if (submissionFolders.hasNext()) {
       submissionFolder = submissionFolders.next();
     } else {
-      submissionFolder = parentFolder.createFolder('Submissions_Winter_25-26');
+      submissionFolder = parentFolder.createFolder(seasonFolderName);
     }
 
     // Parse base64 data URL

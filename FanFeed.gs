@@ -15,26 +15,15 @@ function getFanFeed() {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
 
-    // Get student name mapping
-    const profileSheet = ss.getSheetByName('Student_Profiles');
-    if (!profileSheet) throw new Error("Sheet 'Student_Profiles' not found");
-    const profileData = profileSheet.getDataRange().getValues();
+    // Get student name mapping from cached data
+    const profileData = getStudentProfilesData();
     const studentMap = {};
     for (let i = 1; i < profileData.length; i++) {
       studentMap[profileData[i][0]] = profileData[i][1]; // email -> display name
     }
 
-    // Get event details map
-    const eventSheet = ss.getSheetByName('Events');
-    if (!eventSheet) throw new Error("Sheet 'Events' not found");
-    const eventData = eventSheet.getDataRange().getValues();
-    const eventMap = {};
-    for (let i = 1; i < eventData.length; i++) {
-      eventMap[eventData[i][0]] = {
-        eventName: eventData[i][2],
-        sportArt: eventData[i][1]
-      };
-    }
+    // Get event details from cache
+    const eventMap = getEventMapCache();
 
     const feedItems = [];
 
