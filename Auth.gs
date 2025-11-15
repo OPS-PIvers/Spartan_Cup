@@ -211,14 +211,13 @@ function getUserSettings() {
  */
 function saveUserSettings(settings) {
   const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
   // Logger.log('User email: ' + email);
 
   try {
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached data to find user row (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     // Find user and update settings in column I (index 8)
     for (let i = 1; i < studentData.length; i++) {
@@ -226,8 +225,17 @@ function saveUserSettings(settings) {
         // Logger.log('Found user at row ' + (i + 1));
         const settingsJson = JSON.stringify(settings);
         // Logger.log('Saving JSON: ' + settingsJson);
+
+        // Now get sheet reference for the write operation
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const studentSheet = ss.getSheetByName('Student_Profiles');
         studentSheet.getRange(i + 1, 9).setValue(settingsJson); // Column I = column 9
         SpreadsheetApp.flush(); // Force immediate write to sheet
+
+        // Clear cache since we modified the data
+        const cache = CacheService.getScriptCache();
+        cache.remove('student_profiles_data');
+
         // Logger.log('Settings saved and flushed successfully');
         return { status: 'success', message: 'Settings saved' };
       }

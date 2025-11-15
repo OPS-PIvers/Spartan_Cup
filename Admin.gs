@@ -84,11 +84,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
 
     // Update Student_Profiles with points
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    if (!studentSheet) {
-      return { status: "error", message: "CRITICAL: Student_Profiles sheet not found. Check spreadsheet schema." };
-    }
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached data to find student row (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === submissionInfo[2]) {
@@ -96,8 +93,19 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
         const newSeasonPoints = (studentData[i][2] || 0) + pointsTotal;
         const newAllTimePoints = (studentData[i][3] || 0) + pointsTotal;
 
+        // Get sheet reference for write operation
+        const studentSheet = ss.getSheetByName('Student_Profiles');
+        if (!studentSheet) {
+          return { status: "error", message: "CRITICAL: Student_Profiles sheet not found. Check spreadsheet schema." };
+        }
+
         // Batch update both points columns in single API call (more efficient)
         studentSheet.getRange(i + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
+
+        // Clear cache since we modified the data
+        const cache = CacheService.getScriptCache();
+        cache.remove('student_profiles_data');
+
         break;
       }
     }
