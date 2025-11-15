@@ -106,6 +106,48 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
       activitySeasonMap[activitiesData[j][0]] = activitiesData[j][2]; // Activity_Code -> Season
     }
 
+    // PERFORMANCE OPTIMIZATION: Pre-calculate user-specific aggregates in ONE pass
+    // This changes complexity from O(badges × submissions) to O(submissions + badges)
+    const eventToActivity = {};
+    for (let j = 1; j < eventData.length; j++) {
+      eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const userAggregates = {
+      submissionCount: 0,
+      recentSubmissionCount: 0, // Last 7 days
+      distinctActivities: new Set(),
+      activityEventCounts: {}, // Activity_Code -> count
+      attendedEventIds: new Set(),
+      seasonEventIds: new Set() // Events in current season
+    };
+
+    // Single pass through verifiedData to build all aggregates
+    for (let j = 1; j < verifiedData.length; j++) {
+      if (verifiedData[j][3] === email) {
+        userAggregates.submissionCount++;
+
+        const eventId = verifiedData[j][4];
+        userAggregates.attendedEventIds.add(eventId);
+
+        const submissionDate = new Date(verifiedData[j][1]);
+        if (submissionDate >= sevenDaysAgo) {
+          userAggregates.recentSubmissionCount++;
+        }
+
+        const activityCode = eventToActivity[eventId];
+        if (activityCode) {
+          userAggregates.distinctActivities.add(activityCode);
+          userAggregates.activityEventCounts[activityCode] = (userAggregates.activityEventCounts[activityCode] || 0) + 1;
+
+          if (activitySeasonMap[activityCode] === activeSeason) {
+            userAggregates.seasonEventIds.add(eventId);
+          }
+        }
+      }
+    }
+
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
       const badgeId = badgesData[i][0];
@@ -129,47 +171,17 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
         shouldEarn = studentProfile.seasonPoints >= triggerValue;
       } else if (triggerType === 'Submission_Count' || triggerType === 'Submission_Count_Week_1') {
-        // Count verified submissions for this student - must have valid trigger value
+        // Count verified submissions for this student - use pre-calculated aggregate
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        let submissionCount = 0;
-        for (let j = 1; j < verifiedData.length; j++) {
-          if (verifiedData[j][3] === email) submissionCount++;
-        }
-        shouldEarn = submissionCount >= triggerValue;
+        shouldEarn = userAggregates.submissionCount >= triggerValue;
       } else if (triggerType === 'Events_In_7_Days') {
-        // Count events attended in last 7 days - must have valid trigger value
+        // Count events attended in last 7 days - use pre-calculated aggregate
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        let recentCount = 0;
-        for (let j = 1; j < verifiedData.length; j++) {
-          if (verifiedData[j][3] === email) {
-            const submissionDate = new Date(verifiedData[j][1]);
-            if (submissionDate >= sevenDaysAgo) {
-              recentCount++;
-            }
-          }
-        }
-        shouldEarn = recentCount >= triggerValue;
+        shouldEarn = userAggregates.recentSubmissionCount >= triggerValue;
       } else if (triggerType === 'Distinct_Sports') {
-        // Count unique sports/activities attended - must have valid trigger value
+        // Count unique sports/activities attended - use pre-calculated aggregate
         if (typeof triggerValue !== 'number' || triggerValue <= 0) continue;
-
-        // Build event to activity map
-        const eventToActivity = {};
-        for (let j = 1; j < eventData.length; j++) {
-          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
-        }
-
-        // Count distinct activities
-        const distinctActivities = new Set();
-        for (let j = 1; j < verifiedData.length; j++) {
-          if (verifiedData[j][3] === email) {
-            const eventId = verifiedData[j][4];
-            const activity = eventToActivity[eventId];
-            if (activity) distinctActivities.add(activity);
-          }
-        }
-        shouldEarn = distinctActivities.size >= triggerValue;
+        shouldEarn = userAggregates.distinctActivities.size >= triggerValue;
       } else if (triggerType === 'Activity_Event_Count_Lifetime') {
         // Count of events attended for one or more activities ACROSS ALL SEASONS (LIFETIME)
         // Format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT" e.g., "VB,BB:5" for 5 combined volleyball+basketball events across all time

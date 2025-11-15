@@ -236,7 +236,11 @@ function setupSpreadsheet() {
   if (sheetsCreated.includes('Events')) {
     const eventsSheet = ss.getSheetByName('Events');
     if (eventsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
-      eventsSheet.appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', '2025-11-15', 'Orono High School Gym', 44.965, -93.625, '2025-11-15T19:00', 2, true, true, 'White Out', false]);
+      // Use dynamic date (7 days from now) for sample event
+      const sampleDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const dateStr = Utilities.formatDate(sampleDate, 'America/Chicago', 'yyyy-MM-dd');
+      const dateTimeStr = Utilities.formatDate(sampleDate, 'America/Chicago', 'yyyy-MM-dd') + 'T19:00';
+      eventsSheet.appendRow(['GBB-001', 'GBB', 'Girls Basketball vs. Hopkins', dateStr, 'Orono High School Gym', 44.965, -93.625, dateTimeStr, 2, true, true, 'White Out', false]);
     }
   }
 
