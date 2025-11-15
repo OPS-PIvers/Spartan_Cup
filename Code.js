@@ -254,15 +254,29 @@ function getEventMapCache() {
 
   // Cache miss or parse error: read from Sheets
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Load Activities_Data to get activity names for Activity_Code lookup
+  const activitiesSheet = ss.getSheetByName('Activities_Data');
+  const activitiesData = activitiesSheet.getDataRange().getValues();
+  const activityMap = {};
+
+  for (let i = 1; i < activitiesData.length; i++) {
+    activityMap[activitiesData[i][0]] = activitiesData[i][1]; // Activity_Code -> Activity_Name
+  }
+
+  // Load Events and build event map
   const eventSheet = ss.getSheetByName('Events');
   const eventData = eventSheet.getDataRange().getValues();
   const eventMap = {};
 
   for (let i = 1; i < eventData.length; i++) {
+    const activityCode = eventData[i][1];
+    const activityName = activityMap[activityCode] || activityCode; // Fallback to code if not found
+
     eventMap[eventData[i][0]] = {
-      eventName: eventData[i][2],
+      name: eventData[i][2],        // Changed from eventName to name
       date: eventData[i][3],
-      sportArt: eventData[i][1],
+      sportArt: activityName,       // Changed from Activity_Code to Activity_Name
       theme: eventData[i][11]
     };
   }
