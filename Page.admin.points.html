@@ -1,0 +1,249 @@
+<!--
+  Admin Dashboard - Points Configuration Tab Component
+
+  This component provides the UI and logic for configuring point values in the Spartan Cup application.
+
+  Features:
+  - Configure base points (with/without theme)
+  - Configure theme bonus points
+  - Configure spotlight game multiplier
+  - Reset to default values
+  - Display current configuration
+
+  Dependencies:
+  - Page.admin.utils.html
+  - Backend functions: getPointsConfig(), updatePointsConfig(), resetPointsToDefaults()
+
+  Exported functions:
+  - window.loadPointsConfig() - Called when Points tab is activated
+-->
+
+<!-- ===================================================================== -->
+<!-- TAB 6: POINTS CONFIGURATION -->
+<!-- ===================================================================== -->
+<div id="tab-points" class="flex-1 flex flex-col hidden overflow-y-auto">
+  <!-- Header Card -->
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-blue-600 mb-4">
+    <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-2">Points Configuration</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400">Configure point values used throughout the app for event submissions and bonuses.</p>
+  </div>
+
+  <!-- Points Configuration Form -->
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm mb-4">
+    <form id="points-config-form" class="space-y-4">
+
+      <!-- Base Points (With Theme) -->
+      <div class="space-y-2">
+        <label for="point-base-with-theme" class="block text-sm font-semibold text-[#111318] dark:text-white">
+          Base Points (With Theme) *
+        </label>
+        <input
+          id="point-base-with-theme"
+          type="number"
+          step="0.1"
+          min="0"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <p class="text-xs text-gray-500 dark:text-gray-400">Points awarded when student attends event dressed for theme</p>
+      </div>
+
+      <!-- Base Points (Without Theme) -->
+      <div class="space-y-2">
+        <label for="point-base-without-theme" class="block text-sm font-semibold text-[#111318] dark:text-white">
+          Base Points (Without Theme) *
+        </label>
+        <input
+          id="point-base-without-theme"
+          type="number"
+          step="0.1"
+          min="0"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <p class="text-xs text-gray-500 dark:text-gray-400">Points awarded when student attends event without theme dress</p>
+      </div>
+
+      <!-- Theme Bonus -->
+      <div class="space-y-2">
+        <label for="point-theme-bonus" class="block text-sm font-semibold text-[#111318] dark:text-white">
+          Theme Bonus *
+        </label>
+        <input
+          id="point-theme-bonus"
+          type="number"
+          step="0.1"
+          min="0"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <p class="text-xs text-gray-500 dark:text-gray-400">Additional bonus points applied when "Theme Dress" checkbox is marked</p>
+      </div>
+
+      <!-- Spotlight Game Multiplier -->
+      <div class="space-y-2">
+        <label for="point-spotlight-mult" class="block text-sm font-semibold text-[#111318] dark:text-white">
+          Spotlight Game Multiplier *
+        </label>
+        <input
+          id="point-spotlight-mult"
+          type="number"
+          step="0.1"
+          min="0"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <p class="text-xs text-gray-500 dark:text-gray-400">Multiplier applied to total points for spotlight/important games (e.g., 1.5 = 150%)</p>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
+          Save All Changes
+        </button>
+        <button type="button" id="points-reset-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors">
+          Reset to Defaults
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Current Values Display (Read-Only Reference) -->
+  <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+    <h3 class="text-sm font-bold text-[#111318] dark:text-white mb-3">Current Configuration</h3>
+    <ul id="current-points-display" class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+      <li class="flex justify-between">
+        <span class="font-medium">Base Points (With Theme):</span>
+        <span id="display-base-with-theme" class="font-semibold text-blue-600 dark:text-blue-400">--</span>
+      </li>
+      <li class="flex justify-between">
+        <span class="font-medium">Base Points (Without Theme):</span>
+        <span id="display-base-without-theme" class="font-semibold text-blue-600 dark:text-blue-400">--</span>
+      </li>
+      <li class="flex justify-between">
+        <span class="font-medium">Theme Bonus:</span>
+        <span id="display-theme-bonus" class="font-semibold text-blue-600 dark:text-blue-400">--</span>
+      </li>
+      <li class="flex justify-between">
+        <span class="font-medium">Spotlight Game Multiplier:</span>
+        <span id="display-spotlight-mult" class="font-semibold text-blue-600 dark:text-blue-400">--</span>
+      </li>
+    </ul>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+      Changes are saved to the Config_Points sheet and cached for 1 hour.
+    </p>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // =====================================================================
+    // TAB 6: POINTS CONFIGURATION
+    // =====================================================================
+
+    // Update current values display
+    function updateCurrentPointsDisplay(config) {
+      document.getElementById('display-base-with-theme').textContent = config['Base_Points_With_Theme'] || '--';
+      document.getElementById('display-base-without-theme').textContent = config['Base_Points_Without_Theme'] || '--';
+      document.getElementById('display-theme-bonus').textContent = config['Theme_Bonus'] || '--';
+      document.getElementById('display-spotlight-mult').textContent = config['Spotlight_Game_Multiplier'] || '--';
+    }
+
+    // Points form submission
+    document.getElementById('points-config-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      // Collect values from form
+      const config = {
+        'Base_Points_With_Theme': parseFloat(document.getElementById('point-base-with-theme').value),
+        'Base_Points_Without_Theme': parseFloat(document.getElementById('point-base-without-theme').value),
+        'Theme_Bonus': parseFloat(document.getElementById('point-theme-bonus').value),
+        'Spotlight_Game_Multiplier': parseFloat(document.getElementById('point-spotlight-mult').value)
+      };
+
+      // Client-side validation
+      for (const [key, value] of Object.entries(config)) {
+        if (isNaN(value) || value < 0) {
+          alert(`Invalid value for ${key.replace(/_/g, ' ')}: must be a non-negative number`);
+          return;
+        }
+      }
+
+      // Show loading modal
+      document.getElementById('loading-modal').classList.remove('hidden');
+
+      google.script.run
+        .withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+
+          if (response.status === 'success') {
+            alert('Points configuration updated successfully!');
+            window.loadPointsConfig(); // Reload to confirm changes
+          } else {
+            alert('Error: ' + response.message);
+          }
+        })
+        .withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          alert('Error saving points configuration: ' + error);
+          console.error('Error saving points config:', error);
+        })
+        .updatePointsConfig(config);
+    });
+
+    // Reset to defaults button
+    document.getElementById('points-reset-btn').addEventListener('click', () => {
+      if (confirm('Reset all point values to defaults?\n\nDefaults:\n- Base Points (With Theme): 75\n- Base Points (Without Theme): 50\n- Theme Bonus: 25\n- Spotlight Multiplier: 1.5')) {
+        // Show loading modal
+        document.getElementById('loading-modal').classList.remove('hidden');
+
+        google.script.run
+          .withSuccessHandler((response) => {
+            document.getElementById('loading-modal').classList.add('hidden');
+
+            if (response.status === 'success') {
+              alert('Points configuration reset to defaults!');
+              window.loadPointsConfig(); // Reload to show new values
+            } else {
+              alert('Error: ' + response.message);
+            }
+          })
+          .withFailureHandler((error) => {
+            document.getElementById('loading-modal').classList.add('hidden');
+            alert('Error resetting points configuration: ' + error);
+            console.error('Error resetting points config:', error);
+          })
+          .resetPointsToDefaults();
+      }
+    });
+
+    // Export loadPointsConfig to window scope for tab switcher
+    window.loadPointsConfig = function() {
+      // Show loading in current values display
+      document.getElementById('display-base-with-theme').textContent = 'Loading...';
+      document.getElementById('display-base-without-theme').textContent = 'Loading...';
+      document.getElementById('display-theme-bonus').textContent = 'Loading...';
+      document.getElementById('display-spotlight-mult').textContent = 'Loading...';
+
+      google.script.run
+        .withSuccessHandler((config) => {
+          // Populate form fields
+          document.getElementById('point-base-with-theme').value = config['Base_Points_With_Theme'] || 75;
+          document.getElementById('point-base-without-theme').value = config['Base_Points_Without_Theme'] || 50;
+          document.getElementById('point-theme-bonus').value = config['Theme_Bonus'] || 25;
+          document.getElementById('point-spotlight-mult').value = config['Spotlight_Game_Multiplier'] || 1.5;
+
+          // Update current values display
+          updateCurrentPointsDisplay(config);
+        })
+        .withFailureHandler((error) => {
+          alert('Error loading points configuration: ' + error);
+          console.error('Error loading points config:', error);
+        })
+        .getPointsConfig();
+    };
+
+  })();
+</script>

@@ -1,0 +1,293 @@
+<!--
+  Admin Dashboard - Events Management Tab Component
+
+  This component provides the UI and logic for managing events in the Spartan Cup application.
+
+  Features:
+  - Create new events with activity selection, date/time, spotlight status, and theme
+  - Edit existing events
+  - Delete events
+  - Auto-generated Event IDs
+  - Activity dropdown population from Activities_Data sheet
+  - Time format conversion (24-hour to 12-hour)
+
+  Dependencies:
+  - Page.admin.utils.html (escapeHTML, showToast)
+  - Backend functions: addEvent(), updateEvent(), deleteEvent(), getEventsList(), getActivitiesForSeason()
+
+  Exported functions:
+  - window.loadEventsList() - Called when Events tab is activated
+-->
+
+<!-- ===================================================================== -->
+<!-- TAB 2: MANAGE EVENTS -->
+<!-- ===================================================================== -->
+<div id="tab-events" class="flex-1 flex flex-col hidden overflow-y-auto">
+  <!-- Event Form -->
+  <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-primary mb-4 flex-shrink-0">
+    <h2 class="text-xl font-bold text-primary dark:text-blue-300 mb-3">Add/Edit Event</h2>
+    <form id="event-form" class="space-y-3">
+      <!-- Event ID (Display Only) -->
+      <div class="flex justify-between items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-white">
+        <label class="text-sm text-gray-600 dark:text-gray-400">Event ID:</label>
+        <span id="event-id-display" class="font-semibold">Auto-generated</span>
+      </div>
+
+      <!-- Sport/Activity -->
+      <select id="event-activity-code" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+        <option value="">Select Sport/Activity</option>
+      </select>
+
+      <!-- Event Name -->
+      <input id="event-name" type="text" placeholder="Event Name (e.g., vs. Edina)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+      <!-- Date & Time -->
+      <input id="event-datetime" type="datetime-local" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+
+
+      <!-- Spotlight Game -->
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input id="event-spotlight" type="checkbox" class="w-4 h-4">
+        <span class="text-sm text-[#111318] dark:text-white">Spotlight Game</span>
+      </label>
+
+      <!-- Theme -->
+      <input id="event-theme" type="text" placeholder="Theme (e.g., White Out)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white">
+
+      <!-- Submit/Cancel -->
+      <div class="flex gap-2">
+        <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-opacity-90">
+          Save Event
+        </button>
+        <button type="button" id="event-cancel-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold">
+          Clear
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Events List -->
+  <div class="flex-shrink-0">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">Active Events</h3>
+    <div id="events-list" class="space-y-2">
+      <div class="text-center py-6 text-gray-500">Loading events...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // =====================================================================
+    // EVENT MANAGEMENT LOGIC
+    // =====================================================================
+    let editingEventCode = null;
+
+    document.getElementById('event-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveEvent();
+    });
+
+    document.getElementById('event-cancel-btn').addEventListener('click', () => {
+      clearEventForm();
+    });
+
+    function saveEvent() {
+      document.getElementById('loading-modal').classList.remove('hidden'); // Show loading spinner
+
+      const activityCode = document.getElementById('event-activity-code').value.trim();
+      const eventName = document.getElementById('event-name').value.trim();
+      const dateTime = document.getElementById('event-datetime').value;
+      const isSpotlightGame = document.getElementById('event-spotlight').checked;
+      const theme = document.getElementById('event-theme').value.trim();
+
+      if (!activityCode) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Please select a Sport/Activity');
+        return;
+      }
+      if (!eventName) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Event name is required');
+        return;
+      }
+      if (!dateTime) {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Date and Time are required');
+        return;
+      }
+
+      const eventData = {
+        activityCode,
+        eventName,
+        dateTime,
+        isSpotlightGame,
+        theme
+      };
+
+      const successHandler = (response) => {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        if (response.status === 'success') {
+          alert(response.message);
+          clearEventForm();
+          window.loadEventsList(); // Refresh event list
+          loadActivityDropdown(); // Refresh activity dropdown
+        } else {
+          alert('Error: ' + response.message);
+        }
+      };
+
+      const failureHandler = (error) => {
+        document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
+        alert('Error communicating with server: ' + (error.message || error.toString()));
+      };
+
+      if (editingEventCode) {
+        // Update existing event
+        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateEvent(editingEventCode, eventData);
+      } else {
+        // Add new event
+        google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).addEvent(eventData);
+      }
+    }
+
+    function clearEventForm() {
+      document.getElementById('event-form').reset();
+      editingEventCode = null;
+      document.querySelector('#event-form button[type="submit"]').textContent = 'Save Event';
+    }
+
+    function loadActivityDropdown() {
+      google.script.run.withSuccessHandler(populateActivityDropdown).getActivitiesForSeason();
+    }
+
+    function populateActivityDropdown(response) {
+      const select = document.getElementById('event-activity-code');
+      select.innerHTML = '<option value="">Select Sport/Activity</option>'; // Reset and add default
+
+      if (response.status === 'success' && response.activities) {
+        response.activities.forEach(activity => {
+          const option = document.createElement('option');
+          option.value = activity.activityCode;
+          option.textContent = activity.activityName;
+          select.appendChild(option);
+        });
+      } else {
+        console.error('Error loading activities:', response.message);
+        // Optionally, display an error message to the user
+      }
+    }
+
+    function populateEventsList(events) {
+      const list = document.getElementById('events-list');
+      list.innerHTML = '';
+
+      if (events.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-center py-6">No events yet. Create one to get started.</p>';
+        return;
+      }
+
+      events.forEach((event) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700';
+
+        // Create edit button with data attributes instead of inline onclick
+        const editButton = document.createElement('button');
+        editButton.className = 'px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600';
+        editButton.textContent = 'Edit';
+        editButton.dataset.eventId = event.eventId;
+        editButton.dataset.activityCode = event.activityCode;
+        editButton.dataset.eventName = event.eventName;
+        editButton.dataset.dateTime = event.dateTime;
+        editButton.dataset.isSpotlightGame = event.isSpotlightGame;
+        editButton.dataset.theme = event.theme || '';
+        editButton.addEventListener('click', () => {
+          editEvent(
+            editButton.dataset.eventId,
+            editButton.dataset.activityCode,
+            editButton.dataset.eventName,
+            editButton.dataset.dateTime,
+            editButton.dataset.isSpotlightGame === 'true',
+            editButton.dataset.theme
+          );
+        });
+
+        // Create delete button with data attributes instead of inline onclick
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600';
+        deleteButton.textContent = 'Delete';
+        deleteButton.dataset.eventId = event.eventId;
+        deleteButton.dataset.eventName = event.eventName;
+        deleteButton.addEventListener('click', () => {
+          deleteEventConfirm(deleteButton.dataset.eventId, deleteButton.dataset.eventName);
+        });
+
+        const timeStr = event.dateTime.split('T')[1] || 'N/A';
+        const displayTime = format24To12Hour(timeStr);
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1">
+              <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${displayTime}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
+              ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
+            </div>
+            <div class="flex gap-2">
+            </div>
+          </div>
+        `;
+
+        const buttonContainer = card.querySelector('.flex.gap-2');
+        buttonContainer.appendChild(editButton);
+        buttonContainer.appendChild(deleteButton);
+
+        list.appendChild(card);
+      });
+    }
+
+    function editEvent(eventId, activityCode, eventName, dateTime, isSpotlightGame, theme) {
+      document.getElementById('event-id-display').textContent = eventId;
+      document.getElementById('event-activity-code').value = activityCode;
+      document.getElementById('event-name').value = eventName;
+      document.getElementById('event-datetime').value = dateTime;
+      document.getElementById('event-spotlight').checked = isSpotlightGame || false;
+      document.getElementById('event-theme').value = theme || '';
+      document.querySelector('#event-form button[type="submit"]').textContent = 'Update Event';
+      editingEventCode = eventId;
+
+      // Scroll to form
+      document.getElementById('event-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteEventConfirm(eventId, eventName) {
+      if (confirm(`Delete event "${eventName}" (${eventId})?`)) {
+        google.script.run.withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            alert(response.message);
+            window.loadEventsList();
+          } else {
+            alert('Error: ' + response.message);
+          }
+        }).deleteEvent(eventId);
+      }
+    }
+
+    // Export loadEventsList to window scope for tab switcher
+    window.loadEventsList = function() {
+      loadActivityDropdown(); // Load activities for the dropdown
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          populateEventsList(response.events);
+        } else {
+          document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + escapeHTML(response.message) + '</p>';
+        }
+      }).getEventsList();
+    };
+
+  })();
+</script>

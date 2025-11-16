@@ -1,0 +1,151 @@
+<!--
+  Shared utility functions and helpers for Admin Dashboard
+  This file is included in Page.admin.html and provides common functionality
+  used across all admin tabs.
+-->
+<script>
+  // =====================================================================
+  // SHARED UTILITY FUNCTIONS
+  // =====================================================================
+
+  /**
+   * HTML escape helper to prevent XSS
+   * @param {string} str - The string to escape
+   * @returns {string} - HTML-escaped string
+   */
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  /**
+   * Toast notification system
+   * @param {string} message - The message to display
+   * @param {string} type - Type of toast: 'error', 'success', or 'info'
+   * @param {number} duration - Duration in milliseconds
+   */
+  function showToast(message, type = 'error', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity z-50 ${
+      type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  /**
+   * Format 24-hour time to 12-hour format
+   * @param {string} timeStr - Time in HH:MM format
+   * @returns {string} - Time in 12-hour format with AM/PM
+   */
+  function format24To12Hour(timeStr) {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }
+
+  /**
+   * Format ISO datetime to local datetime-local input format
+   * @param {string} isoDateTime - ISO 8601 datetime string
+   * @returns {string} - Datetime in YYYY-MM-DDTHH:MM format for datetime-local input
+   */
+  function formatISOToDatetimeLocal(isoDateTime) {
+    if (!isoDateTime) return '';
+    const date = new Date(isoDateTime);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  /**
+   * Display a message in a given element with optional auto-hide
+   * @param {string} elementId - The ID of the element to update
+   * @param {string} message - The message to display
+   * @param {string} type - Message type: 'success', 'error', 'info'
+   * @param {number} duration - Auto-hide duration in milliseconds (0 = no auto-hide)
+   */
+  function showMessage(elementId, message, type = 'info', duration = 3000) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    element.textContent = message;
+    element.classList.remove('hidden');
+
+    // Apply color based on type
+    element.classList.remove('text-green-600', 'text-red-600', 'text-blue-600', 'text-gray-600');
+    const colorClass = type === 'success' ? 'text-green-600' :
+                       type === 'error' ? 'text-red-600' :
+                       type === 'info' ? 'text-blue-600' : 'text-gray-600';
+    element.classList.add(colorClass);
+
+    if (duration > 0) {
+      setTimeout(() => {
+        element.classList.add('hidden');
+      }, duration);
+    }
+  }
+
+  /**
+   * Clear form inputs and reset to default state
+   * @param {string} formId - The ID of the form to clear
+   */
+  function clearForm(formId) {
+    const form = document.getElementById(formId);
+    if (form) {
+      form.reset();
+      // Trigger any necessary custom cleanup
+      const event = new Event('formcleared');
+      form.dispatchEvent(event);
+    }
+  }
+
+  /**
+   * Disable/enable a button with loading state
+   * @param {string} buttonId - The ID of the button
+   * @param {boolean} disabled - Whether to disable the button
+   * @param {string} loadingText - Optional text to show when disabled
+   */
+  function setButtonLoading(buttonId, disabled, loadingText = null) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+
+    if (disabled) {
+      button.disabled = true;
+      if (loadingText) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText;
+      }
+      button.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+      button.disabled = false;
+      if (button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+        delete button.dataset.originalText;
+      }
+      button.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  /**
+   * Generate a simple UUID v4
+   * @returns {string} - UUID string
+   */
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+</script>
