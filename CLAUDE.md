@@ -81,29 +81,32 @@ Spartan_Cup/
 │       ├── BADGE_SYSTEM_IMPROVEMENTS.md
 │       ├── IMPLEMENTATION_CHECKLIST.md
 │       └── GEMINI.md
-├── assets/                 # Image and media assets
+├── assets/                 # Logo and QR code images (source files)
 │   ├── The Spartan Cup_logo_FINAL.svg
 │   ├── The_Spartan_Cup-QR.svg
 │   ├── spartan_cup_FINAL.png
 │   └── spartan_cup_QR.png
+├── scripts/                # Deprecated Python utilities (not in active use)
+│   ├── read_sheet.py       # Legacy: Read Google Sheets data via service account
+│   └── write_sheet.py      # Legacy: Write Google Sheets data via service account
 └── public/                 # Firebase Hosting public directory
     ├── index.html          # Geolocation wrapper (deployed to Firebase)
     ├── 404.html            # Firebase 404 page
-    ├── spartan_cup_FINAL.png
-    ├── spartan_cup_FINALtransparent.png
-    ├── spartan_cup_QR.png
-    ├── The_Spartan_Cup-QR.svg
-    └── badges/             # Badge image assets (SVG + PNG)
-        ├── default-badge.svg
+    ├── spartan_cup_FINAL.png           # Logo (deployed copy)
+    ├── spartan_cup_FINALtransparent.png # Logo transparent variant
+    ├── spartan_cup_QR.png              # QR code (deployed copy)
+    ├── The_Spartan_Cup-QR.svg          # QR code SVG (deployed copy)
+    └── badges/             # Badge achievement images (note: mixed naming conventions)
+        ├── default-badge.svg        # Uses hyphen
         ├── explorer.svg
-        ├── first_timer.svg
+        ├── first_timer.svg          # Uses underscore
         ├── hattrick.svg
-        ├── bronze_points.svg
+        ├── bronze_points.svg        # Uses underscore
         ├── silver_points.svg
         ├── gold_points.svg
-        ├── diamond_fan.svg
+        ├── diamond_fan.svg          # Uses underscore
         ├── platinum_fan.svg
-        ├── 2nd_place_finish.svg
+        ├── 2nd_place_finish.svg     # Uses underscore
         ├── 3rd_place_finish.svg
         ├── season_champ.svg
         ├── season_champ.png
@@ -130,7 +133,7 @@ Spartan_Cup/
 **Key Components:**
 
 **Backend (.gs files):**
-- `Code.js` (133 lines): Main router module with `doGet()` entry point
+- `Code.js`: Main router module with `doGet()` entry point
 - `Auth.gs`: Authentication and authorization, admin access control
 - `Events.gs`: Event management, active event status updates
 - `Badges.gs`: Badge system logic, calculations, and award processing
@@ -146,23 +149,23 @@ Spartan_Cup/
 - `Utils.gs`: Utility helper functions
 
 **Frontend (HTML files):**
-- `Index.html` (178 lines): Main SPA template entry point
-- `JavaScript.html` (1,163 lines): Client-side routing, page navigation, location services, form submission handlers
-- `CSS.html` (81 lines): Styling and theme configuration
-- `Modals.html` (102 lines): Modal dialog components
+- `Index.html`: Main SPA template entry point
+- `JavaScript.html`: Client-side routing, page navigation, location services, form submission handlers
+- `CSS.html`: Styling and theme configuration
+- `Modals.html`: Modal dialog components
 
 **Page Components:**
-- `Page.profile.html` (80 lines): Main dashboard showing student stats, badges, leaderboard
-- `Page.submit.html` (42 lines): Event submission form with location-based check-in
-- `Page.admin.html` (2,975 lines): Admin approval dashboard
-- `Page.history.html` (15 lines): Submission history
-- `Page.welcome.html` (71 lines): New user welcome
-- `Page.event-select.html` (87 lines): Event selection
-- `Page.all-badges.html` (59 lines): Badge gallery
-- `Page.prizes.html` (133 lines): Prizes & Events
-- `Page.rulebook.html` (436 lines): Points and rules guide
-- `Page.fanfeed.html` (325 lines): Social feed
-- `Page.settings.html` (200 lines): User settings, dark mode
+- `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
+- `Page.submit.html`: Event submission form with location-based check-in
+- `Page.admin.html`: Admin approval dashboard (Note: Large file, may benefit from refactoring)
+- `Page.history.html`: Submission history
+- `Page.welcome.html`: New user welcome
+- `Page.event-select.html`: Event selection
+- `Page.all-badges.html`: Badge gallery
+- `Page.prizes.html`: Prizes & Events
+- `Page.rulebook.html`: Points and rules guide
+- `Page.fanfeed.html`: Social feed
+- `Page.settings.html`: User settings, dark mode
 
 **Geofencing:** Location verification uses coordinates stored in Activities_Data and Events sheets to prevent cheating submissions from outside campus.
 
@@ -207,6 +210,10 @@ This command will:
 2. Deploy updates to Firebase Hosting using `firebase deploy`
 
 See `.claude/commands/deploy.md` for Claude Code configuration or `.gemini/commands/deploy.toml` for Gemini configuration.
+
+### Legacy Python Scripts (Deprecated)
+
+The `scripts/` directory contains Python utilities (`read_sheet.py`, `write_sheet.py`) that were previously used for direct Google Sheets access via service account authentication. These scripts are **no longer actively maintained** and are kept for historical reference only. All sheet operations should now be performed through the Google Apps Script modules (.gs files) or the Apps Script editor.
 
 ### Testing
 

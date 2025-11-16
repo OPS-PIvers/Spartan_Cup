@@ -54,6 +54,9 @@ A gamified attendance and participation system for student events at Orono High 
    - Alternative to Firebase Storage for badge images
    - See [docs/BADGE_DEPLOYMENT_GUIDE.md](docs/BADGE_DEPLOYMENT_GUIDE.md) if needed
 
+**Note on Python Scripts:**
+The `scripts/` directory contains deprecated Python utilities (`read_sheet.py`, `write_sheet.py`) that are no longer actively used. These were previously used for direct Google Sheets access but have been superseded by the modular Google Apps Script architecture. They are kept for historical reference only.
+
 ## Architecture
 
 ### Server-Side (Modular .gs files)
