@@ -154,26 +154,19 @@
 
     // Load activities when badge tab is opened
     function loadActivitiesForBadges() {
-      console.log('[Badge Debug] loadActivitiesForBadges() called');
       google.script.run.withSuccessHandler((response) => {
-        console.log('[Badge Debug] getActivitiesForSeason response:', response);
         if (response.status === 'success' && response.activities) {
-          console.log(`[Badge Debug] Loaded ${response.activities.length} activities:`, response.activities);
           activitiesData = response.activities;
           populateBadgeActivityDropdown();
-        } else {
-          console.error('[Badge Debug] Failed to load activities:', response.message || 'Unknown error');
         }
       }).withFailureHandler((error) => {
-        console.error('[Badge Debug] getActivitiesForSeason error:', error);
+        // Error loading activities
       }).getActivitiesForSeason();
     }
 
     function populateBadgeActivityDropdown() {
-      console.log('[Badge Debug] populateBadgeActivityDropdown() called with activities:', activitiesData);
       const buttonsContainer = document.getElementById('badge-activity-buttons');
       if (!buttonsContainer) {
-        console.error('[Badge Debug] Could not find badge-activity-buttons container!');
         return;
       }
 
@@ -208,7 +201,6 @@
 
         buttonsContainer.appendChild(button);
       });
-      console.log(`[Badge Debug] Activity toggle buttons created for ${activitiesData.length} activities`);
     }
 
     // Scope-based template grouping for UI organization
@@ -493,7 +485,6 @@
     // This is required for the hidden select to accept all template values
     function populateHiddenTemplateSelect() {
       const select = document.getElementById('badge-template');
-      console.log('[Badge Debug] Populating hidden badge-template select with all templates');
 
       Object.keys(badgeTemplates).forEach(templateId => {
         const option = document.createElement('option');
@@ -501,8 +492,6 @@
         option.textContent = templateId;
         select.appendChild(option);
       });
-
-      console.log(`[Badge Debug] Hidden badge-template select populated with ${Object.keys(badgeTemplates).length} options`);
     }
 
     // Call on initialization
@@ -523,10 +512,8 @@
 
         // Create buttons for each template
         templateIds.forEach(templateId => {
-          console.log('[Badge Debug] Creating button for template:', templateId);
           const config = badgeTemplates[templateId];
           if (!config) {
-            console.warn('[Badge Debug] Config not found for template:', templateId);
             return;
           }
           const label = triggerTypeLabels[templateId] || config.help;
@@ -536,11 +523,9 @@
           button.textContent = label;
           button.title = config.help; // Show full help text on hover
           button.dataset.templateId = templateId;
-          console.log('[Badge Debug] Button dataset.templateId set to:', button.dataset.templateId);
 
           button.addEventListener('click', (evt) => {
             evt.preventDefault();
-            console.log('[Badge Debug] Button clicked, templateId from closure:', templateId);
             selectBadgeTemplate(templateId);
           });
 
@@ -556,15 +541,11 @@
 
     // Helper function to select a badge template
     function selectBadgeTemplate(templateId) {
-      console.log('[Badge Debug] selectBadgeTemplate() called with templateId:', templateId, 'type:', typeof templateId);
       const hidden_select = document.getElementById('badge-template');
       if (!hidden_select) {
-        console.error('[Badge Debug] Could not find badge-template select element!');
         return;
       }
-      console.log('[Badge Debug] Setting badge-template value to:', templateId);
       hidden_select.value = templateId;
-      console.log('[Badge Debug] badge-template.value is now:', hidden_select.value);
       hidden_select.dispatchEvent(new Event('change'));
 
       // Highlight selected button
@@ -580,10 +561,8 @@
     // Template change handler
     document.getElementById('badge-template').addEventListener('change', (e) => {
       const template = e.target.value;
-      console.log('[Badge Debug] Template changed to:', template);
 
       if (!template) {
-        console.log('[Badge Debug] Template cleared, hiding all fields');
         // Hide all dynamic fields
         document.getElementById('activity-field').classList.add('hidden');
         document.getElementById('value-field').classList.add('hidden');
@@ -595,10 +574,8 @@
 
       const config = badgeTemplates[template];
       if (!config) {
-        console.error('[Badge Debug] Template config not found for:', template);
         return;
       }
-      console.log('[Badge Debug] Template config:', config);
 
       // Show help text
       document.getElementById('template-help').textContent = config.help;
@@ -609,10 +586,8 @@
 
       // Show/hide fields based on template
       if (config.needsActivity) {
-        console.log('[Badge Debug] Showing activity field for template:', template);
         document.getElementById('activity-field').classList.remove('hidden');
       } else {
-        console.log('[Badge Debug] Hiding activity field for template:', template);
         document.getElementById('activity-field').classList.add('hidden');
       }
 
@@ -679,7 +654,7 @@
 
       // Prevent multiple concurrent submissions
       if (isSubmittingBadge) {
-        alert('Please wait while the badge is being saved...');
+        showToast('Please wait while the badge is being saved...', 'info');
         return;
       }
 
@@ -687,8 +662,7 @@
       try {
         await saveBadge();
       } catch (error) {
-        console.error('Badge submission error:', error);
-        alert('An unexpected error occurred: ' + (error.message || error.toString()));
+        showToast('An unexpected error occurred: ' + (error.message || error.toString()), 'error');
         document.getElementById('loading-modal').classList.add('hidden');
       } finally {
         isSubmittingBadge = false;
@@ -705,14 +679,14 @@
 
       // Validate file type
       if (!file.type.match('image/(png|svg\\+xml|jpeg)')) {
-        alert('Please select a PNG, SVG, or JPG image');
+        showToast('Please select a PNG, SVG, or JPG image', 'error');
         e.target.value = '';
         return;
       }
 
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        alert('Image must be smaller than 2MB');
+        showToast('Image must be smaller than 2MB', 'error');
         e.target.value = '';
         return;
       }
@@ -800,12 +774,27 @@
           triggerDisplay = `${badge.triggerType}: ${badge.triggerValue}`;
         }
 
-        detailsDiv.innerHTML = `
-          <p class="font-bold text-[#111318] dark:text-white">${badge.badgeName}</p>
-          <p class="text-xs text-gray-600 dark:text-gray-400">ID: ${badge.badgeId}</p>
-          <p class="text-xs text-gray-600 dark:text-gray-400">${badge.category} • ${triggerDisplay}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">${badge.description}</p>
-        `;
+        // Safely populate details using DOM methods to prevent XSS
+        const namePara = document.createElement('p');
+        namePara.className = 'font-bold text-[#111318] dark:text-white';
+        namePara.textContent = badge.badgeName;
+
+        const idPara = document.createElement('p');
+        idPara.className = 'text-xs text-gray-600 dark:text-gray-400';
+        idPara.textContent = `ID: ${badge.badgeId}`;
+
+        const categoryPara = document.createElement('p');
+        categoryPara.className = 'text-xs text-gray-600 dark:text-gray-400';
+        categoryPara.textContent = `${badge.category} • ${triggerDisplay}`;
+
+        const descPara = document.createElement('p');
+        descPara.className = 'text-xs text-gray-500 dark:text-gray-500 mt-1';
+        descPara.textContent = badge.description;
+
+        detailsDiv.appendChild(namePara);
+        detailsDiv.appendChild(idPara);
+        detailsDiv.appendChild(categoryPara);
+        detailsDiv.appendChild(descPara);
 
         // Action buttons
         const actionsDiv = document.createElement('div');
@@ -863,7 +852,7 @@
     // Helper function to show error and hide loading modal
     function showBadgeError(message) {
       document.getElementById('loading-modal').classList.add('hidden');
-      alert(message);
+      showToast(message, 'error');
     }
 
     async function saveBadge() {
@@ -980,40 +969,34 @@
       // Wrap server call in Promise to make it awaitable
       return new Promise((resolve, reject) => {
         const operation = editingBadgeId ? 'update' : 'create';
-        console.log('[saveBadge] Starting ' + operation + ' operation with badgeData:', badgeData);
 
         const successHandler = (response) => {
-          console.log('[saveBadge] Server response:', response);
           document.getElementById('loading-modal').classList.add('hidden');
           if (response && response.status === 'success') {
-            alert('✅ Badge saved successfully!' + (operation === 'update' ? '\\n(Update)' : '\\n(New Badge)'));
+            showToast('Badge saved successfully!' + (operation === 'update' ? ' (Update)' : ' (New Badge)'), 'success');
             clearBadgeForm();
             loadBadgesList();
             resolve(response);
           } else {
             const errorMsg = response && response.message ? response.message : 'Unknown server error. Check browser console and Apps Script logs.';
-            console.error('[saveBadge] Server returned error:', errorMsg);
-            alert('❌ Failed to save badge:\\n\\n' + errorMsg);
+            showToast('Failed to save badge: ' + errorMsg, 'error');
             reject(new Error(errorMsg));
           }
         };
 
         const failureHandler = (error) => {
-          console.error('[saveBadge] Server communication failed:', error);
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('❌ Error communicating with server:\\n\\n' + error + '\\n\\nCheck the Apps Script logs for details.');
+          showToast('Error communicating with server: ' + error, 'error');
           reject(new Error('Server communication error: ' + error));
         };
 
         try {
-          console.log('[saveBadge] Calling ' + operation + 'Badge()');
           if (editingBadgeId) {
             google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateBadge(editingBadgeId, badgeData);
           } else {
             google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
           }
         } catch (error) {
-          console.error('[saveBadge] Client-side exception:', error);
           document.getElementById('loading-modal').classList.add('hidden');
           reject(error);
         }
@@ -1102,7 +1085,7 @@
       const template = triggerTypeToTemplate[badge.triggerType] || 'manual';
 
       if (!triggerTypeToTemplate[badge.triggerType]) {
-        alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
+        showToast('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.', 'warning');
       }
 
       // Find which scope this template belongs to
@@ -1160,14 +1143,14 @@
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             loadBadgesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         }).withFailureHandler((error) => {
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          showToast('Error: ' + error, 'error');
         }).deleteBadge(badgeId);
       }
     }

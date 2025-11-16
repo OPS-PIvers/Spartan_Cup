@@ -89,7 +89,7 @@
       const description = document.getElementById('prize-description').value.trim();
 
       if (!rank || !description) {
-        alert('Please fill in all fields');
+        showToast('Please fill in all fields', 'error');
         return;
       }
 
@@ -101,30 +101,30 @@
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             clearPrizeForm();
             window.loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         }).withFailureHandler((error) => {
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          showToast('Error: ' + error, 'error');
         }).updatePrize(editingPrizeRowIndex, rank, description);
       } else {
         // Create new prize
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             clearPrizeForm();
             window.loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         }).withFailureHandler((error) => {
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          showToast('Error: ' + error, 'error');
         }).createPrize(rank, description);
       }
     });
@@ -142,32 +142,60 @@
 
     function populatePrizesList(prizes) {
       const prizesList = document.getElementById('prizes-list');
+      prizesList.innerHTML = ''; // Clear existing content
 
       if (!prizes || prizes.length === 0) {
-        prizesList.innerHTML = '<div class="text-center py-6 text-gray-500">No prizes yet. Create one above!</div>';
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'text-center py-6 text-gray-500';
+        emptyDiv.textContent = 'No prizes yet. Create one above!';
+        prizesList.appendChild(emptyDiv);
         return;
       }
 
-      prizesList.innerHTML = prizes.map(prize => `
-        <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="flex justify-between items-start mb-2">
-            <h4 class="font-bold text-lg text-[#111318] dark:text-white">${escapeHtml(prize.rank)}</h4>
-            <div class="flex gap-2">
-              <button onclick="editPrize(${prize.rowIndex}, '${escapeForJs(prize.rank)}', '${escapeForJs(prize.description)}')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
-                Edit
-              </button>
-              <button onclick="deletePrizeConfirm(${prize.rowIndex}, '${escapeForJs(prize.rank)}')" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                Delete
-              </button>
-            </div>
-          </div>
-          <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(prize.description)}</p>
-        </div>
-      `).join('');
+      // Build prize cards using DOM methods to prevent XSS and avoid inline onclick
+      prizes.forEach(prize => {
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex justify-between items-start mb-2';
+
+        const rankHeading = document.createElement('h4');
+        rankHeading.className = 'font-bold text-lg text-[#111318] dark:text-white';
+        rankHeading.textContent = prize.rank;
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'flex gap-2';
+
+        // Edit button (programmatic event listener)
+        const editButton = document.createElement('button');
+        editButton.className = 'px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700';
+        editButton.textContent = 'Edit';
+        editButton.addEventListener('click', () => editPrize(prize.rowIndex, prize.rank, prize.description));
+
+        // Delete button (programmatic event listener)
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => deletePrizeConfirm(prize.rowIndex, prize.rank));
+
+        buttonContainer.appendChild(editButton);
+        buttonContainer.appendChild(deleteButton);
+
+        headerDiv.appendChild(rankHeading);
+        headerDiv.appendChild(buttonContainer);
+
+        const descPara = document.createElement('p');
+        descPara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        descPara.textContent = prize.description;
+
+        card.appendChild(headerDiv);
+        card.appendChild(descPara);
+        prizesList.appendChild(card);
+      });
     }
 
-    // Make editPrize function global so onclick can access it
-    window.editPrize = function(rowIndex, rank, description) {
+    function editPrize(rowIndex, rank, description) {
       document.getElementById('prize-rank').value = rank;
       document.getElementById('prize-description').value = description;
       document.querySelector('#prize-form button[type="submit"]').textContent = 'Update Prize';
@@ -175,37 +203,27 @@
 
       // Scroll to form
       document.getElementById('prize-form').scrollIntoView({ behavior: 'smooth' });
-    };
+    }
 
-    // Make deletePrizeConfirm function global so onclick can access it
-    window.deletePrizeConfirm = function(rowIndex, rank) {
+    function deletePrizeConfirm(rowIndex, rank) {
       if (confirm(`Delete prize "${rank}"?\\n\\nThis will remove the prize from the season.`)) {
         document.getElementById('loading-modal').classList.remove('hidden');
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             window.loadPrizesList();
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         }).withFailureHandler((error) => {
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error: ' + error);
+          showToast('Error: ' + error, 'error');
         }).deletePrize(rowIndex);
       }
-    };
-
-    // Helper functions for escaping HTML and JS strings
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
     }
 
-    function escapeForJs(text) {
-      return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    }
+    // Removed helper functions escapeHtml and escapeForJs - now using textContent for XSS prevention
 
     // Export loadPrizesList to window scope for tab switcher
     window.loadPrizesList = function() {

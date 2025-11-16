@@ -105,17 +105,17 @@
 
       if (!activityCode) {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Please select a Sport/Activity');
+        showToast('Please select a Sport/Activity', 'error');
         return;
       }
       if (!eventName) {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Event name is required');
+        showToast('Event name is required', 'error');
         return;
       }
       if (!dateTime) {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Date and Time are required');
+        showToast('Date and Time are required', 'error');
         return;
       }
 
@@ -130,18 +130,18 @@
       const successHandler = (response) => {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
         if (response.status === 'success') {
-          alert(response.message);
+          showToast(response.message, 'success');
           clearEventForm();
           window.loadEventsList(); // Refresh event list
           loadActivityDropdown(); // Refresh activity dropdown
         } else {
-          alert('Error: ' + response.message);
+          showToast(response.message, 'error');
         }
       };
 
       const failureHandler = (error) => {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
-        alert('Error communicating with server: ' + (error.message || error.toString()));
+        showToast('Error communicating with server: ' + (error.message || error.toString()), 'error');
       };
 
       if (editingEventCode) {
@@ -227,24 +227,53 @@
         const timeStr = event.dateTime.split('T')[1] || 'N/A';
         const displayTime = format24To12Hour(timeStr);
 
-        card.innerHTML = `
-          <div class="flex justify-between items-start mb-2">
-            <div class="flex-1">
-              <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${displayTime}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
-              ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
-            </div>
-            <div class="flex gap-2">
-            </div>
-          </div>
-        `;
+        // Safely build card content using DOM methods to prevent XSS
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'flex justify-between items-start mb-2';
 
-        const buttonContainer = card.querySelector('.flex.gap-2');
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'flex-1';
+
+        const namePara = document.createElement('p');
+        namePara.className = 'font-bold text-[#111318] dark:text-white';
+        namePara.textContent = event.eventName;
+        infoDiv.appendChild(namePara);
+
+        const idPara = document.createElement('p');
+        idPara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        idPara.textContent = `ID: ${event.eventId}`;
+        infoDiv.appendChild(idPara);
+
+        const datePara = document.createElement('p');
+        datePara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        datePara.textContent = `${event.activityCode} • ${event.dateTime.split('T')[0]}`;
+        infoDiv.appendChild(datePara);
+
+        const timePara = document.createElement('p');
+        timePara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        timePara.textContent = `Time: ${displayTime}`;
+        infoDiv.appendChild(timePara);
+
+        const locationPara = document.createElement('p');
+        locationPara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        locationPara.textContent = `📍 ${event.location || 'No location'}`;
+        infoDiv.appendChild(locationPara);
+
+        if (event.theme) {
+          const themePara = document.createElement('p');
+          themePara.className = 'text-xs text-gray-500 dark:text-gray-500';
+          themePara.textContent = `Theme: ${event.theme}`;
+          infoDiv.appendChild(themePara);
+        }
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'flex gap-2';
         buttonContainer.appendChild(editButton);
         buttonContainer.appendChild(deleteButton);
+
+        contentDiv.appendChild(infoDiv);
+        contentDiv.appendChild(buttonContainer);
+        card.appendChild(contentDiv);
 
         list.appendChild(card);
       });
@@ -268,10 +297,10 @@
       if (confirm(`Delete event "${eventName}" (${eventId})?`)) {
         google.script.run.withSuccessHandler((response) => {
           if (response.status === 'success') {
-            alert(response.message);
+            showToast(response.message, 'success');
             window.loadEventsList();
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         }).deleteEvent(eventId);
       }

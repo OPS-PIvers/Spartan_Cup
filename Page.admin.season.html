@@ -153,7 +153,11 @@
           }`;
 
           if (isActive) {
-            button.innerHTML = `✓ ${season} <span class="text-sm ml-2">(Active)</span>`;
+            button.textContent = `✓ ${season} `;
+            const activeSpan = document.createElement('span');
+            activeSpan.className = 'text-sm ml-2';
+            activeSpan.textContent = '(Active)';
+            button.appendChild(activeSpan);
           } else {
             button.textContent = season;
           }
@@ -265,10 +269,17 @@
 
         const info = document.createElement('div');
         info.className = 'flex-1';
-        info.innerHTML = `
-          <p class="font-semibold text-[#111318] dark:text-white">${activity.activityName}</p>
-          <p class="text-xs text-gray-600 dark:text-gray-400">${activity.activityCode} • ${activity.locationName}</p>
-        `;
+
+        const namePara = document.createElement('p');
+        namePara.className = 'font-semibold text-[#111318] dark:text-white';
+        namePara.textContent = activity.activityName;
+
+        const detailsPara = document.createElement('p');
+        detailsPara.className = 'text-xs text-gray-600 dark:text-gray-400';
+        detailsPara.textContent = `${activity.activityCode} • ${activity.locationName}`;
+
+        info.appendChild(namePara);
+        info.appendChild(detailsPara);
 
         label.appendChild(checkbox);
         label.appendChild(info);

@@ -166,7 +166,7 @@
       // Client-side validation
       for (const [key, value] of Object.entries(config)) {
         if (isNaN(value) || value < 0) {
-          alert(`Invalid value for ${key.replace(/_/g, ' ')}: must be a non-negative number`);
+          showToast(`Invalid value for ${key.replace(/_/g, ' ')}: must be a non-negative number`, 'error');
           return;
         }
       }
@@ -179,16 +179,15 @@
           document.getElementById('loading-modal').classList.add('hidden');
 
           if (response.status === 'success') {
-            alert('Points configuration updated successfully!');
+            showToast('Points configuration updated successfully!', 'success');
             window.loadPointsConfig(); // Reload to confirm changes
           } else {
-            alert('Error: ' + response.message);
+            showToast(response.message, 'error');
           }
         })
         .withFailureHandler((error) => {
           document.getElementById('loading-modal').classList.add('hidden');
-          alert('Error saving points configuration: ' + error);
-          console.error('Error saving points config:', error);
+          showToast('Error saving points configuration: ' + error, 'error');
         })
         .updatePointsConfig(config);
     });
@@ -204,16 +203,15 @@
             document.getElementById('loading-modal').classList.add('hidden');
 
             if (response.status === 'success') {
-              alert('Points configuration reset to defaults!');
+              showToast('Points configuration reset to defaults!', 'success');
               window.loadPointsConfig(); // Reload to show new values
             } else {
-              alert('Error: ' + response.message);
+              showToast(response.message, 'error');
             }
           })
           .withFailureHandler((error) => {
             document.getElementById('loading-modal').classList.add('hidden');
-            alert('Error resetting points configuration: ' + error);
-            console.error('Error resetting points config:', error);
+            showToast('Error resetting points configuration: ' + error, 'error');
           })
           .resetPointsToDefaults();
       }
@@ -239,8 +237,7 @@
           updateCurrentPointsDisplay(config);
         })
         .withFailureHandler((error) => {
-          alert('Error loading points configuration: ' + error);
-          console.error('Error loading points config:', error);
+          showToast('Error loading points configuration: ' + error, 'error');
         })
         .getPointsConfig();
     };
