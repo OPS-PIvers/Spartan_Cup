@@ -31,6 +31,14 @@ Spartan_Cup/
 ├── CSS.html                # Styling and theme configuration
 ├── Modals.html             # Modal dialog components
 ├── Page.*.html             # Modular page components (profile, history, submit, etc.)
+│   ├── Page.admin.html              # Admin dashboard coordinator (278 lines)
+│   ├── Page.admin.utils.html        # Shared admin utilities (escapeHTML, showToast, etc.)
+│   ├── Page.admin.review.html       # Submission review tab (swipe interface)
+│   ├── Page.admin.events.html       # Events management CRUD
+│   ├── Page.admin.season.html       # Season & activities management
+│   ├── Page.admin.badges.html       # Badge configuration (16+ templates)
+│   ├── Page.admin.prizes.html       # Prizes management
+│   └── Page.admin.points.html       # Points configuration
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
 ├── firebase.json           # Firebase configuration
@@ -39,6 +47,7 @@ Spartan_Cup/
 ├── README.md               # Main project documentation
 ├── CLAUDE.md               # This file - AI assistant instructions
 ├── SPREADSHEET_SCHEMA.md   # Complete Google Sheets backend schema
+├── ADMIN_REFACTOR.md       # Admin dashboard refactoring documentation
 ├── docs/                   # Documentation folder
 │   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide
 │   ├── BADGE_DEPLOYMENT_GUIDE.md   # Badge deployment reference
@@ -84,11 +93,71 @@ Spartan_Cup/
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
 **Key Components:**
-`Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-`JavaScript.html` (337 lines): Client-side routing, page navigation, location services, form submission handlers
+- `Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
+- `JavaScript.html` (337 lines): Client-side routing, page navigation, location services, form submission handlers
 - `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
 - `Page.submit.html`: Event submission form with location-based check-in
-- `Page.admin.html`: Admin approval dashboard
+- **`Page.admin.html`**: Admin dashboard (modular architecture - see below)
+
+**Admin Dashboard Architecture (Modular):**
+
+The admin dashboard has been refactored into 8 focused components for better maintainability, performance, and security:
+
+1. **Page.admin.html** (278 lines) - Main coordinator
+   - Tab navigation (desktop sidebar + mobile dropdown)
+   - Lazy loading implementation (reduces initial API calls from 6+ to 1)
+   - Includes all component files via `include()` template function
+
+2. **Page.admin.utils.html** (163 lines) - Shared utilities
+   - `escapeHTML()` - XSS prevention helper
+   - `showToast()` - Non-blocking toast notifications (error/success/info)
+   - `format24To12Hour()` - Time formatting
+   - `formatISOToDatetimeLocal()` - Date formatting
+   - `showMessage()`, `clearForm()`, `setButtonLoading()`, `generateUUID()`
+
+3. **Page.admin.review.html** (544 lines) - Submission review
+   - Swipe-based interface (mobile + desktop)
+   - Optimistic UI updates for instant feedback
+   - Image preloading (3 cards ahead) to reduce API calls
+   - Theme bonus toggle (double-tap photo)
+   - Touch and mouse gesture support
+
+4. **Page.admin.events.html** (293 lines) - Events management
+   - Create/edit/delete events
+   - Activity dropdown (dynamic from Activities_Data)
+   - Date/time picker with 12-hour display
+   - Spotlight game toggle, theme assignment
+
+5. **Page.admin.season.html** (429 lines) - Season management
+   - Display/set active season
+   - Assign activities to seasons (checkbox UI)
+   - Add new activities with geolocation
+
+6. **Page.admin.badges.html** (1,180 lines) - Badge configuration
+   - 16+ badge templates organized by scope
+   - Scope-based template selection (current season/lifetime/special)
+   - Multi-select activity assignment
+   - Dynamic form fields, live criteria preview
+   - Image upload with Firebase Storage integration
+
+7. **Page.admin.prizes.html** (226 lines) - Prizes management
+   - Create/edit/delete season prizes
+   - Rank and description fields
+
+8. **Page.admin.points.html** (249 lines) - Points configuration
+   - Configure base points (with/without theme)
+   - Configure theme bonus and spotlight multiplier
+   - Reset to defaults
+
+**Benefits of Modular Architecture:**
+- **Better caching**: Each component cached independently by Google Apps Script
+- **Lazy loading**: Only 1 tab loads data initially (vs 6+ in monolithic version)
+- **Reduced rate limiting**: Image preloading limited to 3 cards ahead
+- **Security**: All XSS vulnerabilities fixed with safe DOM methods
+- **Maintainability**: Clear separation of concerns, easier debugging
+- **Code quality**: No console.log statements, consistent error handling, programmatic event listeners
+
+See [ADMIN_REFACTOR.md](ADMIN_REFACTOR.md) for complete refactoring documentation.
 
 **Geofencing:** Location verification is hardcoded (coordinates in Code.js lines 16-19) to prevent cheating submissions from outside campus.
 
@@ -206,12 +275,18 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 From in-code comments, these features need completion:
 - Connect real student profile data from Sheets (currently returns mock data)
-- Build admin verification queue UI (swipe-to-approve interface planned)
-- Implement badge system calculation logic
+- Implement badge system calculation logic (backend badge awarding automation)
 - Complete settings page (dark mode toggle, notification preferences)
 - Populate event details dynamically from Event_Schedule tab
 - Add fan feed/social interaction features
 - Implement real leaderboard data fetching
+
+**Completed (as of this refactoring):**
+- ✅ Admin verification queue UI (swipe-to-approve interface) - Implemented in Page.admin.review.html
+- ✅ Badge management system - Fully implemented in Page.admin.badges.html with 16+ templates
+- ✅ Events management - CRUD operations in Page.admin.events.html
+- ✅ Season management - Season/activity assignment in Page.admin.season.html
+- ✅ Points configuration - Dynamic config UI in Page.admin.points.html
 
 ## Adding Features
 
@@ -222,6 +297,15 @@ From in-code comments, these features need completion:
 4. Add backend functions in `Code.js` if needed
 5. Call backend functions via `google.script.run.functionName()`
 
+**Add a new admin tab:**
+1. Create `Page.admin.newtab.html` with HTML and JavaScript (wrapped in IIFE)
+2. Add tab button to `Page.admin.html` navigation sidebar and mobile dropdown
+3. Include the component in `Page.admin.html` tab content container: `<?!= include('Page.admin.newtab') ?>`
+4. Export load function: `window.loadNewTab = function() { ... }`
+5. Add tab config to `switchTab()` function with `loadFunc: window.loadNewTab`
+6. Use shared utilities from `Page.admin.utils.html` (escapeHTML, showToast, etc.)
+7. Follow patterns: safe DOM methods (textContent), programmatic event listeners, showToast for errors
+
 **Add backend functionality:**
 1. Define function in `Code.js` with `@param` and `@return` JSDoc comments
 2. Call from frontend via `google.script.run.functionName(args, callback)`
@@ -231,6 +315,15 @@ From in-code comments, these features need completion:
 - Use existing Tailwind CSS classes from the CDN
 - Add custom CSS to `CSS.html` for non-Tailwind styles
 - School colors: Primary blue (#1b3b87), Secondary red (#b5121b)
+
+**Admin Component Best Practices:**
+- Wrap JavaScript in IIFE: `(function() { 'use strict'; ... })();`
+- Export only necessary functions to `window` scope
+- Use `textContent` instead of `innerHTML` for dynamic data (XSS prevention)
+- Use `showToast()` for user feedback, not `alert()`
+- Keep `confirm()` for delete/destructive confirmations
+- Add JSDoc comments to all functions
+- No `console.log` statements in production code
 
 ## Spreadsheet Schema Reference
 
