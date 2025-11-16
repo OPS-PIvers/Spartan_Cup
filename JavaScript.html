@@ -116,7 +116,7 @@
       const MAX_RETRIES = 3;
       const BASE_DELAY = 1000; // 1 second
 
-      google.script.run
+      const runner = google.script.run
         .withSuccessHandler(onSuccess)
         .withFailureHandler(function(error) {
           // Check if it's a rate limit error and we haven't exceeded max retries
@@ -153,8 +153,10 @@
               onFailure(error);
             }
           }
-        })
-        [functionName](...args);
+        });
+
+      // Call the function dynamically using bracket notation
+      runner[functionName](...args);
     }
 
     /**
