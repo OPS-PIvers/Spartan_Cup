@@ -25,12 +25,43 @@ The project combines Google Apps Script files (flat structure required by GAS) w
 
 ```
 Spartan_Cup/
-├── Code.js                 # Server-side business logic (V8 Apps Script)
+├── Code.js                 # Main router module (entry point with doGet())
+├── Admin.gs                # Admin dashboard and management functions
+├── Auth.gs                 # Authentication and authorization
+├── Activities.gs           # Activity and schedule management
+├── Badges.gs               # Badge system and award logic
+├── Config.gs               # Configuration and constants
+├── Events.gs               # Event management and lookup
+├── FanFeed.gs              # Social feed features
+├── Notifications.gs        # User notifications
+├── Points.gs               # Points calculation and tracking
+├── Prizes.gs               # Prize management
+├── Setup.gs                # First-time setup functions
+├── Submissions.gs          # Submission handling
+├── Utils.gs                # Utility helpers
 ├── Index.html              # Main SPA template entry point
 ├── JavaScript.html         # Client-side JS (SPA router, form handling, location services)
 ├── CSS.html                # Styling and theme configuration
 ├── Modals.html             # Modal dialog components
-├── Page.*.html             # Modular page components (profile, history, submit, etc.)
+├── Page.*.html             # Modular page components
+│   ├── Page.profile.html            # Main dashboard
+│   ├── Page.history.html            # Submission history
+│   ├── Page.submit.html             # Event submission form
+│   ├── Page.welcome.html            # New user welcome
+│   ├── Page.event-select.html       # Event selection
+│   ├── Page.all-badges.html         # Badge gallery
+│   ├── Page.prizes.html             # Prizes & Events
+│   ├── Page.rulebook.html           # Points and rules guide
+│   ├── Page.fanfeed.html            # Social feed
+│   ├── Page.settings.html           # User settings, dark mode
+│   ├── Page.admin.html              # Admin dashboard coordinator (278 lines)
+│   ├── Page.admin.utils.html        # Shared admin utilities (escapeHTML, showToast, etc.)
+│   ├── Page.admin.review.html       # Submission review tab (swipe interface)
+│   ├── Page.admin.events.html       # Events management CRUD
+│   ├── Page.admin.season.html       # Season & activities management
+│   ├── Page.admin.badges.html       # Badge configuration (16+ templates)
+│   ├── Page.admin.prizes.html       # Prizes management
+│   └── Page.admin.points.html       # Points configuration
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
 ├── firebase.json           # Firebase configuration
@@ -39,8 +70,15 @@ Spartan_Cup/
 ├── README.md               # Main project documentation
 ├── CLAUDE.md               # This file - AI assistant instructions
 ├── SPREADSHEET_SCHEMA.md   # Complete Google Sheets backend schema
+├── ADMIN_REFACTOR.md       # Admin dashboard refactoring documentation
+├── .claude/                # Claude Code custom commands
+│   └── commands/
+│       └── deploy.md       # Deploy command for clasp & Firebase
+├── .gemini/                # Gemini configuration
+│   └── commands/
+│       └── deploy.toml     # Deploy configuration
 ├── docs/                   # Documentation folder
-│   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide
+│   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide (legacy)
 │   ├── BADGE_DEPLOYMENT_GUIDE.md   # Badge deployment reference
 │   ├── FIREBASE_STORAGE_SETUP.md   # Firebase Storage setup
 │   ├── FIREBASE_STORAGE_CLI_SETUP.md # Firebase CLI setup
@@ -52,18 +90,36 @@ Spartan_Cup/
 │       ├── BADGE_SYSTEM_IMPROVEMENTS.md
 │       ├── IMPLEMENTATION_CHECKLIST.md
 │       └── GEMINI.md
-├── assets/                 # Image and media assets
+├── assets/                 # Logo and QR code images (source files)
 │   ├── The Spartan Cup_logo_FINAL.svg
 │   ├── The_Spartan_Cup-QR.svg
 │   ├── spartan_cup_FINAL.png
 │   └── spartan_cup_QR.png
-├── scripts/                # Python utility scripts
-│   ├── read_sheet.py       # Read Google Sheets data
-│   └── write_sheet.py      # Write Google Sheets data
-├── public/                 # Firebase Hosting public directory
-│   └── index.html          # Geolocation wrapper (deployed to Firebase)
-├── credentials.json        # Google service account credentials (in .gitignore)
-└── .env                    # Environment configuration (in .gitignore)
+├── scripts/                # Deprecated Python utilities (not in active use)
+│   ├── read_sheet.py       # Legacy: Read Google Sheets data via service account
+│   └── write_sheet.py      # Legacy: Write Google Sheets data via service account
+└── public/                 # Firebase Hosting public directory
+    ├── index.html          # Geolocation wrapper (deployed to Firebase)
+    ├── 404.html            # Firebase 404 page
+    ├── spartan_cup_FINAL.png           # Logo (deployed copy)
+    ├── spartan_cup_FINALtransparent.png # Logo transparent variant
+    ├── spartan_cup_QR.png              # QR code (deployed copy)
+    ├── The_Spartan_Cup-QR.svg          # QR code SVG (deployed copy)
+    └── badges/             # Badge achievement images (note: mixed naming conventions)
+        ├── default-badge.svg        # Uses hyphen
+        ├── explorer.svg
+        ├── first_timer.svg          # Uses underscore
+        ├── hattrick.svg
+        ├── bronze_points.svg        # Uses underscore
+        ├── silver_points.svg
+        ├── gold_points.svg
+        ├── diamond_fan.svg          # Uses underscore
+        ├── platinum_fan.svg
+        ├── 2nd_place_finish.svg     # Uses underscore
+        ├── 3rd_place_finish.svg
+        ├── season_champ.svg
+        ├── season_champ.png
+        └── README.md
 ```
 
 ## Architecture
@@ -84,13 +140,103 @@ Spartan_Cup/
 - **Frontend state:** Minimal client-side state; mostly stateless per request
 
 **Key Components:**
-`Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-`JavaScript.html` (337 lines): Client-side routing, page navigation, location services, form submission handlers
+
+**Backend (.gs files):**
+- `Code.js`: Main router module with `doGet()` entry point
+- `Auth.gs`: Authentication and authorization, admin access control
+- `Events.gs`: Event management, active event status updates
+- `Badges.gs`: Badge system logic, calculations, and award processing
+- `Activities.gs`: Activity and schedule management
+- `Submissions.gs`: Submission handling and approval workflow
+- `Points.gs`: Points calculation and tracking
+- `Admin.gs`: Admin dashboard functions
+- `Config.gs`: Configuration constants and settings
+- `FanFeed.gs`: Social feed features
+- `Notifications.gs`: User notification system
+- `Prizes.gs`: Prize management
+- `Setup.gs`: First-time setup and initialization
+- `Utils.gs`: Utility helper functions
+
+**Frontend (HTML files):**
+- `Index.html`: Main SPA template entry point
+- `JavaScript.html`: Client-side routing, page navigation, location services, form submission handlers
+- `CSS.html`: Styling and theme configuration
+- `Modals.html`: Modal dialog components
+
+**Page Components:**
 - `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
 - `Page.submit.html`: Event submission form with location-based check-in
-- `Page.admin.html`: Admin approval dashboard
+- `Page.history.html`: Submission history
+- `Page.welcome.html`: New user welcome
+- `Page.event-select.html`: Event selection
+- `Page.all-badges.html`: Badge gallery
+- `Page.prizes.html`: Prizes & Events
+- `Page.rulebook.html`: Points and rules guide
+- `Page.fanfeed.html`: Social feed
+- `Page.settings.html`: User settings, dark mode
+- **`Page.admin.html`**: Admin dashboard (modular architecture - see below)
 
-**Geofencing:** Location verification is hardcoded (coordinates in Code.js lines 16-19) to prevent cheating submissions from outside campus.
+**Admin Dashboard Architecture (Modular):**
+
+The admin dashboard has been refactored into 8 focused components for better maintainability, performance, and security:
+
+1. **Page.admin.html** (278 lines) - Main coordinator
+   - Tab navigation (desktop sidebar + mobile dropdown)
+   - Lazy loading implementation (reduces initial API calls from 6+ to 1)
+   - Includes all component files via `include()` template function
+
+2. **Page.admin.utils.html** (163 lines) - Shared utilities
+   - `escapeHTML()` - XSS prevention helper
+   - `showToast()` - Non-blocking toast notifications (error/success/info)
+   - `format24To12Hour()` - Time formatting
+   - `formatISOToDatetimeLocal()` - Date formatting
+   - `showMessage()`, `clearForm()`, `setButtonLoading()`, `generateUUID()`
+
+3. **Page.admin.review.html** (544 lines) - Submission review
+   - Swipe-based interface (mobile + desktop)
+   - Optimistic UI updates for instant feedback
+   - Image preloading (3 cards ahead) to reduce API calls
+   - Theme bonus toggle (double-tap photo)
+   - Touch and mouse gesture support
+
+4. **Page.admin.events.html** (293 lines) - Events management
+   - Create/edit/delete events
+   - Activity dropdown (dynamic from Activities_Data)
+   - Date/time picker with 12-hour display
+   - Spotlight game toggle, theme assignment
+
+5. **Page.admin.season.html** (429 lines) - Season management
+   - Display/set active season
+   - Assign activities to seasons (checkbox UI)
+   - Add new activities with geolocation
+
+6. **Page.admin.badges.html** (1,180 lines) - Badge configuration
+   - 16+ badge templates organized by scope
+   - Scope-based template selection (current season/lifetime/special)
+   - Multi-select activity assignment
+   - Dynamic form fields, live criteria preview
+   - Image upload with Firebase Storage integration
+
+7. **Page.admin.prizes.html** (226 lines) - Prizes management
+   - Create/edit/delete season prizes
+   - Rank and description fields
+
+8. **Page.admin.points.html** (249 lines) - Points configuration
+   - Configure base points (with/without theme)
+   - Configure theme bonus and spotlight multiplier
+   - Reset to defaults
+
+**Benefits of Modular Architecture:**
+- **Better caching**: Each component cached independently by Google Apps Script
+- **Lazy loading**: Only 1 tab loads data initially (vs 6+ in monolithic version)
+- **Reduced rate limiting**: Image preloading limited to 3 cards ahead
+- **Security**: All XSS vulnerabilities fixed with safe DOM methods
+- **Maintainability**: Clear separation of concerns, easier debugging
+- **Code quality**: No console.log statements, consistent error handling, programmatic event listeners
+
+See [ADMIN_REFACTOR.md](ADMIN_REFACTOR.md) for complete refactoring documentation.
+
+**Geofencing:** Location verification uses coordinates stored in Activities_Data and Events sheets to prevent cheating submissions from outside campus.
 
 ## Common Commands
 
@@ -119,54 +265,24 @@ firebase deploy --only hosting
 
 See [docs/FIREBASE_STORAGE_SETUP.md](docs/FIREBASE_STORAGE_SETUP.md) for Firebase Storage setup and the wrapper template in [docs/templates/firebase-wrapper-index.html](docs/templates/firebase-wrapper-index.html).
 
-### Direct Google Sheets Access (Python Scripts)
+### Deployment Using Custom Commands
 
-The project includes Python scripts for reading and writing to Google Sheets directly via service account authentication. This allows Claude Code and CLI users to query and modify sheet data without going through the Apps Script API.
+The project includes custom deployment commands for both Claude Code and Gemini:
 
-**Setup Status:**
-- Service account: `claude-code@spartan-cup.iam.gserviceaccount.com`
-- Credentials: `credentials.json` (in .gitignore)
-- Spreadsheet ID configured in `.env`
-
-**Reading from Sheets:**
+**Using the /deploy command:**
 ```bash
-# Read as CSV (default)
-python3 scripts/read_sheet.py Student_Profiles
-
-# Read as JSON
-python3 scripts/read_sheet.py Events json
-
-# Read as formatted table
-python3 scripts/read_sheet.py Config_Badges table
+/deploy
 ```
 
-**Writing to Sheets:**
-```bash
-# Append a new row
-python3 scripts/write_sheet.py Student_Profiles append "email@example.com,Name,100,Gold"
+This command will:
+1. Push updates to Google Apps Script using `clasp push`
+2. Deploy updates to Firebase Hosting using `firebase deploy`
 
-# Update a specific cell
-python3 scripts/write_sheet.py Events update A2 "New Value"
+See `.claude/commands/deploy.md` for Claude Code configuration or `.gemini/commands/deploy.toml` for Gemini configuration.
 
-# Update a range
-python3 scripts/write_sheet.py Config_Badges update_range "A2:C2" "Badge,Description,Points"
+### Legacy Python Scripts (Deprecated)
 
-# Clear a sheet (use with caution!)
-python3 scripts/write_sheet.py Test_Sheet clear
-```
-
-**Available Sheet Tabs:**
-- Student_Profiles
-- Events
-- Submissions_Pending
-- Submissions_Verified
-- Config_Badges
-- Config_Admins
-- Config_Points
-- Config_Active_Season
-- Activities_Data
-
-**Note:** The service account must have Editor access to the spreadsheet. See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for complete setup instructions.
+The `scripts/` directory contains Python utilities (`read_sheet.py`, `write_sheet.py`) that were previously used for direct Google Sheets access via service account authentication. These scripts are **no longer actively maintained** and are kept for historical reference only. All sheet operations should now be performed through the Google Apps Script modules (.gs files) or the Apps Script editor.
 
 ### Testing
 
@@ -179,7 +295,7 @@ There is no automated test framework configured. Testing is manual:
 
 ### Linting
 
-No linting is configured. Google Apps Script Editor provides basic syntax checking. Consider using a local linter if making significant changes to Code.js.
+No linting is configured. Google Apps Script Editor provides basic syntax checking. Consider using a local linter if making significant changes to any .gs files.
 
 ## Important Implementation Notes
 
@@ -206,12 +322,18 @@ No linting is configured. Google Apps Script Editor provides basic syntax checki
 
 From in-code comments, these features need completion:
 - Connect real student profile data from Sheets (currently returns mock data)
-- Build admin verification queue UI (swipe-to-approve interface planned)
-- Implement badge system calculation logic
+- Implement badge system calculation logic (backend badge awarding automation)
 - Complete settings page (dark mode toggle, notification preferences)
 - Populate event details dynamically from Event_Schedule tab
 - Add fan feed/social interaction features
 - Implement real leaderboard data fetching
+
+**Completed (as of this refactoring):**
+- ✅ Admin verification queue UI (swipe-to-approve interface) - Implemented in Page.admin.review.html
+- ✅ Badge management system - Fully implemented in Page.admin.badges.html with 16+ templates
+- ✅ Events management - CRUD operations in Page.admin.events.html
+- ✅ Season management - Season/activity assignment in Page.admin.season.html
+- ✅ Points configuration - Dynamic config UI in Page.admin.points.html
 
 ## Adding Features
 
@@ -219,18 +341,44 @@ From in-code comments, these features need completion:
 1. Create `Page.newpage.html` with UI markup
 2. Add navigation link in `JavaScript.html` navbar
 3. Add case in the router switch statement in `JavaScript.html`
-4. Add backend functions in `Code.js` if needed
+4. Add backend functions in the appropriate .gs file (or create a new one) if needed
 5. Call backend functions via `google.script.run.functionName()`
 
+**Add a new admin tab:**
+1. Create `Page.admin.newtab.html` with HTML and JavaScript (wrapped in IIFE)
+2. Add tab button to `Page.admin.html` navigation sidebar and mobile dropdown
+3. Include the component in `Page.admin.html` tab content container: `<?!= include('Page.admin.newtab') ?>`
+4. Export load function: `window.loadNewTab = function() { ... }`
+5. Add tab config to `switchTab()` function with `loadFunc: window.loadNewTab`
+6. Use shared utilities from `Page.admin.utils.html` (escapeHTML, showToast, etc.)
+7. Follow patterns: safe DOM methods (textContent), programmatic event listeners, showToast for errors
+
 **Add backend functionality:**
-1. Define function in `Code.js` with `@param` and `@return` JSDoc comments
-2. Call from frontend via `google.script.run.functionName(args, callback)`
-3. If returning data to a spreadsheet tab, follow existing patterns in Code.js for reading/writing
+1. Choose the appropriate .gs file for your function:
+   - `Auth.gs`: Authentication and authorization logic
+   - `Events.gs`: Event-related operations
+   - `Badges.gs`: Badge calculations and awards
+   - `Submissions.gs`: Submission handling
+   - `Points.gs`: Points calculations
+   - `Admin.gs`: Admin-only operations
+   - Or create a new .gs file for new feature domains
+2. Define function with `@param` and `@return` JSDoc comments
+3. Call from frontend via `google.script.run.functionName(args, callback)`
+4. If returning data to a spreadsheet tab, follow existing patterns in the relevant .gs file for reading/writing
 
 **Styling:**
 - Use existing Tailwind CSS classes from the CDN
 - Add custom CSS to `CSS.html` for non-Tailwind styles
 - School colors: Primary blue (#1b3b87), Secondary red (#b5121b)
+
+**Admin Component Best Practices:**
+- Wrap JavaScript in IIFE: `(function() { 'use strict'; ... })();`
+- Export only necessary functions to `window` scope
+- Use `textContent` instead of `innerHTML` for dynamic data (XSS prevention)
+- Use `showToast()` for user feedback, not `alert()`
+- Keep `confirm()` for delete/destructive confirmations
+- Add JSDoc comments to all functions
+- No `console.log` statements in production code
 
 ## Spreadsheet Schema Reference
 

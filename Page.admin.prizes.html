@@ -1,0 +1,244 @@
+<!--
+  Admin Dashboard - Prizes Management Tab Component
+
+  This component provides the UI and logic for managing season prizes in the Spartan Cup application.
+
+  Features:
+  - Create new season prizes with rank/placement and description
+  - Edit existing prizes
+  - Delete prizes with confirmation
+  - Display all prizes for the current season
+
+  Dependencies:
+  - Page.admin.utils.html (escapeHTML)
+  - Backend functions: createPrize(), updatePrize(), deletePrize(), getAllSeasonPrizes()
+
+  Exported functions:
+  - window.loadPrizesList() - Called when Prizes tab is activated
+-->
+
+<!-- ===================================================================== -->
+<!-- TAB 5: SEASON PRIZES MANAGEMENT -->
+<!-- ===================================================================== -->
+<div id="tab-prizes" class="flex-1 flex flex-col hidden overflow-y-auto">
+  <!-- Prize Form -->
+  <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-green-600 mb-4">
+    <h2 class="text-xl font-bold text-[#111318] dark:text-white mb-4">Add/Edit Season Prize</h2>
+
+    <form id="prize-form" class="space-y-3">
+      <!-- Rank/Placement -->
+      <div class="space-y-2">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white">Rank/Placement *</label>
+        <input
+          id="prize-rank"
+          type="text"
+          placeholder="e.g., 1st Place, Most Spirited, Best Fan"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        >
+      </div>
+
+      <!-- Prize Description -->
+      <div class="space-y-2">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white">Prize Description *</label>
+        <textarea
+          id="prize-description"
+          rows="3"
+          placeholder="e.g., $100 Gift Card, Championship Trophy, etc."
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        ></textarea>
+      </div>
+
+      <!-- Submit/Cancel -->
+      <div class="flex gap-2">
+        <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700">
+          Create Prize
+        </button>
+        <button type="button" id="prize-cancel-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold">
+          Clear
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Prizes List -->
+  <div class="flex-shrink-0">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">All Season Prizes</h3>
+    <div id="prizes-list" class="space-y-3">
+      <div class="text-center py-6 text-gray-500">Loading prizes...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // =====================================================================
+    // TAB 5: SEASON PRIZES MANAGEMENT
+    // =====================================================================
+
+    // Prize form submission
+    let editingPrizeRowIndex = null;
+
+    document.getElementById('prize-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const rank = document.getElementById('prize-rank').value.trim();
+      const description = document.getElementById('prize-description').value.trim();
+
+      if (!rank || !description) {
+        showToast('Please fill in all fields', 'error');
+        return;
+      }
+
+      // Show loading
+      document.getElementById('loading-modal').classList.remove('hidden');
+
+      if (editingPrizeRowIndex) {
+        // Update existing prize
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            showToast(response.message, 'success');
+            clearPrizeForm();
+            window.loadPrizesList();
+          } else {
+            showToast(response.message, 'error');
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          showToast('Error: ' + error, 'error');
+        }).updatePrize(editingPrizeRowIndex, rank, description);
+      } else {
+        // Create new prize
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            showToast(response.message, 'success');
+            clearPrizeForm();
+            window.loadPrizesList();
+          } else {
+            showToast(response.message, 'error');
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          showToast('Error: ' + error, 'error');
+        }).createPrize(rank, description);
+      }
+    });
+
+    // Cancel/Clear button
+    document.getElementById('prize-cancel-btn').addEventListener('click', () => {
+      clearPrizeForm();
+    });
+
+    function clearPrizeForm() {
+      document.getElementById('prize-form').reset();
+      document.querySelector('#prize-form button[type="submit"]').textContent = 'Create Prize';
+      editingPrizeRowIndex = null;
+    }
+
+    function populatePrizesList(prizes) {
+      const prizesList = document.getElementById('prizes-list');
+      prizesList.innerHTML = ''; // Clear existing content
+
+      if (!prizes || prizes.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'text-center py-6 text-gray-500';
+        emptyDiv.textContent = 'No prizes yet. Create one above!';
+        prizesList.appendChild(emptyDiv);
+        return;
+      }
+
+      // Build prize cards using DOM methods to prevent XSS and avoid inline onclick
+      prizes.forEach(prize => {
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex justify-between items-start mb-2';
+
+        const rankHeading = document.createElement('h4');
+        rankHeading.className = 'font-bold text-lg text-[#111318] dark:text-white';
+        rankHeading.textContent = prize.rank;
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'flex gap-2';
+
+        // Edit button (programmatic event listener)
+        const editButton = document.createElement('button');
+        editButton.className = 'px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700';
+        editButton.textContent = 'Edit';
+        editButton.addEventListener('click', () => editPrize(prize.rowIndex, prize.rank, prize.description));
+
+        // Delete button (programmatic event listener)
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', () => deletePrizeConfirm(prize.rowIndex, prize.rank));
+
+        buttonContainer.appendChild(editButton);
+        buttonContainer.appendChild(deleteButton);
+
+        headerDiv.appendChild(rankHeading);
+        headerDiv.appendChild(buttonContainer);
+
+        const descPara = document.createElement('p');
+        descPara.className = 'text-sm text-gray-600 dark:text-gray-400';
+        descPara.textContent = prize.description;
+
+        card.appendChild(headerDiv);
+        card.appendChild(descPara);
+        prizesList.appendChild(card);
+      });
+    }
+
+    function editPrize(rowIndex, rank, description) {
+      document.getElementById('prize-rank').value = rank;
+      document.getElementById('prize-description').value = description;
+      document.querySelector('#prize-form button[type="submit"]').textContent = 'Update Prize';
+      editingPrizeRowIndex = rowIndex;
+
+      // Scroll to form
+      document.getElementById('prize-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deletePrizeConfirm(rowIndex, rank) {
+      if (confirm(`Delete prize "${rank}"?\n\nThis will remove the prize from the season.`)) {
+        document.getElementById('loading-modal').classList.remove('hidden');
+        google.script.run.withSuccessHandler((response) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          if (response.status === 'success') {
+            showToast(response.message, 'success');
+            window.loadPrizesList();
+          } else {
+            showToast(response.message, 'error');
+          }
+        }).withFailureHandler((error) => {
+          document.getElementById('loading-modal').classList.add('hidden');
+          showToast('Error: ' + error, 'error');
+        }).deletePrize(rowIndex);
+      }
+    }
+
+    // Removed helper functions escapeHtml and escapeForJs - now using textContent for XSS prevention
+
+    // Export loadPrizesList to window scope for tab switcher
+    window.loadPrizesList = function() {
+      document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-gray-500">Loading prizes...</div>';
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          populatePrizesList(response.prizes);
+        } else {
+          document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error: ' + escapeHTML(response.message) + '</div>';
+        }
+      }).withFailureHandler((error) => {
+        document.getElementById('prizes-list').innerHTML = '<div class="text-center py-6 text-red-500">Error loading prizes: ' + escapeHTML(error.message || error.toString()) + '</div>';
+      }).getAllSeasonPrizes();
+    };
+
+  })();
+</script>

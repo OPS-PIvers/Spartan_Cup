@@ -1,0 +1,440 @@
+<!--
+  Admin Dashboard - Season Management Tab Component
+
+  This component provides the UI and logic for managing seasons and activities in the Spartan Cup application.
+
+  Features:
+  - Display current active season
+  - Select season to manage
+  - Set a season as active
+  - Manage activity-to-season assignments via checkboxes
+  - Add new activities with location data
+  - Geolocation capture for new activities
+  - Save and reset activity assignments
+
+  Dependencies:
+  - Page.admin.utils.html (escapeHTML, showMessage)
+  - Backend functions: getActiveSeason(), getAvailableSeasons(), setActiveSeason(),
+                       getActivitiesWithSeasonStatus(), updateActivitySeasonAssignments(), createNewActivity()
+
+  Exported functions:
+  - window.loadSeasonManagement() - Called when Season tab is activated
+-->
+
+<!-- ===================================================================== -->
+<!-- TAB 3: SEASON MANAGEMENT -->
+<!-- ===================================================================== -->
+<div id="tab-season" class="flex-1 flex flex-col hidden overflow-y-auto">
+  <!-- Season Header -->
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-purple-600 mb-4">
+    <h2 class="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-2">Season Management</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400">Select a season, then choose which activities are active during that season.</p>
+  </div>
+
+  <!-- Current Season Display -->
+  <div class="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded-lg mb-4">
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Currently Active Season:</p>
+    <p id="current-season-display" class="text-2xl font-bold text-blue-600 dark:text-blue-400">Loading...</p>
+  </div>
+
+  <!-- Season Selection -->
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-purple-500 mb-4">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Select Season to Manage</h3>
+
+    <div class="space-y-3">
+      <div id="seasons-list" class="space-y-2">
+        <div class="text-center py-6 text-gray-500">Loading available seasons...</div>
+      </div>
+    </div>
+
+    <p id="season-update-message" class="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center hidden"></p>
+  </div>
+
+  <!-- Activities Management Section (shown when season is selected) -->
+  <div id="activities-management" class="hidden">
+    <!-- Activities List Header -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border-l-4 border-green-500 mb-4">
+      <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-2">Manage Activities for <span id="selected-season-name" class="text-green-600 dark:text-green-400">Season</span></h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400">Check/uncheck activities to assign or remove them from this season.</p>
+      <p id="activity-count" class="text-sm text-gray-500 dark:text-gray-400 mt-2"></p>
+    </div>
+
+    <!-- Activities List with Checkboxes -->
+    <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+      <div id="activities-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+        <div class="text-center py-6 text-gray-500">Loading activities...</div>
+      </div>
+
+      <!-- Save Button -->
+      <div class="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <button id="save-assignments-btn" type="button" class="flex-1 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+          Save Assignments
+        </button>
+        <button id="reset-assignments-btn" type="button" class="flex-1 px-4 py-3 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-400 dark:hover:bg-gray-600 transition-all">
+          Reset
+        </button>
+      </div>
+
+      <p id="assignments-message" class="text-sm text-gray-500 dark:text-gray-400 mt-3 text-center hidden"></p>
+    </div>
+
+    <!-- Add New Activity Form -->
+    <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-6 rounded-xl shadow-sm">
+      <h4 class="text-lg font-semibold text-amber-900 dark:text-amber-200 mb-4">Add New Activity</h4>
+
+      <form id="add-activity-form" class="space-y-3">
+        <input id="new-activity-code" type="text" placeholder="Activity Code (e.g., VB)" class="w-full px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400" required maxlength="10">
+
+        <input id="new-activity-name" type="text" placeholder="Activity Name (e.g., Volleyball)" class="w-full px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400" required>
+
+        <input id="new-activity-location" type="text" placeholder="Location Name (e.g., Gym A)" class="w-full px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400" required>
+
+        <div class="grid grid-cols-2 gap-2">
+          <input id="new-activity-lat" type="number" placeholder="Latitude" step="any" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
+          <input id="new-activity-lon" type="number" placeholder="Longitude" step="any" class="px-3 py-2 border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-amber-900/30 text-[#111318] dark:text-white" required>
+        </div>
+
+        <button type="button" id="get-activity-location-btn" class="w-full px-3 py-2 text-sm bg-blue-500 dark:bg-blue-600 text-white rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 font-semibold">
+          Get My Location
+        </button>
+
+        <div class="flex gap-2">
+          <button type="submit" class="flex-1 px-4 py-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-all active:scale-95">
+            Create Activity
+          </button>
+          <button type="reset" class="flex-1 px-4 py-3 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-400 dark:hover:bg-gray-600">
+            Clear Form
+          </button>
+        </div>
+
+        <p id="activity-form-message" class="text-sm text-gray-500 dark:text-gray-400 text-center hidden"></p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    'use strict';
+
+    // =====================================================================
+    // SEASON MANAGEMENT
+    // =====================================================================
+
+    let currentSelectedSeason = null;
+    let selectedActivitiesForSeason = new Set();
+    let originalActivitiesForSeason = new Set();
+
+    function populateSeasonsList(seasons) {
+      const list = document.getElementById('seasons-list');
+      list.innerHTML = '';
+
+      if (seasons.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-center py-6">No seasons found. Add seasons to your Activities_Data sheet.</p>';
+        return;
+      }
+
+      // Get current season
+      google.script.run.withSuccessHandler((activeSeason) => {
+        seasons.forEach((season) => {
+          const isActive = season === activeSeason;
+
+          // Create container div for season item
+          const container = document.createElement('div');
+          container.className = `flex gap-2 items-center w-full ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border-2 border-blue-500' : ''}`;
+
+          // Create main season button (for selecting to manage)
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `flex-1 px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
+            isActive
+              ? 'bg-primary text-white shadow-lg'
+              : 'bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
+          }`;
+
+          if (isActive) {
+            button.textContent = `✓ ${season} `;
+            const activeSpan = document.createElement('span');
+            activeSpan.className = 'text-sm ml-2';
+            activeSpan.textContent = '(Active)';
+            button.appendChild(activeSpan);
+          } else {
+            button.textContent = season;
+          }
+
+          button.addEventListener('click', () => {
+            selectSeasonForManagement(season);
+          });
+
+          container.appendChild(button);
+
+          // Add "Set Active" button for non-active seasons
+          if (!isActive) {
+            const setActiveBtn = document.createElement('button');
+            setActiveBtn.type = 'button';
+            setActiveBtn.className = 'px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-sm transition-all active:scale-95 whitespace-nowrap';
+            setActiveBtn.textContent = 'Set Active';
+            setActiveBtn.addEventListener('click', (e) => {
+              e.stopPropagation(); // Prevent triggering the main button
+              setSeasonActive(season);
+            });
+            container.appendChild(setActiveBtn);
+          }
+
+          list.appendChild(container);
+        });
+      }).getActiveSeason();
+    }
+
+    function selectSeasonForManagement(season) {
+      currentSelectedSeason = season;
+      document.getElementById('selected-season-name').textContent = season;
+      document.getElementById('activities-management').classList.remove('hidden');
+
+      // Load activities for this season
+      google.script.run.withSuccessHandler((activities) => {
+        populateActivitiesList(activities || []);
+      }).getActivitiesWithSeasonStatus(season);
+    }
+
+    /**
+     * Sets the specified season as the active season
+     * @param {string} season - The season name to activate
+     */
+    function setSeasonActive(season) {
+      const messageEl = document.getElementById('season-update-message');
+      messageEl.textContent = `Setting ${season} as active...`;
+      messageEl.className = 'text-sm text-blue-600 dark:text-blue-400 mt-4 text-center';
+      messageEl.classList.remove('hidden');
+
+      google.script.run
+        .withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            messageEl.textContent = `✓ ${response.message}`;
+            messageEl.className = 'text-sm text-green-600 dark:text-green-400 mt-4 text-center';
+
+            // Refresh the season management UI to reflect the change
+            setTimeout(() => {
+              window.loadSeasonManagement();
+              messageEl.classList.add('hidden');
+            }, 1500);
+          } else {
+            messageEl.textContent = `✗ Error: ${response.message}`;
+            messageEl.className = 'text-sm text-red-600 dark:text-red-400 mt-4 text-center';
+          }
+        })
+        .withFailureHandler((error) => {
+          messageEl.textContent = `✗ Network error: ${error.message || error.toString()}`;
+          messageEl.className = 'text-sm text-red-600 dark:text-red-400 mt-4 text-center';
+        })
+        .setActiveSeason(season);
+    }
+
+    function populateActivitiesList(activities) {
+      const list = document.getElementById('activities-list');
+      list.innerHTML = '';
+
+      selectedActivitiesForSeason = new Set();
+      originalActivitiesForSeason = new Set();
+
+      if (activities.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-center py-6">No activities found.</p>';
+        updateActivityCount();
+        return;
+      }
+
+      activities.forEach((activity) => {
+        if (activity.isInSeason) {
+          selectedActivitiesForSeason.add(activity.activityCode);
+          originalActivitiesForSeason.add(activity.activityCode);
+        }
+
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-3 p-3 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer transition-colors';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = activity.isInSeason;
+        checkbox.className = 'w-5 h-5 cursor-pointer';
+
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            selectedActivitiesForSeason.add(activity.activityCode);
+          } else {
+            selectedActivitiesForSeason.delete(activity.activityCode);
+          }
+          updateActivityCount();
+          updateSaveButtonState();
+        });
+
+        const info = document.createElement('div');
+        info.className = 'flex-1';
+
+        const namePara = document.createElement('p');
+        namePara.className = 'font-semibold text-[#111318] dark:text-white';
+        namePara.textContent = activity.activityName;
+
+        const detailsPara = document.createElement('p');
+        detailsPara.className = 'text-xs text-gray-600 dark:text-gray-400';
+        detailsPara.textContent = `${activity.activityCode} • ${activity.locationName}`;
+
+        info.appendChild(namePara);
+        info.appendChild(detailsPara);
+
+        label.appendChild(checkbox);
+        label.appendChild(info);
+        list.appendChild(label);
+      });
+
+      updateActivityCount();
+      updateSaveButtonState();
+    }
+
+    function updateActivityCount() {
+      const count = selectedActivitiesForSeason.size;
+      const total = document.querySelectorAll('#activities-list label').length;
+      const countEl = document.getElementById('activity-count');
+      countEl.textContent = `${count} of ${total} activities selected`;
+    }
+
+    function updateSaveButtonState() {
+      const saveBtn = document.getElementById('save-assignments-btn');
+      const hasChanges = JSON.stringify(Array.from(selectedActivitiesForSeason).sort()) !==
+                        JSON.stringify(Array.from(originalActivitiesForSeason).sort());
+      saveBtn.disabled = !hasChanges;
+    }
+
+    document.getElementById('save-assignments-btn').addEventListener('click', () => {
+      const messageEl = document.getElementById('assignments-message');
+      messageEl.classList.add('hidden');
+
+      const activityCodesToSave = Array.from(selectedActivitiesForSeason);
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          messageEl.textContent = `✓ Assignments saved for ${currentSelectedSeason}`;
+          messageEl.className = 'text-sm text-green-600 dark:text-green-400 text-center';
+          messageEl.classList.remove('hidden');
+
+          // Update original to match selected
+          originalActivitiesForSeason = new Set(selectedActivitiesForSeason);
+          updateSaveButtonState();
+
+          // Reload lists after a brief delay
+          setTimeout(() => {
+            selectSeasonForManagement(currentSelectedSeason);
+          }, 800);
+        } else {
+          messageEl.textContent = `✗ Error: ${response.message}`;
+          messageEl.className = 'text-sm text-red-600 dark:text-red-400 text-center';
+          messageEl.classList.remove('hidden');
+        }
+      }).withFailureHandler((error) => {
+        messageEl.textContent = `✗ Network error: ${error}`;
+        messageEl.className = 'text-sm text-red-600 dark:text-red-400 text-center';
+        messageEl.classList.remove('hidden');
+      }).updateActivitySeasonAssignments(currentSelectedSeason, activityCodesToSave);
+    });
+
+    document.getElementById('reset-assignments-btn').addEventListener('click', () => {
+      selectedActivitiesForSeason = new Set(originalActivitiesForSeason);
+      document.querySelectorAll('#activities-list input[type="checkbox"]').forEach((checkbox) => {
+        const code = checkbox.closest('label').querySelector('.text-xs').textContent.split(' •')[0];
+        checkbox.checked = originalActivitiesForSeason.has(code);
+      });
+      updateActivityCount();
+      updateSaveButtonState();
+      document.getElementById('assignments-message').classList.add('hidden');
+    });
+
+    // Get location for new activity
+    document.getElementById('get-activity-location-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude.toFixed(6);
+            const lon = position.coords.longitude.toFixed(6);
+            document.getElementById('new-activity-lat').value = lat;
+            document.getElementById('new-activity-lon').value = lon;
+            document.getElementById('activity-form-message').textContent = `✓ Location set: ${lat}, ${lon}`;
+            document.getElementById('activity-form-message').className = 'text-sm text-green-600 dark:text-green-400 text-center';
+            document.getElementById('activity-form-message').classList.remove('hidden');
+          },
+          (error) => {
+            document.getElementById('activity-form-message').textContent = `✗ Could not get location: ${error.message || error.toString()}`;
+            document.getElementById('activity-form-message').className = 'text-sm text-red-600 dark:text-red-400 text-center';
+            document.getElementById('activity-form-message').classList.remove('hidden');
+          }
+        );
+      } else {
+        document.getElementById('activity-form-message').textContent = 'Geolocation is not supported by your browser';
+        document.getElementById('activity-form-message').className = 'text-sm text-red-600 dark:text-red-400 text-center';
+        document.getElementById('activity-form-message').classList.remove('hidden');
+      }
+    });
+
+    // Add new activity form
+    document.getElementById('add-activity-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const code = document.getElementById('new-activity-code').value.trim().toUpperCase();
+      const name = document.getElementById('new-activity-name').value.trim();
+      const location = document.getElementById('new-activity-location').value.trim();
+      const lat = parseFloat(document.getElementById('new-activity-lat').value);
+      const lon = parseFloat(document.getElementById('new-activity-lon').value);
+      const messageEl = document.getElementById('activity-form-message');
+
+      if (!code || !name || !location || isNaN(lat) || isNaN(lon)) {
+        messageEl.textContent = '✗ All fields are required and coordinates must be valid numbers';
+        messageEl.className = 'text-sm text-red-600 dark:text-red-400 text-center';
+        messageEl.classList.remove('hidden');
+        return;
+      }
+
+      google.script.run.withSuccessHandler((response) => {
+        if (response.status === 'success') {
+          messageEl.textContent = `✓ ${response.message}`;
+          messageEl.className = 'text-sm text-green-600 dark:text-green-400 text-center';
+          messageEl.classList.remove('hidden');
+
+          // Reset form
+          document.getElementById('add-activity-form').reset();
+
+          // Reload activities list after a brief delay
+          setTimeout(() => {
+            if (currentSelectedSeason) {
+              selectSeasonForManagement(currentSelectedSeason);
+            }
+            window.loadSeasonManagement();
+          }, 1000);
+        } else {
+          messageEl.textContent = `✗ Error: ${response.message}`;
+          messageEl.className = 'text-sm text-red-600 dark:text-red-400 text-center';
+          messageEl.classList.remove('hidden');
+        }
+      }).withFailureHandler((error) => {
+        messageEl.textContent = `✗ Network error: ${error}`;
+        messageEl.className = 'text-sm text-red-600 dark:text-red-400 text-center';
+        messageEl.classList.remove('hidden');
+      }).createNewActivity(code, name, location, lat, lon, currentSelectedSeason || 'Winter');
+    });
+
+    // Export loadSeasonManagement to window scope for tab switcher
+    window.loadSeasonManagement = function() {
+      // Load current season
+      google.script.run.withSuccessHandler((activeSeason) => {
+        document.getElementById('current-season-display').textContent = activeSeason || 'Not Set';
+      }).getActiveSeason();
+
+      // Load available seasons
+      google.script.run.withSuccessHandler((seasons) => {
+        populateSeasonsList(seasons || []);
+      }).getAvailableSeasons();
+
+      // Hide activities management by default
+      document.getElementById('activities-management').classList.add('hidden');
+    };
+
+  })();
+</script>
