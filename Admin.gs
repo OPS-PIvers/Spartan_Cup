@@ -29,16 +29,11 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    // Get cache instance once and reuse throughout function (reduces API calls)
+    const cache = CacheService.getScriptCache();
 
-    // Validate required sheets exist before attempting operations
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    if (!pendingSheet) {
-      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
-    }
-
-    // Find the pending submission
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
     let submissionRow = null;
     let submissionInfo = null;
 
@@ -52,6 +47,14 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     if (!submissionRow) {
       return { status: "error", message: "Submission not found." };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validate required sheets exist before attempting operations
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
     }
 
     // Calculate total points
@@ -84,11 +87,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
 
     // Update Student_Profiles with points
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    if (!studentSheet) {
-      return { status: "error", message: "CRITICAL: Student_Profiles sheet not found. Check spreadsheet schema." };
-    }
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached data to find student row (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     for (let i = 1; i < studentData.length; i++) {
       if (studentData[i][0] === submissionInfo[2]) {
@@ -96,14 +96,28 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
         const newSeasonPoints = (studentData[i][2] || 0) + pointsTotal;
         const newAllTimePoints = (studentData[i][3] || 0) + pointsTotal;
 
+        // Get sheet reference for write operation
+        const studentSheet = ss.getSheetByName('Student_Profiles');
+        if (!studentSheet) {
+          return { status: "error", message: "CRITICAL: Student_Profiles sheet not found. Check spreadsheet schema." };
+        }
+
         // Batch update both points columns in single API call (more efficient)
         studentSheet.getRange(i + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
+
         break;
       }
     }
 
+    // Clear submission caches since we moved submission from pending to verified
+    cache.remove('pending_submissions_data');
+    cache.remove('verified_submissions_data');
+
     // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
     calculateBadges(submissionInfo[2], true);
+
+    // Clear student profiles cache since calculateBadges() may have modified badges and points
+    cache.remove('student_profiles_data');
 
     // Get event details from cache for notification
     const eventMap = getEventMapCache();
@@ -140,16 +154,8 @@ function denySubmission(submissionId, reason) {
   }
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Validate required sheets exist before attempting operations
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    if (!pendingSheet) {
-      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
-    }
-
-    // Find the pending submission
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
     let submissionRow = null;
     let submissionInfo = null;
 
@@ -163,6 +169,14 @@ function denySubmission(submissionId, reason) {
 
     if (!submissionRow) {
       return { status: "error", message: "Submission not found." };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Validate required sheets exist before attempting operations
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
     }
 
     // Move to Submissions_Denied for record keeping
@@ -186,6 +200,10 @@ function denySubmission(submissionId, reason) {
     // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)
     const numColumns = pendingSheet.getLastColumn();
     pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
+
+    // Clear pending submissions cache since we modified the sheet
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
 
     // Optionally delete photo from Drive
     try {

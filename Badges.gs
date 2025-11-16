@@ -8,28 +8,24 @@ function getBadgeData() {
   const email = Session.getActiveUser().getEmail();
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    // Get all badges
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
 
     const allBadges = [];
-    for (let i = 1; i < badgesData.length; i++) {
+    Object.values(badgeMap).forEach(badge => {
       allBadges.push({
-        badgeId: badgesData[i][0],
-        badgeName: badgesData[i][1],
-        category: badgesData[i][2],
-        triggerType: badgesData[i][3],
-        triggerValue: badgesData[i][4],
-        description: badgesData[i][5],
-        imageUrl: badgesData[i][6]
+        badgeId: badge.id,
+        badgeName: badge.name,
+        category: badge.category,
+        triggerType: badge.triggerType,
+        triggerValue: badge.triggerValue,
+        description: badge.description,
+        imageUrl: badge.imageUrl
       });
-    }
+    });
 
-    // Get user's profile
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached student data (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     let userEarnedBadges = [];
     for (let i = 1; i < studentData.length; i++) {
@@ -63,9 +59,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Get student profile
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached student data to find student profile (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     let studentRow = null;
     let studentProfile = null;
@@ -84,23 +79,34 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
 
     if (!studentProfile) return;
 
-    // Get all badges
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
+    // Convert badge map to array format for compatibility with existing badge logic
+    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL', 'Badge_Points_Base', 'Badge_Points_Multiplier']]; // Header row
+    Object.values(badgeMap).forEach(badge => {
+      badgesData.push([
+        badge.id,
+        badge.name,
+        badge.category,
+        badge.triggerType,
+        badge.triggerValue,
+        badge.description,
+        badge.imageUrl,
+        badge.pointsBase,
+        badge.pointsMultiplier
+      ]);
+    });
 
-    // PERFORMANCE: Fetch sheet data ONCE outside the loop to avoid redundant reads
+    // PERFORMANCE: Use cached data to avoid redundant reads (reduces Sheets API calls)
     // These sheets are used by multiple badge trigger types
-    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-    const verifiedData = verifiedSheet.getDataRange().getValues();
-    const eventSheet = ss.getSheetByName('Events');
-    const eventData = eventSheet.getDataRange().getValues();
+    const verifiedData = getVerifiedSubmissionsData();
+    const eventData = getEventsData();
 
     // Get active season for season-scoped badges
     const activeSeason = getActiveSeason();
 
-    // Build activity-to-season map for filtering
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Build activity-to-season map for filtering (uses cached data)
+    const activitiesData = getActivitiesData();
     const activitySeasonMap = {};
     for (let j = 1; j < activitiesData.length; j++) {
       activitySeasonMap[activitiesData[j][0]] = activitiesData[j][2]; // Activity_Code -> Season
@@ -585,9 +591,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
  */
 function awardRetroactiveBadges() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached student data (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     let studentsProcessed = 0;
     let badgesAwarded = 0;
@@ -605,8 +610,8 @@ function awardRetroactiveBadges() {
       // Calculate badges (this will add any newly qualified badges)
       calculateBadges(email);
 
-      // Check how many badges were added
-      const updatedData = studentSheet.getDataRange().getValues();
+      // Check how many badges were added (re-fetch from cache which was just invalidated by calculateBadges)
+      const updatedData = getStudentProfilesData();
       const afterBadges = updatedData[i][4] ? safeJSONParse(updatedData[i][4], [], 'badge array') : [];
       const afterCount = afterBadges.length;
 
@@ -638,11 +643,29 @@ function awardRetroactiveBadges() {
  */
 function processSeasonEndBadges() {
   try {
+    // Use cached student data (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
+
+    // Use cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
+    // Convert badge map to array format for compatibility
+    const badgesData = [['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL', 'Badge_Points_Base', 'Badge_Points_Multiplier']];
+    Object.values(badgeMap).forEach(badge => {
+      badgesData.push([
+        badge.id,
+        badge.name,
+        badge.category,
+        badge.triggerType,
+        badge.triggerValue,
+        badge.description,
+        badge.imageUrl,
+        badge.pointsBase,
+        badge.pointsMultiplier
+      ]);
+    });
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
 
     // Get current season for display
     const activeSeason = getActiveSeason();
@@ -740,8 +763,8 @@ function processSeasonEndBadges() {
       // Recalculate badges
       calculateBadges(email);
 
-      // Check how many badges were added
-      const updatedData = studentSheet.getDataRange().getValues();
+      // Check how many badges were added (re-fetch from cache which was just invalidated by calculateBadges)
+      const updatedData = getStudentProfilesData();
       const afterBadges = updatedData[i][4] ? safeJSONParse(updatedData[i][4], [], 'badge array') : [];
       const afterCount = afterBadges.length;
 
@@ -789,30 +812,21 @@ function processSeasonEndBadges() {
  */
 function getAllBadges() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-
-    if (!badgesSheet) {
-      Logger.log('Config_Badges sheet not found');
-      return [];
-    }
-
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
     const badges = [];
 
-    for (let i = 1; i < badgesData.length; i++) {
-      if (badgesData[i][0]) { // Only include rows with badge ID
-        badges.push({
-          badgeId: badgesData[i][0],
-          badgeName: badgesData[i][1],
-          category: badgesData[i][2],
-          triggerType: badgesData[i][3],
-          triggerValue: badgesData[i][4],
-          description: badgesData[i][5],
-          imageUrl: badgesData[i][6]
-        });
-      }
-    }
+    Object.values(badgeMap).forEach(badge => {
+      badges.push({
+        badgeId: badge.id,
+        badgeName: badge.name,
+        category: badge.category,
+        triggerType: badge.triggerType,
+        triggerValue: badge.triggerValue,
+        description: badge.description,
+        imageUrl: badge.imageUrl
+      });
+    });
 
     return badges;
   } catch (e) {
@@ -823,23 +837,21 @@ function getAllBadges() {
 
 function getAllBadgesForAdmin() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
 
     const badges = [];
-    for (let i = 1; i < badgesData.length; i++) {
+    Object.values(badgeMap).forEach(badge => {
       badges.push({
-        badgeId: badgesData[i][0],
-        badgeName: badgesData[i][1],
-        category: badgesData[i][2],
-        triggerType: badgesData[i][3],
-        triggerValue: badgesData[i][4],
-        description: badgesData[i][5],
-        imageUrl: badgesData[i][6],
-        rowIndex: i + 1 // Store row index for updates
+        badgeId: badge.id,
+        badgeName: badge.name,
+        category: badge.category,
+        triggerType: badge.triggerType,
+        triggerValue: badge.triggerValue,
+        description: badge.description,
+        imageUrl: badge.imageUrl
       });
-    }
+    });
 
     return {
       status: 'success',
@@ -998,13 +1010,13 @@ function createBadge(badgeData) {
       return { status: 'error', message: 'Description is required' };
     }
 
-    // Generate badge ID
-    const existingData = badgesSheet.getDataRange().getValues();
+    // Generate badge ID from cached badge data (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
     let maxId = 0;
-    for (let i = 1; i < existingData.length; i++) {
-      const idNum = parseInt(existingData[i][0].replace('badge_', ''));
+    Object.keys(badgeMap).forEach(badgeId => {
+      const idNum = parseInt(badgeId.replace('badge_', ''));
       if (idNum > maxId) maxId = idNum;
-    }
+    });
     const newBadgeId = 'badge_' + String(maxId + 1).padStart(3, '0');
     Logger.log('[createBadge] Generated badge ID: ' + newBadgeId);
 
@@ -1079,9 +1091,20 @@ function updateBadge(badgeId, badgeData) {
       return { status: 'error', message: 'Description is required' };
     }
 
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data to get existing image URL (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
+    const existingBadge = badgeMap[badgeId];
 
-    // Find badge row
+    if (!existingBadge) {
+      Logger.log('[updateBadge] Badge not found: ' + badgeId);
+      return {
+        status: 'error',
+        message: 'Badge not found'
+      };
+    }
+
+    // Now get sheet reference and find row for write operation
+    const badgesData = badgesSheet.getDataRange().getValues();
     let badgeRow = null;
     for (let i = 1; i < badgesData.length; i++) {
       if (badgesData[i][0] === badgeId) {
@@ -1091,7 +1114,7 @@ function updateBadge(badgeId, badgeData) {
     }
 
     if (!badgeRow) {
-      Logger.log('[updateBadge] Badge not found: ' + badgeId);
+      Logger.log('[updateBadge] Badge row not found: ' + badgeId);
       return {
         status: 'error',
         message: 'Badge not found'
@@ -1100,7 +1123,7 @@ function updateBadge(badgeId, badgeData) {
     Logger.log('[updateBadge] Found badge at row: ' + badgeRow);
 
     // Use new image URL if provided, otherwise keep existing (frontend already uploaded to Firebase)
-    const existingUrl = badgesData[badgeRow - 1][6];
+    const existingUrl = existingBadge.imageUrl;
     Logger.log('[updateBadge] Existing image URL: ' + existingUrl);
     const imageUrl = _handleImageUrl(badgeData.imageUrl, existingUrl);
     Logger.log('[updateBadge] Final image URL: ' + imageUrl);
@@ -1143,6 +1166,16 @@ function updateBadge(badgeId, badgeData) {
  */
 function deleteBadge(badgeId) {
   try {
+    // Use cached badge data to verify badge exists (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
+    if (!badgeMap[badgeId]) {
+      return {
+        status: 'error',
+        message: 'Badge not found'
+      };
+    }
+
+    // Now get sheet reference and find row for delete operation
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
@@ -1189,22 +1222,15 @@ function deleteBadge(badgeId) {
  */
 function downloadBadgeForDeploy(badgeId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const badgesSheet = ss.getSheetByName('Config_Badges');
-    const badgesData = badgesSheet.getDataRange().getValues();
+    // Use cached badge data to get badge name (reduces Sheets API calls)
+    const badgeMap = getBadgeMapCache();
+    const badge = badgeMap[badgeId];
 
-    // Find badge
-    let badgeName = null;
-    for (let i = 1; i < badgesData.length; i++) {
-      if (badgesData[i][0] === badgeId) {
-        badgeName = badgesData[i][1];
-        break;
-      }
-    }
-
-    if (!badgeName) {
+    if (!badge) {
       return { status: 'error', message: 'Badge not found' };
     }
+
+    const badgeName = badge.name;
 
     // Find file in Drive
     const snakeCaseName = badgeNameToSnakeCase(badgeName);

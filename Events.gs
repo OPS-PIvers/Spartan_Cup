@@ -107,8 +107,11 @@ function updateActiveEventStatus() {
       }
     }
 
-    // Clear the active events cache to force reload
-    CacheService.getScriptCache().remove('active_events_data');
+    // Clear the events caches to force reload
+    const cache = CacheService.getScriptCache();
+    cache.remove('active_events_data');
+    cache.remove('events_data');
+    cache.remove('event_map_cache');
 
     Logger.log(`Active status update complete. ${updatesCount} events updated.`);
   } catch (e) {
@@ -118,9 +121,8 @@ function updateActiveEventStatus() {
 
 function generateEventId(activityCode) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const eventsSheet = ss.getSheetByName('Events');
-    const eventsData = eventsSheet.getDataRange().getValues();
+    // Use cached events data (reduces Sheets API calls)
+    const eventsData = getEventsData();
 
     // Find all event IDs that start with this activity code
     let maxNumber = 0;
@@ -152,8 +154,8 @@ function generateEventId(activityCode) {
  */
 function getEventDetails(eventId) {
   try {
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Events');
-    const data = sheet.getDataRange().getValues();
+    // Use cached events data (reduces Sheets API calls)
+    const data = getEventsData();
 
     // Trim whitespace from the input event ID for matching
     const trimmedEventId = String(eventId).trim();
@@ -217,18 +219,9 @@ function getActiveEvents(userLat = null, userLon = null) {
     let eventData = cache.get(cacheKey);
 
     if (!eventData) {
-      // Cache miss: read from Sheets
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-      // Get Events sheet
-      const eventsSheet = ss.getSheetByName('Events');
-      if (!eventsSheet) return [];
-      const eventsData = eventsSheet.getDataRange().getValues();
-
-      // Get Activities_Data for joining
-      const activitiesSheet = ss.getSheetByName('Activities_Data');
-      if (!activitiesSheet) return [];
-      const activitiesData = activitiesSheet.getDataRange().getValues();
+      // Cache miss: read from Sheets using cached data (reduces Sheets API calls)
+      const eventsData = getEventsData();
+      const activitiesData = getActivitiesData();
 
       // Build activities lookup map
       const activitiesMap = {};
@@ -461,11 +454,8 @@ function getClosestEvent(userLat, userLon) {
  */
 function findEventIdByCode(eventId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const eventsSheet = ss.getSheetByName('Events');
-    if (!eventsSheet) return null;
-
-    const eventsData = eventsSheet.getDataRange().getValues();
+    // Use cached events data (reduces Sheets API calls)
+    const eventsData = getEventsData();
 
     // Find matching event by Event_ID
     for (let i = 1; i < eventsData.length; i++) {
@@ -494,14 +484,9 @@ function getEventsList(category) {
       return { status: 'error', message: 'Events sheet not found' };
     }
 
-    // Load Activities_Data to get activity names
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    if (!activitiesSheet) {
-      Logger.log('Warning: Activities_Data sheet not found. Events will not have user-friendly activity names.');
-      return { status: 'error', message: 'Activities_Data sheet not found' };
-    }
+    // Load Activities_Data to get activity names (uses cached data)
+    const activitiesData = getActivitiesData();
     const activityMap = {};
-    const activitiesData = activitiesSheet.getDataRange().getValues();
     // Columns: Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
     for (let i = 1; i < activitiesData.length; i++) {
       if (activitiesData[i][0]) {
@@ -509,7 +494,8 @@ function getEventsList(category) {
       }
     }
 
-    const data = sheet.getDataRange().getValues();
+    // Use cached events data (reduces Sheets API calls)
+    const data = getEventsData();
     const events = [];
     const now = new Date();
 
@@ -660,8 +646,8 @@ function addEvent(eventData) {
     // Generate new Event ID
     const newEventId = generateEventId(eventData.activityCode);
 
-    // Check for duplicate event ID (should be unique by generateEventId, but good to double check)
-    const data = sheet.getDataRange().getValues();
+    // Check for duplicate event ID using cached data (should be unique by generateEventId, but good to double check)
+    const data = getEventsData();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(newEventId).trim()) {
         return { status: 'error', message: 'Generated Event ID already exists. Please try again.' };
@@ -693,8 +679,11 @@ function addEvent(eventData) {
       false                                         // M: Is_Active (starts as false, will be updated by trigger)
     ]);
 
-    // Clear cache so new event appears after trigger runs
-    CacheService.getScriptCache().remove('active_events_data');
+    // Clear events caches so new event appears after trigger runs
+    const cache = CacheService.getScriptCache();
+    cache.remove('active_events_data');
+    cache.remove('events_data');
+    cache.remove('event_map_cache');
 
     return { status: 'success', message: 'Event added successfully' };
   } catch (e) {
@@ -711,17 +700,18 @@ function addEvent(eventData) {
  */
 function updateEvent(eventId, eventData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Events');
-    if (!sheet) {
-      return { status: 'error', message: 'Events sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
+    // Use cached events data to find row (reduces Sheets API calls)
+    const data = getEventsData();
 
     // Find the row with this event ID
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(eventId).trim()) {
+        // Now get sheet reference for write operation
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName('Events');
+        if (!sheet) {
+          return { status: 'error', message: 'Events sheet not found' };
+        }
         // Validate required fields
         if (!eventData.activityCode) {
           return { status: 'error', message: 'Activity is required' };
@@ -763,8 +753,11 @@ function updateEvent(eventId, eventData) {
           false                                         // M: Is_Active (reset to false, will be updated by trigger)
         ]]);
 
-        // Clear cache so updated event reflects after trigger runs
-        CacheService.getScriptCache().remove('active_events_data');
+        // Clear events caches so updated event reflects after trigger runs
+        const cache = CacheService.getScriptCache();
+        cache.remove('active_events_data');
+        cache.remove('events_data');
+        cache.remove('event_map_cache');
 
         return { status: 'success', message: 'Event updated successfully' };
       }
@@ -784,21 +777,26 @@ function updateEvent(eventId, eventData) {
  */
 function deleteEvent(eventId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('Events');
-    if (!sheet) {
-      return { status: 'error', message: 'Events sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
+    // Use cached events data to find row (reduces Sheets API calls)
+    const data = getEventsData();
 
     // Find the row with this event ID
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(eventId).trim()) {
+        // Now get sheet reference for delete operation
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName('Events');
+        if (!sheet) {
+          return { status: 'error', message: 'Events sheet not found' };
+        }
+
         sheet.deleteRow(i + 1);
 
-        // Clear cache so deleted event is removed from active events
-        CacheService.getScriptCache().remove('active_events_data');
+        // Clear events caches so deleted event is removed from active events
+        const cache = CacheService.getScriptCache();
+        cache.remove('active_events_data');
+        cache.remove('events_data');
+        cache.remove('event_map_cache');
 
         return { status: 'success', message: 'Event deleted successfully' };
       }

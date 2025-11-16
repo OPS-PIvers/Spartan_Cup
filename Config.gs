@@ -28,11 +28,14 @@ const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
 // Cache TTL (Time To Live) values in seconds
 const CACHE_TTL = {
   ADMIN_EMAILS: 21600,      // 6 hours
-  STUDENT_PROFILES: 600,    // 10 minutes
+  STUDENT_PROFILES: 1800,   // 30 minutes (increased from 10 minutes to reduce cache misses)
   BADGES: 86400,            // 24 hours
   EVENTS: 3600,             // 1 hour
   BADGE_MAP: 86400,         // 24 hours
-  ACTIVE_SEASON: 3600       // 1 hour
+  ACTIVE_SEASON: 3600,      // 1 hour
+  SUBMISSIONS_VERIFIED: 600, // 10 minutes (changes when admins approve)
+  SUBMISSIONS_PENDING: 300,  // 5 minutes (changes frequently as users submit)
+  ACTIVITIES_DATA: 86400     // 24 hours (very static - only changes when sports/activities added)
 };
 
 /**
@@ -148,7 +151,9 @@ function getBadgeMapCache() {
       triggerType: badgesData[i][3],
       triggerValue: badgesData[i][4],
       description: badgesData[i][5],
-      imageUrl: badgesData[i][6]
+      imageUrl: badgesData[i][6],
+      pointsBase: badgesData[i][7] || 0,         // Badge_Points_Base
+      pointsMultiplier: badgesData[i][8] || 1.0  // Badge_Points_Multiplier
     };
   }
 
@@ -196,6 +201,98 @@ function getEventMapCache() {
   return eventMap;
 }
 
+/**
+ * Generic helper function to get cached sheet data.
+ * Eliminates code duplication across all sheet caching functions.
+ * @param {string} sheetName - Name of the sheet to read
+ * @param {string} cacheKey - Cache key for storing the data
+ * @param {number} ttl - Time to live in seconds
+ * @param {string} description - Description for error logging
+ * @return {Array} 2D array of sheet data
+ */
+function getCachedSheetData(sheetName, cacheKey, ttl, description) {
+  const cache = CacheService.getScriptCache();
+  let cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    const parsed = safeJSONParse(cachedData, null, description);
+    if (parsed) return parsed;
+    // If parse failed, clear cache and rebuild
+    cache.remove(cacheKey);
+  }
+
+  // Cache miss or parse error: read from Sheets
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    throw new Error(sheetName + ' sheet not found. Check spreadsheet schema.');
+  }
+
+  const data = sheet.getDataRange().getValues();
+
+  // Cache the data
+  cache.put(cacheKey, JSON.stringify(data), ttl);
+
+  return data;
+}
+
+/**
+ * Gets verified submissions data with caching.
+ * Cached for 10 minutes since it changes when admins approve submissions.
+ * @return {Array} 2D array of verified submission data
+ */
+function getVerifiedSubmissionsData() {
+  return getCachedSheetData(
+    'Submissions_Verified',
+    'verified_submissions_data',
+    CACHE_TTL.SUBMISSIONS_VERIFIED,
+    'verified_submissions cache'
+  );
+}
+
+/**
+ * Gets pending submissions data with caching.
+ * Cached for 5 minutes since it changes frequently as users submit.
+ * @return {Array} 2D array of pending submission data
+ */
+function getPendingSubmissionsData() {
+  return getCachedSheetData(
+    'Submissions_Pending',
+    'pending_submissions_data',
+    CACHE_TTL.SUBMISSIONS_PENDING,
+    'pending_submissions cache'
+  );
+}
+
+/**
+ * Gets Activities_Data with caching.
+ * Cached for 24 hours since activities rarely change (only when admins add new sports/activities).
+ * @return {Array} 2D array of activities data
+ */
+function getActivitiesData() {
+  return getCachedSheetData(
+    'Activities_Data',
+    'activities_data',
+    CACHE_TTL.ACTIVITIES_DATA,
+    'activities data cache'
+  );
+}
+
+/**
+ * Gets Events data with caching.
+ * Cached for 1 hour since events are relatively static but may be added/modified.
+ * @return {Array} 2D array of events data
+ */
+function getEventsData() {
+  return getCachedSheetData(
+    'Events',
+    'events_data',
+    CACHE_TTL.EVENTS,
+    'events data cache'
+  );
+}
+
 function clearAllCaches() {
   try {
     // Clear script-level caches (shared across all users)
@@ -204,12 +301,21 @@ function clearAllCaches() {
       'admin_emails',
       'student_profiles_data',
       'event_map_cache',
+      'events_data',
       'badge_map_cache',
       'active_events_data',
-      'active_season'
+      'active_season',
+      'verified_submissions_data',
+      'pending_submissions_data',
+      'activities_data'
     ]);
 
     // Clear user-level caches (fan feed, personal data, etc.)
+    // NOTE: Profile photo caches are NOT cleared here. Profile photos are cached per-user with
+    // the key pattern 'profile_photo_' + email. Since we can't iterate over UserCache keys,
+    // and clearing all user caches would require knowing every user's email, profile photo
+    // caches will persist for up to 1 hour after a profile photo update. This is acceptable
+    // since profile photos rarely change. If immediate refresh is needed, user can log out/in.
     const userCache = CacheService.getUserCache();
     userCache.removeAll([
       'fanfeed_cache'

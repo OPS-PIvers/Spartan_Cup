@@ -110,11 +110,23 @@ function extractInitials(displayName) {
 
 /**
  * Gets user's profile photo from Google Drive or generates avatar with initials.
+ * Results are cached for 1 hour to reduce Drive API calls.
  * @param {string} email - User email
  * @param {string} displayName - User's display name for generating initials
  * @return {string} URL to user's profile photo or avatar with initials
  */
 function getUserProfilePhoto(email, displayName) {
+  // Check user-level cache first (1 hour TTL)
+  const cache = CacheService.getUserCache();
+  const cacheKey = 'profile_photo_' + email;
+  const cachedUrl = cache.get(cacheKey);
+
+  if (cachedUrl) {
+    return cachedUrl;
+  }
+
+  let photoUrl;
+
   try {
     const parentFolders = DriveApp.getFoldersByName('The Spartan Cup');
     if (parentFolders.hasNext()) {
@@ -126,7 +138,10 @@ function getUserProfilePhoto(email, displayName) {
         if (files.hasNext()) {
           const file = files.next();
           // Note: Sharing permissions should be set once during upload, not on every read
-          return file.getDownloadUrl();
+          photoUrl = file.getDownloadUrl();
+          // Cache Drive photo URL for 1 hour
+          cache.put(cacheKey, photoUrl, 3600);
+          return photoUrl;
         }
       }
     }
@@ -136,16 +151,20 @@ function getUserProfilePhoto(email, displayName) {
 
   // Fallback: Generate avatar with initials
   const initials = extractInitials(displayName);
-  return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initials) + '&background=1b3b87&color=fff&bold=true&size=96';
+  photoUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initials) + '&background=1b3b87&color=fff&bold=true&size=96';
+
+  // Cache fallback avatar URL for 1 hour
+  cache.put(cacheKey, photoUrl, 3600);
+
+  return photoUrl;
 }
 
 function getUserSettings() {
   const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached student data to avoid redundant Sheets API calls
+    const studentData = getStudentProfilesData();
 
     // Find user and get settings from column I (index 8)
     for (let i = 1; i < studentData.length; i++) {
@@ -192,14 +211,13 @@ function getUserSettings() {
  */
 function saveUserSettings(settings) {
   const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
   // Logger.log('User email: ' + email);
 
   try {
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
+    // Use cached data to find user row (reduces Sheets API calls)
+    const studentData = getStudentProfilesData();
 
     // Find user and update settings in column I (index 8)
     for (let i = 1; i < studentData.length; i++) {
@@ -207,8 +225,17 @@ function saveUserSettings(settings) {
         // Logger.log('Found user at row ' + (i + 1));
         const settingsJson = JSON.stringify(settings);
         // Logger.log('Saving JSON: ' + settingsJson);
+
+        // Now get sheet reference for the write operation
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const studentSheet = ss.getSheetByName('Student_Profiles');
         studentSheet.getRange(i + 1, 9).setValue(settingsJson); // Column I = column 9
         SpreadsheetApp.flush(); // Force immediate write to sheet
+
+        // Clear cache since we modified the data
+        const cache = CacheService.getScriptCache();
+        cache.remove('student_profiles_data');
+
         // Logger.log('Settings saved and flushed successfully');
         return { status: 'success', message: 'Settings saved' };
       }
@@ -224,14 +251,11 @@ function saveUserSettings(settings) {
 
 function getProfileData() {
   const email = Session.getActiveUser().getEmail();
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   try {
     // --- FETCH USER PROFILE DATA ---
-    // Read DIRECTLY from sheet (not cached) to avoid stale cache on first check
-    const studentSheet = ss.getSheetByName('Student_Profiles');
-    const studentData = studentSheet.getDataRange().getValues();
-
+    // Use cached data for existing users (99% of cases) - only hit Sheets API for new users
+    let studentData = getStudentProfilesData();
     let userProfile = null;
 
     for (let i = 1; i < studentData.length; i++) {
@@ -248,8 +272,12 @@ function getProfileData() {
       }
     }
 
-    // If user not in sheet, create a new profile entry
+    // If user not in sheet, create a new profile entry (rare case - new user)
     if (!userProfile) {
+      // Only now do we need direct sheet access
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const studentSheet = ss.getSheetByName('Student_Profiles');
+
       const defaultSettings = { darkMode: false, eventNotifications: true, approvalNotifications: true, badgeNotifications: true };
       studentSheet.appendRow([email, '', 0, 0, JSON.stringify([]), '', '', false, JSON.stringify(defaultSettings)]);
 
@@ -257,8 +285,8 @@ function getProfileData() {
       const cache = CacheService.getScriptCache();
       cache.remove('student_profiles_data');
 
-      // Read the newly added row (will be at the end)
-      const updatedData = studentSheet.getDataRange().getValues();
+      // Read the newly added row using cached function (rebuilds cache with new user)
+      const updatedData = getStudentProfilesData();
       const newRowIndex = updatedData.length - 1;
       const newRow = updatedData[newRowIndex];
 
@@ -272,7 +300,7 @@ function getProfileData() {
       };
 
       // Update studentData with the new row included for leaderboard building
-      studentData.push(newRow);
+      studentData = updatedData;
     }
 
     // --- BUILD LEADERBOARDS (Season + All-Time) ---
@@ -392,8 +420,8 @@ function getProfileData() {
     }).filter(b => b !== null);
 
     // --- FETCH SUBMISSION HISTORY ---
-    const verifiedSheet = ss.getSheetByName('Submissions_Verified');
-    const verifiedData = verifiedSheet.getDataRange().getValues();
+    // Use cached verified submissions data (reduces Sheets API calls)
+    const verifiedData = getVerifiedSubmissionsData();
     const userSubmissions = [];
 
     for (let i = 1; i < verifiedData.length; i++) {
@@ -429,8 +457,8 @@ function getProfileData() {
     });
 
     // Fetch pending submissions for history
-    const pendingSheet = ss.getSheetByName('Submissions_Pending');
-    const pendingData = pendingSheet.getDataRange().getValues();
+    // Use cached pending submissions data (reduces Sheets API calls)
+    const pendingData = getPendingSubmissionsData();
 
     for (let i = 1; i < pendingData.length; i++) {
       // Skip empty rows (cleared submissions)

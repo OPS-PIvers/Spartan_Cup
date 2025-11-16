@@ -76,9 +76,8 @@ function setActiveSeason(season) {
  */
 function getAvailableSeasons() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Use cached activities data (reduces Sheets API calls)
+    const activitiesData = getActivitiesData();
 
     const seasons = new Set();
     for (let i = 1; i < activitiesData.length; i++) {
@@ -102,9 +101,8 @@ function getAvailableSeasons() {
  */
 function getActivitiesWithSeasonStatus(season) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Use cached activities data (reduces Sheets API calls)
+    const activitiesData = getActivitiesData();
 
     const activities = [];
     for (let i = 1; i < activitiesData.length; i++) {
@@ -142,12 +140,15 @@ function getActivitiesWithSeasonStatus(season) {
  */
 function updateActivitySeasonAssignments(season, activityCodes) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Use cached activities data to find rows (reduces Sheets API calls)
+    const activitiesData = getActivitiesData();
 
     // Convert activity codes to a Set for O(1) lookup
     const codeSet = new Set(activityCodes);
+
+    // Now get sheet reference for write operations
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
 
     // Update each activity's season assignment
     for (let i = 1; i < activitiesData.length; i++) {
@@ -165,8 +166,10 @@ function updateActivitySeasonAssignments(season, activityCodes) {
     }
 
     // Clear caches to force reload with updated season assignments
-    CacheService.getScriptCache().remove('active_season');
-    CacheService.getScriptCache().remove('active_events_data');
+    const cache = CacheService.getScriptCache();
+    cache.remove('active_season');
+    cache.remove('active_events_data');
+    cache.remove('activities_data'); // Clear activities cache since we modified it
 
     return { status: 'success', message: 'Season assignments updated' };
   } catch (e) {
@@ -187,9 +190,8 @@ function updateActivitySeasonAssignments(season, activityCodes) {
  */
 function createNewActivity(activityCode, activityName, locationName, eventLat, eventLon, season) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Use cached activities data to check for duplicates (reduces Sheets API calls)
+    const activitiesData = getActivitiesData();
 
     // Validate that activity code is unique
     for (let i = 1; i < activitiesData.length; i++) {
@@ -210,6 +212,10 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
       return { status: 'error', message: 'Invalid coordinates. Must be valid numbers.' };
     }
 
+    // Now get sheet reference for write operation
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activitiesSheet = ss.getSheetByName('Activities_Data');
+
     // Add new activity row
     activitiesSheet.appendRow([
       activityCode,
@@ -220,9 +226,11 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
       lon
     ]);
 
-    // Clear caches to force refresh (though new activity won't affect existing events)
-    CacheService.getScriptCache().remove('active_season');
-    CacheService.getScriptCache().remove('active_events_data');
+    // Clear caches to force refresh
+    const cache = CacheService.getScriptCache();
+    cache.remove('active_season');
+    cache.remove('active_events_data');
+    cache.remove('activities_data'); // Clear activities cache since we added new activity
 
     return { status: 'success', message: 'Activity created: ' + activityName, activityCode: activityCode };
   } catch (e) {
@@ -233,9 +241,8 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
 
 function getActivityDetails(activityCode) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    const activitiesData = activitiesSheet.getDataRange().getValues();
+    // Use cached activities data (reduces Sheets API calls - called frequently!)
+    const activitiesData = getActivitiesData();
 
     for (let i = 1; i < activitiesData.length; i++) {
       if (activitiesData[i][0] === activityCode) {
@@ -259,13 +266,9 @@ function getActivityDetails(activityCode) {
 
 function getActivitiesForSeason() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const activitiesSheet = ss.getSheetByName('Activities_Data');
-    if (!activitiesSheet) {
-      return { status: 'error', message: 'Activities_Data sheet not found' };
-    }
-    const activitiesData = activitiesSheet.getDataRange().getValues();
-    const activeSeason = getActiveSeason(); // Assuming getActiveSeason() is available
+    // Use cached activities data (reduces Sheets API calls)
+    const activitiesData = getActivitiesData();
+    const activeSeason = getActiveSeason();
 
     const activities = [];
     for (let i = 1; i < activitiesData.length; i++) {
