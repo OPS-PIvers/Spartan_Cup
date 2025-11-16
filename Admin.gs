@@ -119,6 +119,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
     calculateBadges(submissionInfo[2], true);
 
+    // Clear student profiles cache since calculateBadges() may have modified badges and points
+    cache.remove('student_profiles_data');
+
     // Get event details from cache for notification
     const eventMap = getEventMapCache();
 

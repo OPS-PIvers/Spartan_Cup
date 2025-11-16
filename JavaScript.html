@@ -103,13 +103,16 @@
     /**
      * Wrapper for google.script.run with automatic retry on rate limit errors (429).
      * Implements exponential backoff: 1s, 2s, 4s delays between retries.
-     * @param {Function} scriptFunction - The backend function to call (from google.script.run)
+     * @param {string} functionName - Name of the backend function to call (e.g., 'getProfileData')
      * @param {Array} args - Arguments to pass to the function
      * @param {Function} onSuccess - Success callback
      * @param {Function} onFailure - Failure callback (optional)
      * @param {number} attempt - Current attempt number (used internally for recursion)
+     * @example
+     * // Usage example:
+     * callWithRetry('getProfileData', [], function(data) { console.log(data); }, function(error) { console.error(error); });
      */
-    function callWithRetry(scriptFunction, args, onSuccess, onFailure, attempt = 1) {
+    function callWithRetry(functionName, args, onSuccess, onFailure, attempt = 1) {
       const MAX_RETRIES = 3;
       const BASE_DELAY = 1000; // 1 second
 
@@ -130,7 +133,7 @@
 
             // Retry after delay
             setTimeout(function() {
-              callWithRetry(scriptFunction, args, onSuccess, onFailure, attempt + 1);
+              callWithRetry(functionName, args, onSuccess, onFailure, attempt + 1);
             }, delay);
           } else {
             // Either not a rate limit error, or we've exhausted retries
@@ -143,7 +146,7 @@
             }
           }
         })
-        [scriptFunction](...args);
+        [functionName](...args);
     }
 
     /**
