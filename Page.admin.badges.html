@@ -1085,7 +1085,7 @@
       const template = triggerTypeToTemplate[badge.triggerType] || 'manual';
 
       if (!triggerTypeToTemplate[badge.triggerType]) {
-        showToast('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.', 'warning');
+        showToast('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.', 'info');
       }
 
       // Find which scope this template belongs to
@@ -1138,7 +1138,7 @@
     }
 
     function deleteBadgeConfirm(badgeId, badgeName) {
-      if (confirm(`Delete badge "${badgeName}" (${badgeId})?\\n\\nWarning: This may affect students who have earned this badge.`)) {
+      if (confirm(`Delete badge "${badgeName}" (${badgeId})?\n\nWarning: This may affect students who have earned this badge.`)) {
         document.getElementById('loading-modal').classList.remove('hidden');
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');

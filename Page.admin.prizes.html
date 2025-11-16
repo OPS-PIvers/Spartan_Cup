@@ -206,7 +206,7 @@
     }
 
     function deletePrizeConfirm(rowIndex, rank) {
-      if (confirm(`Delete prize "${rank}"?\\n\\nThis will remove the prize from the season.`)) {
+      if (confirm(`Delete prize "${rank}"?\n\nThis will remove the prize from the season.`)) {
         document.getElementById('loading-modal').classList.remove('hidden');
         google.script.run.withSuccessHandler((response) => {
           document.getElementById('loading-modal').classList.add('hidden');
