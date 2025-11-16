@@ -120,10 +120,18 @@
         .withSuccessHandler(onSuccess)
         .withFailureHandler(function(error) {
           // Check if it's a rate limit error and we haven't exceeded max retries
+          // Use specific checks to avoid false positives from random strings containing '429'
+          const errorMsg = error && error.message ? error.message.toLowerCase() : '';
+          const errorStr = error ? error.toString().toLowerCase() : '';
           const isRateLimitError = error && (
-            error.message && error.message.includes('429') ||
-            error.toString().includes('429') ||
-            error.message && error.message.includes('Service invoked too many times')
+            // Check for HTTP 429 status in various formats
+            /\b(http\s*)?429\b/.test(errorMsg) ||
+            /\b(http\s*)?429\b/.test(errorStr) ||
+            // Check for Google-specific quota error messages
+            errorMsg.includes('service invoked too many times') ||
+            errorMsg.includes('rate limit') ||
+            errorMsg.includes('quota exceeded') ||
+            errorMsg.includes('too many requests')
           );
 
           if (isRateLimitError && attempt < MAX_RETRIES) {
@@ -551,10 +559,10 @@
         } else {
           // Cache miss - fetch from backend
           console.log('[Profile Cache] Cache miss, fetching from backend');
-          google.script.run.withSuccessHandler(function(data) {
+          callWithRetry('getProfileData', [], function(data) {
             cacheProfileData(data); // Cache the response
             populateProfile(data);
-          }).getProfileData();
+          });
         }
       }
 
@@ -586,10 +594,10 @@
         } else {
           // Cache miss - fetch from backend
           console.log('[Profile Cache] Cache miss, fetching from backend for history');
-          google.script.run.withSuccessHandler(function(data) {
+          callWithRetry('getProfileData', [], function(data) {
             cacheProfileData(data); // Cache the response
             populateHistory(data);
-          }).getProfileData(); // Re-using getProfileData
+          }); // Re-using getProfileData
         }
       }
       

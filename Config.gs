@@ -311,6 +311,11 @@ function clearAllCaches() {
     ]);
 
     // Clear user-level caches (fan feed, personal data, etc.)
+    // NOTE: Profile photo caches are NOT cleared here. Profile photos are cached per-user with
+    // the key pattern 'profile_photo_' + email. Since we can't iterate over UserCache keys,
+    // and clearing all user caches would require knowing every user's email, profile photo
+    // caches will persist for up to 1 hour after a profile photo update. This is acceptable
+    // since profile photos rarely change. If immediate refresh is needed, user can log out/in.
     const userCache = CacheService.getUserCache();
     userCache.removeAll([
       'fanfeed_cache'
