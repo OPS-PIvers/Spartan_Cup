@@ -10,8 +10,20 @@
 
   /**
    * HTML escape helper to prevent XSS
+   *
+   * This function uses a standard DOM-based escaping pattern:
+   * 1. Setting textContent automatically escapes HTML special characters
+   * 2. Reading innerHTML returns the escaped string with entities like &lt; &gt; &amp;
+   *
+   * Note: Simply returning textContent would NOT escape - it would return the original string.
+   * This pattern is necessary and correct for HTML escaping.
+   *
    * @param {string} str - The string to escape
-   * @returns {string} - HTML-escaped string
+   * @returns {string} - HTML-escaped string with special chars converted to entities
+   *
+   * @example
+   * escapeHTML('<script>alert("xss")</script>')
+   * // Returns: '&lt;script&gt;alert("xss")&lt;/script&gt;'
    */
   function escapeHTML(str) {
     const div = document.createElement('div');
