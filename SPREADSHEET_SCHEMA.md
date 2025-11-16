@@ -186,13 +186,13 @@ a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | student@orono.k12.mn.us | GBB-001 | htt
 | G | 6 | Points_Base | Number | Base points awarded | Admin decides; typically 50-75 |
 | H | 7 | Points_Theme | Number | Theme bonus points | Admin decides; typically 0 or 25 |
 | I | 8 | Points_Spotlight_Multiplier | Number | Spotlight multiplier | Typically 1.0 or 1.5 |
-| J | 9 | Points_Total | Number | Final calculated points | (Points_Base + Points_Theme) × Points_Spotlight_Multiplier |
+| J | 9 | Points_Total | Number | Final calculated points | (Points_Base × Points_Spotlight_Multiplier) + Points_Theme |
 | K | 10 | Photo_URL | String | URL to submission photo | Google Drive export link; used for fan feed |
 | L | 11 | Photo_ID | String | Google Drive file ID | Permanent ID for regenerating image data URLs |
 
 **Sample Data:**
 ```
-a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | 2025-11-16 09:15:00 | student@orono.k12.mn.us | GBB-001 | admin@orono.k12.mn.us | 75 | 25 | 1.5 | 150 | https://drive.google.com/uc?... | abc123def456
+a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | 2025-11-16 09:15:00 | student@orono.k12.mn.us | GBB-001 | admin@orono.k12.mn.us | 50 | 25 | 1.5 | 100 | https://drive.google.com/uc?... | abc123def456
 ```
 
 **Relationships:**
@@ -205,8 +205,8 @@ a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | 2025-11-16 09:15:00 | student@orono.k12
 
 **Points Calculation Formula:**
 ```
-Points_Total = (Points_Base + Points_Theme) × Points_Spotlight_Multiplier
-Example: (75 + 25) × 1.5 = 150 points
+Points_Total = (Points_Base × Points_Spotlight_Multiplier) + Points_Theme
+Example: (50 × 1.5) + 25 = 100 points (max for spotlight game with theme)
 ```
 
 **Notes:**

@@ -86,21 +86,21 @@
 
         <p class="mt-4"><strong>Event Attendance Points:</strong></p>
         <ul class="list-none space-y-2 mt-2 ml-2">
-          <li>🎨 <strong>With Theme Outfit:</strong> <span class="font-bold text-primary dark:text-blue-400">75 points</span></li>
-          <li>👕 <strong>Without Theme Outfit:</strong> <span class="font-bold text-primary dark:text-blue-400">50 points</span></li>
+          <li>🎨 <strong>With Theme Outfit:</strong> <span id="pointsWithTheme" class="font-bold text-primary dark:text-blue-400">75 points</span></li>
+          <li>👕 <strong>Without Theme Outfit:</strong> <span id="pointsWithoutTheme" class="font-bold text-primary dark:text-blue-400">50 points</span></li>
         </ul>
 
         <p class="mt-4"><strong>Bonus Points & Multipliers:</strong></p>
         <ul class="list-none space-y-2 mt-2 ml-2">
-          <li>⭐ <strong>Spotlight Games:</strong> <span class="font-bold text-secondary dark:text-red-400">1.5x multiplier</span> on all event points</li>
+          <li>⭐ <strong>Spotlight Games:</strong> <span id="spotlightMultiplier" class="font-bold text-secondary dark:text-red-400">1.5x multiplier</span> on base points only (theme bonus added after)</li>
           <li>🏅 <strong>Badges:</strong> Earn permanent bonuses by collecting achievement badges (see Badge System below)</li>
         </ul>
 
         <p class="mt-4"><strong>Example Calculations:</strong></p>
-        <ul class="list-disc list-inside space-y-1 ml-2 mt-2 text-xs">
-          <li>Regular game with theme: <strong>75 points</strong></li>
+        <ul id="exampleCalculations" class="list-disc list-inside space-y-1 ml-2 mt-2 text-xs">
+          <li>Regular game with theme: <strong>75 points</strong> (50 + 25)</li>
           <li>Regular game without theme: <strong>50 points</strong></li>
-          <li>Spotlight game with theme: <strong>112.5 points</strong> (75 × 1.5)</li>
+          <li>Spotlight game with theme: <strong>100 points</strong> ((50 × 1.5) + 25) <em>— MAX SCORE</em></li>
           <li>Spotlight game without theme: <strong>75 points</strong> (50 × 1.5)</li>
         </ul>
       </div>
@@ -122,10 +122,8 @@
       <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4">
         <p>Awards are given out every <strong>season</strong> (Fall, Winter, or Spring) to the top participants. Standings are based solely on <strong>point totals</strong>.</p>
         <p class="mt-3"><strong>Seasonal Awards:</strong></p>
-        <ul class="list-none space-y-2 mt-2">
-          <li>🥇 <strong>First Place</strong> - Prize TBA</li>
-          <li>🥈 <strong>Second Place</strong> - Prize TBA</li>
-          <li>🥉 <strong>Third Place</strong> - Prize TBA</li>
+        <ul id="prizesList" class="list-none space-y-2 mt-2">
+          <li class="text-gray-500 dark:text-gray-400 text-sm">Loading prizes...</li>
         </ul>
         <p class="mt-3">Top 10 participants will receive recognition at the end-of-season ceremony.</p>
       </div>
@@ -218,6 +216,116 @@
           section.classList.add('hidden');
         }
       });
+    }
+
+    /**
+     * Load points configuration from Config_Points sheet
+     */
+    function loadPointsConfig() {
+      google.script.run
+        .withSuccessHandler(renderPointsConfig)
+        .withFailureHandler(handlePointsError)
+        .getPointsConfig();
+    }
+
+    /**
+     * Render points configuration in the Points System section
+     */
+    function renderPointsConfig(config) {
+      if (!config) {
+        console.error('No points config returned');
+        return;
+      }
+
+      // Update point values in the DOM
+      const basePoints = config.Base_Points_Without_Theme || 50;
+      const themeBonus = config.Theme_Bonus || 25;
+      const withThemePoints = basePoints + themeBonus;
+      const spotlightMult = config.Spotlight_Game_Multiplier || 1.5;
+
+      // Update displayed values
+      document.getElementById('pointsWithTheme').textContent = `${withThemePoints} points`;
+      document.getElementById('pointsWithoutTheme').textContent = `${basePoints} points`;
+      document.getElementById('spotlightMultiplier').textContent = `${spotlightMult}x multiplier`;
+
+      // Update example calculations
+      const regularWithTheme = basePoints + themeBonus;
+      const regularWithoutTheme = basePoints;
+      const spotlightWithTheme = Math.round(basePoints * spotlightMult + themeBonus);
+      const spotlightWithoutTheme = Math.round(basePoints * spotlightMult);
+
+      const examplesHTML = `
+        <li>Regular game with theme: <strong>${regularWithTheme} points</strong> (${basePoints} + ${themeBonus})</li>
+        <li>Regular game without theme: <strong>${regularWithoutTheme} points</strong></li>
+        <li>Spotlight game with theme: <strong>${spotlightWithTheme} points</strong> ((${basePoints} × ${spotlightMult}) + ${themeBonus}) <em>— MAX SCORE</em></li>
+        <li>Spotlight game without theme: <strong>${spotlightWithoutTheme} points</strong> (${basePoints} × ${spotlightMult})</li>
+      `;
+      document.getElementById('exampleCalculations').innerHTML = examplesHTML;
+    }
+
+    /**
+     * Handle error loading points config
+     */
+    function handlePointsError(error) {
+      console.error('Error loading points config:', error);
+      // Keep default values shown in HTML
+    }
+
+    /**
+     * Load season prizes from Active_Season_Prizes sheet
+     */
+    function loadPrizes() {
+      google.script.run
+        .withSuccessHandler(renderPrizes)
+        .withFailureHandler(handlePrizesError)
+        .getAllSeasonPrizes();
+    }
+
+    /**
+     * Render prizes list in the Winning & Awards section
+     */
+    function renderPrizes(response) {
+      const prizesList = document.getElementById('prizesList');
+
+      if (!response || response.status !== 'success' || !response.prizes || response.prizes.length === 0) {
+        prizesList.innerHTML = '<li class="text-gray-500 dark:text-gray-400 text-sm">No prizes configured yet.</li>';
+        return;
+      }
+
+      // Map prize ranks to emoji icons
+      const emojiMap = {
+        '1st': '🥇',
+        '2nd': '🥈',
+        '3rd': '🥉',
+        'first': '🥇',
+        'second': '🥈',
+        'third': '🥉'
+      };
+
+      const prizesHTML = response.prizes.map(prize => {
+        const rankLower = prize.rank.toLowerCase();
+        let emoji = '🏆'; // Default trophy emoji
+
+        // Find matching emoji
+        for (const [key, value] of Object.entries(emojiMap)) {
+          if (rankLower.includes(key)) {
+            emoji = value;
+            break;
+          }
+        }
+
+        return `<li>${emoji} <strong>${prize.rank}</strong> - ${prize.description || 'Prize TBA'}</li>`;
+      }).join('');
+
+      prizesList.innerHTML = prizesHTML;
+    }
+
+    /**
+     * Handle error loading prizes
+     */
+    function handlePrizesError(error) {
+      console.error('Error loading prizes:', error);
+      document.getElementById('prizesList').innerHTML = '<li class="text-gray-500 dark:text-gray-400 text-sm">Unable to load prizes.</li>';
     }
 
     /**
@@ -320,7 +428,9 @@
       console.error('Error loading badges:', error);
     }
 
-    // Load badge system immediately
+    // Load dynamic content immediately
+    loadPointsConfig();
+    loadPrizes();
     loadBadgeSystem();
   </script>
 </div>
