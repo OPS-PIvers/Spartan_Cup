@@ -50,20 +50,31 @@ A gamified attendance and participation system for student events at Orono High 
    - Badge images auto-upload to Firebase Storage (no manual steps!)
    - See [docs/FIREBASE_STORAGE_SETUP.md](docs/FIREBASE_STORAGE_SETUP.md) for setup guide
 
-5. **Google Sheets API Setup (for direct sheet access):**
-   - Python scripts for reading/writing sheet data
-   - See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for setup guide
-
-6. **Legacy: Manual Badge Deployment (optional):**
+5. **Legacy: Manual Badge Deployment (optional):**
    - Alternative to Firebase Storage for badge images
    - See [docs/BADGE_DEPLOYMENT_GUIDE.md](docs/BADGE_DEPLOYMENT_GUIDE.md) if needed
 
+**Note on Python Scripts:**
+The `scripts/` directory contains deprecated Python utilities (`read_sheet.py`, `write_sheet.py`) that are no longer actively used. These were previously used for direct Google Sheets access but have been superseded by the modular Google Apps Script architecture. They are kept for historical reference only.
+
 ## Architecture
 
-### Server-Side (Code.js)
-- Router function `doGet(e)` serves the SPA based on `?page=` URL parameter
-- Handles user authentication, sheet operations, and file storage
-- Accepts location parameters from Firebase wrapper
+### Server-Side (Modular .gs files)
+- **Code.js**: Main router with `doGet(e)` function serves the SPA based on `?page=` URL parameter
+- **Auth.gs**: User authentication and authorization logic
+- **Events.gs**: Event management and active status updates
+- **Badges.gs**: Badge system calculations and award processing
+- **Submissions.gs**: Submission handling and approval workflow
+- **Activities.gs**: Activity and schedule management
+- **Points.gs**: Points calculation and tracking
+- **Admin.gs**: Admin dashboard functions
+- **Config.gs**: Configuration constants and settings
+- **FanFeed.gs**: Social feed features
+- **Notifications.gs**: User notification system
+- **Prizes.gs**: Prize management
+- **Setup.gs**: First-time setup and initialization
+- **Utils.gs**: Utility helper functions
+- All modules accept location parameters from Firebase wrapper and handle Google Sheets operations
 
 ### Client-Side (JavaScript.html)
 - Single-page app router for navigation
@@ -157,9 +168,9 @@ For complete spreadsheet schema documentation, see [SPREADSHEET_SCHEMA.md](SPREA
 
 - [Spreadsheet Schema](SPREADSHEET_SCHEMA.md) - Complete Google Sheets backend schema documentation
 - [Firebase Storage Setup](docs/FIREBASE_STORAGE_SETUP.md) - Badge image storage configuration
-- [Google Sheets API Setup](docs/SHEETS_API_SETUP.md) - Direct sheet access via Python scripts
 - [Claude Development Notes](CLAUDE.md) - AI assistant instructions
 - [iOS Icon Setup](docs/ios_icon_image.md) - Home screen icon configuration
+- [Badge Deployment Guide](docs/BADGE_DEPLOYMENT_GUIDE.md) - Badge deployment reference (legacy)
 
 ### Archived Documentation
 - [Deployment History](docs/archive/) - Historical deployment notes and checklists

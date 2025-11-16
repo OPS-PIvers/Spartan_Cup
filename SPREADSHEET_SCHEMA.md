@@ -431,7 +431,7 @@ misconduct | Misconduct & Cheating | <div class="space-y-3">...</div> | 5 | TRUE
 
 ## Operational Sheets
 
-### 10. Active_Season_Prizes
+### 11. Active_Season_Prizes
 **Purpose:** Prize definitions for current season (1st place, most spirited, etc.)  
 **Access Level:** Read by students (Prizes page), read/write by admins  
 **Updated By:** Admin prize management functions
@@ -463,7 +463,7 @@ Most Spirited | Personalized trophy + bragging rights
 
 ---
 
-### 11. Badge_Awards
+### 12. Badge_Awards
 **Purpose:** Historical log of badge awards (for fan feed and analytics)  
 **Access Level:** Read-only for students (via fan feed), read/append by system  
 **Updated By:** `calculateBadges()` → `notifyBadgeEarned()` (optional logging)
@@ -498,7 +498,7 @@ badge_award_001 | 2025-11-16 10:30:00 | student@orono.k12.mn.us | Alex Johnson |
 
 ## Supporting/Deprecated Sheets
 
-### 12. Student_Loyalty_History (Proposed)
+### 13. Student_Loyalty_History (Proposed)
 **Purpose:** Track loyalty metrics over time (not currently used)  
 **Status:** Planned for future implementation  
 **Columns:** TBD
@@ -507,7 +507,7 @@ badge_award_001 | 2025-11-16 10:30:00 | student@orono.k12.mn.us | Alex Johnson |
 
 ---
 
-### 13. Activity_Attendance_History (Proposed)
+### 14. Activity_Attendance_History (Proposed)
 **Purpose:** Per-activity attendance tracking  
 **Status:** Planned for future implementation  
 **Columns:** TBD
