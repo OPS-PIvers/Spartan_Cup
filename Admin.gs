@@ -105,9 +105,6 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
         // Batch update both points columns in single API call (more efficient)
         studentSheet.getRange(i + 1, 3, 1, 2).setValues([[newSeasonPoints, newAllTimePoints]]);
 
-        // Clear cache since we modified the data
-        cache.remove('student_profiles_data');
-
         break;
       }
     }
@@ -203,6 +200,10 @@ function denySubmission(submissionId, reason) {
     // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)
     const numColumns = pendingSheet.getLastColumn();
     pendingSheet.getRange(submissionRow, 1, 1, numColumns).clearContent();
+
+    // Clear pending submissions cache since we modified the sheet
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
 
     // Optionally delete photo from Drive
     try {
