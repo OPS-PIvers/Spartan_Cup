@@ -444,9 +444,21 @@ function getProfileData() {
     // Build history with event names
     const history = userSubmissions.map(submission => {
       const eventInfo = eventMap[submission.eventId] || { name: 'Unknown Event', date: 'N/A', sportArt: 'Other' };
+
+      // Format the date properly - handle both Date objects and ISO strings from cache
+      let formattedDate = 'N/A';
+      if (eventInfo.date && eventInfo.date !== 'N/A') {
+        try {
+          const dateObj = eventInfo.date instanceof Date ? eventInfo.date : new Date(eventInfo.date);
+          formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (e) {
+          formattedDate = String(eventInfo.date);
+        }
+      }
+
       return {
         name: eventInfo.name,
-        date: eventInfo.date instanceof Date ? eventInfo.date.toLocaleDateString() : eventInfo.date,
+        date: formattedDate,
         points: submission.pointsTotal,
         status: 'Approved',
         icon: eventInfo.sportArt.toLowerCase().includes('basketball') ? 'sports_basketball' :
@@ -468,9 +480,19 @@ function getProfileData() {
 
       if (pendingData[i][2] === email) {
         const eventInfo = eventMap[pendingData[i][3]] || { name: 'Unknown Event', date: 'N/A', sportArt: 'Other' };
+
+        // Format submission date consistently with approved submissions
+        let submissionDate = 'N/A';
+        try {
+          const dateObj = new Date(pendingData[i][1]);
+          submissionDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch (e) {
+          submissionDate = 'N/A';
+        }
+
         history.push({
           name: eventInfo.name,
-          date: new Date(pendingData[i][1]).toLocaleDateString(),
+          date: submissionDate,
           points: 0,
           status: 'Pending',
           icon: eventInfo.sportArt.toLowerCase().includes('basketball') ? 'sports_basketball' :

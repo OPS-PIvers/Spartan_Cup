@@ -99,6 +99,36 @@
     </header>
 
     <!-- ====================================================================== -->
+    <!-- INITIALIZE APP DATA (Before Page Content) -->
+    <!-- ====================================================================== -->
+    <script>
+      // console.log('DEBUG: About to construct APP_DATA');
+
+      // Pass server-side data (from doGet) to client-side JS
+      const APP_DATA = {
+        page: "<?= page ?>",
+        userEmail: "<?!= userEmail ?>",
+        userName: "<?!= userName ?>",
+        userPhoto: "<?!= userPhoto ?>",
+        isAdmin: <?= isAdmin ?>,
+        appUrl: "<?!= getWebAppUrl() ?>",
+        firebaseWrapperUrl: "<?!= firebaseWrapperUrl ?>",
+        badgeBaseUrl: "<?!= badgeBaseUrl ?>",
+        userSettings: <?!= userSettings ?>,
+        // Location from Firebase wrapper (passed via URL parameters)
+        userLat: <?= userLat || 'null' ?>,
+        userLon: <?= userLon || 'null' ?>,
+        userAcc: <?= userAcc || 'null' ?>,
+        // AUTO-EVENT DETECTION: Pre-populated event from server-side auto-detection
+        autoEventCode: "<?!= autoEventCode ?>",
+        autoEventName: "<?!= autoEventName ?>",
+        autoEventError: "<?!= autoEventError ?>"
+      };
+
+      // console.log('DEBUG: APP_DATA constructed successfully', APP_DATA);
+    </script>
+
+    <!-- ====================================================================== -->
     <!-- PAGE CONTENT AREA -->
     <!-- ====================================================================== -->
     <main class="pb-24">
@@ -149,33 +179,6 @@
   <!-- ====================================================================== -->
   <!-- CLIENT-SIDE JAVASCRIPT -->
   <!-- ====================================================================== -->
-  <script>
-    // console.log('DEBUG: About to construct APP_DATA');
-
-    // Pass server-side data (from doGet) to client-side JS
-    const APP_DATA = {
-      page: "<?= page ?>",
-      userEmail: "<?!= userEmail ?>",
-      userName: "<?!= userName ?>",
-      userPhoto: "<?!= userPhoto ?>",
-      isAdmin: <?= isAdmin ?>,
-      appUrl: "<?!= getWebAppUrl() ?>",
-      firebaseWrapperUrl: "<?!= firebaseWrapperUrl ?>",
-      badgeBaseUrl: "<?!= badgeBaseUrl ?>",
-      userSettings: <?!= userSettings ?>,
-      // Location from Firebase wrapper (passed via URL parameters)
-      userLat: <?= userLat || 'null' ?>,
-      userLon: <?= userLon || 'null' ?>,
-      userAcc: <?= userAcc || 'null' ?>,
-      // AUTO-EVENT DETECTION: Pre-populated event from server-side auto-detection
-      autoEventCode: "<?!= autoEventCode ?>",
-      autoEventName: "<?!= autoEventName ?>",
-      autoEventError: "<?!= autoEventError ?>"
-    };
-
-    // console.log('DEBUG: APP_DATA constructed successfully', APP_DATA);
-  </script>
-  
   <!-- Include JavaScript from JavaScript.html -->
   <?!= include('JavaScript'); ?>
 </body>

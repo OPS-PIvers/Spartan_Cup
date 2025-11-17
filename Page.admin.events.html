@@ -225,17 +225,16 @@
           deleteEventConfirm(deleteButton.dataset.eventId, deleteButton.dataset.eventName);
         });
 
-        const timeStr = event.dateTime.split('T')[1] || 'N/A';
-        const displayTime = format24To12Hour(timeStr);
+        // Use formattedStartTime from backend (already in CST and 12-hour format)
+        const displayTime = event.formattedStartTime || 'N/A';
 
         card.innerHTML = `
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1">
               <p class="font-bold text-[#111318] dark:text-white">${event.eventName}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">ID: ${event.eventId}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">${event.activityCode} • ${event.dateTime.split('T')[0]}</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Time: ${displayTime}</p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.location || 'No location'}</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">📍 ${event.locationName || 'No location'}</p>
               ${event.theme ? `<p class="text-xs text-gray-500 dark:text-gray-500">Theme: ${event.theme}</p>` : ''}
             </div>
             <div class="flex gap-2">
