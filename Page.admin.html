@@ -69,9 +69,8 @@
   <!-- TAB CONTENT CONTAINER -->
   <!-- ===================================================================== -->
   <div class="flex-1 flex flex-col">
-    <!-- Admin components loaded via server-side function (see Code.js:getAdminComponents) -->
-    <!-- This file is itself included, so any <?!= ?> directives here would render as literal text -->
-    <?!= getAdminComponents() ?>
+    <!-- Admin components injected here by Index.html via getAdminComponents() -->
+    <!-- Components are loaded at the top template evaluation level for proper rendering -->
   </div>
 </div>
 
