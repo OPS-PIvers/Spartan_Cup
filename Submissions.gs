@@ -245,7 +245,7 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
         photoId: pendingData[i][5],
         dressedForTheme: pendingData[i][7] || false,
         notes: pendingData[i][8] || '',
-        timestamp: pendingData[i][1].toISOString()
+        timestamp: new Date(pendingData[i][1]).toISOString()
       });
     }
     // Logger.log('Full queue built: ' + fullQueue.length + ' items');
