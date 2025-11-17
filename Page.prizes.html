@@ -40,7 +40,19 @@
     // Execute immediately since this script runs after DOM is already ready
     // (the page is server-side rendered and included in Index.html)
     loadPrizes();
-    google.script.run.withSuccessHandler(populateEvents).getEventsList();
+
+    // Check client-side cache first for events list
+    const cachedEvents = getCachedEventsList();
+    if (cachedEvents) {
+      // Use cached data - no backend call needed!
+      populateEvents(cachedEvents);
+    } else {
+      // Cache miss - fetch from backend
+      google.script.run.withSuccessHandler((response) => {
+        cacheEventsList(response); // Cache the response
+        populateEvents(response);
+      }).getEventsList();
+    }
 
     function loadPrizes() {
       const prizesList = document.querySelector('ul.list-disc');

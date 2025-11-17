@@ -107,6 +107,9 @@
       const successHandler = (response) => {
         document.getElementById('loading-modal').classList.add('hidden'); // Hide loading spinner
         if (response.status === 'success') {
+          // Clear events list cache since data changed
+          clearEventsListCache();
+
           alert(response.message);
           clearEventForm();
           loadEventsList(); // Refresh event list
@@ -268,6 +271,9 @@
       if (confirm(`Delete event "${eventName}" (${eventId})?`)) {
         google.script.run.withSuccessHandler((response) => {
           if (response.status === 'success') {
+            // Clear events list cache since data changed
+            clearEventsListCache();
+
             alert(response.message);
             loadEventsList();
           } else {

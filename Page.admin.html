@@ -651,7 +651,18 @@
     }
 
     function loadAdminQueue() {
-      google.script.run.withSuccessHandler(populateAdminQueue).getAdminQueue();
+      // Check client-side cache first for admin queue
+      const cachedQueue = getCachedAdminQueue();
+      if (cachedQueue) {
+        // Use cached data - no backend call needed!
+        populateAdminQueue(cachedQueue);
+      } else {
+        // Cache miss - fetch from backend
+        google.script.run.withSuccessHandler((response) => {
+          cacheAdminQueue(response); // Cache the response
+          populateAdminQueue(response);
+        }).getAdminQueue();
+      }
     }
 
     function populateAdminQueue(response) {
@@ -744,6 +755,11 @@
         showConfirmation('Approved', '✓');  // Show confirmation feedback
         isProcessing = false;  // Allow next swipe/click
 
+        // Clear relevant caches since data changed
+        clearAdminQueueCache();
+        clearFanFeedCache(); // Approved photos appear in fan feed
+        clearProfileCache(); // Points changed
+
         // Fire backend approval in background (don't wait for response)
         google.script.run.withSuccessHandler((response) => {
           if (!response || response.status !== 'success') {
@@ -756,6 +772,11 @@
         // FALLBACK MODE: Wait for backend (used for manual button clicks)
         google.script.run.withSuccessHandler((response) => {
           if (response && response.status === 'success') {
+            // Clear relevant caches since data changed
+            clearAdminQueueCache();
+            clearFanFeedCache(); // Approved photos appear in fan feed
+            clearProfileCache(); // Points changed
+
             currentIndex++;
             displayCurrentCard();
           } else {
@@ -791,6 +812,9 @@
         showConfirmation('Denied', '✗');  // Show confirmation feedback
         isProcessing = false;  // Allow next swipe/click
 
+        // Clear admin queue cache since data changed
+        clearAdminQueueCache();
+
         // Fire backend denial in background (don't wait for response)
         google.script.run.withSuccessHandler((response) => {
           if (!response || response.status !== 'success') {
@@ -803,6 +827,9 @@
         // FALLBACK MODE: Wait for backend (used for manual button clicks)
         google.script.run.withSuccessHandler((response) => {
           if (response && response.status === 'success') {
+            // Clear admin queue cache since data changed
+            clearAdminQueueCache();
+
             currentIndex++;
             displayCurrentCard();
           } else {

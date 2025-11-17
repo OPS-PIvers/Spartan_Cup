@@ -83,18 +83,29 @@
   }
 
   /**
-   * Loads the fan feed (cached version)
+   * Loads the fan feed (with client-side caching)
+   * Checks client cache first, then server cache, then fresh data
    */
   function loadFanFeed() {
     const container = document.getElementById('fanfeed-container');
     const refreshBtn = document.getElementById('refresh-btn');
 
-    // Show loading state
+    // Check client-side cache first
+    const cachedFeed = getCachedFanFeed();
+    if (cachedFeed) {
+      // Use cached data - no backend call needed!
+      handleFanFeedResponse(cachedFeed, container);
+      return;
+    }
+
+    // Cache miss - show loading state and fetch from server
     refreshBtn.classList.add('animate-spin');
     isRefreshing = true;
 
     google.script.run
       .withSuccessHandler((response) => {
+        // Cache the response for future page loads
+        cacheFanFeed(response);
         handleFanFeedResponse(response, container);
         // Remove loading state
         refreshBtn.classList.remove('animate-spin');
@@ -283,9 +294,12 @@
 
   /**
    * Manual refresh button click handler
+   * Forces a fresh fetch by clearing the cache first
    */
   function manualRefresh() {
     if (!isRefreshing) {
+      // Clear client cache to force fresh fetch
+      clearFanFeedCache();
       loadFanFeed();
     }
   }
@@ -308,6 +322,8 @@
 
   document.addEventListener('touchend', () => {
     if (pullDistance > 80 && !isRefreshing) {
+      // Clear cache to force fresh fetch on pull-to-refresh
+      clearFanFeedCache();
       loadFanFeed();
     } else {
       pullDistance = 0;

@@ -1,51 +1,126 @@
 <script>
     // --- CACHING UTILITIES ---------------------
-    const LOCATION_CACHE_KEY = 'spartan_cup_location_cache';
-    const LOCATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-    const PROFILE_CACHE_KEY = 'spartan_cup_profile_cache';
-    const PROFILE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    /**
+     * Generic cache utility for client-side data caching
+     * Provides get, set, clear, and age checking for any data type
+     * Uses sessionStorage for persistence across page navigations (within same session)
+     * @namespace CacheManager
+     */
+    const CacheManager = {
+      /**
+       * Get cached data if it exists and hasn't expired
+       * @param {string} key - Cache key identifier
+       * @param {number} ttl - Time-to-live in milliseconds
+       * @param {string} label - Human-readable label for console logging (optional)
+       * @return {*|null} Cached data or null if expired/missing
+       */
+      get: function(key, ttl, label = key) {
+        try {
+          const cached = sessionStorage.getItem(key);
+          if (!cached) return null;
+
+          const data = JSON.parse(cached);
+          const now = Date.now();
+          const age = now - data.timestamp;
+
+          // Check if cache has expired
+          if (age > ttl) {
+            sessionStorage.removeItem(key);
+            console.log(`📦 [Cache] ${label} expired (age: ${Math.round(age/1000)}s)`);
+            return null;
+          }
+
+          const ageMinutes = Math.floor(age / 60000);
+          const ageSeconds = Math.floor((age % 60000) / 1000);
+          console.log(`📦 [Cache HIT] ${label} (age: ${ageMinutes}m ${ageSeconds}s)`);
+          return data.value;
+        } catch (e) {
+          console.error(`[Cache] Error reading ${label}:`, e);
+          return null;
+        }
+      },
+
+      /**
+       * Cache data with timestamp
+       * @param {string} key - Cache key identifier
+       * @param {*} value - Data to cache (must be JSON-serializable)
+       * @param {string} label - Human-readable label for console logging (optional)
+       */
+      set: function(key, value, label = key) {
+        try {
+          const data = {
+            value: value,
+            timestamp: Date.now()
+          };
+          sessionStorage.setItem(key, JSON.stringify(data));
+          console.log(`💾 [Cache SAVE] ${label}`);
+        } catch (e) {
+          console.error(`[Cache] Error saving ${label}:`, e);
+        }
+      },
+
+      /**
+       * Clear specific cached data
+       * @param {string} key - Cache key to clear
+       * @param {string} label - Human-readable label for console logging (optional)
+       */
+      clear: function(key, label = key) {
+        try {
+          sessionStorage.removeItem(key);
+          console.log(`🗑️ [Cache CLEAR] ${label}`);
+        } catch (e) {
+          console.error(`[Cache] Error clearing ${label}:`, e);
+        }
+      },
+
+      /**
+       * Clear all Spartan Cup caches (useful for logout or major updates)
+       */
+      clearAll: function() {
+        try {
+          const keys = Object.keys(sessionStorage);
+          const spartanKeys = keys.filter(k => k.startsWith('spartan_cup_'));
+          spartanKeys.forEach(k => sessionStorage.removeItem(k));
+          console.log(`🗑️ [Cache] Cleared all ${spartanKeys.length} Spartan Cup caches`);
+        } catch (e) {
+          console.error('[Cache] Error clearing all caches:', e);
+        }
+      }
+    };
+
+    // Cache configuration constants
+    // TTL tuned based on data volatility:
+    // - Stable data (fan feed, events) = longer cache (fewer API calls)
+    // - Dynamic data (location, queue) = shorter cache (fresh data when needed)
+    const CACHE_CONFIG = {
+      LOCATION: { key: 'spartan_cup_location', ttl: 2 * 60 * 1000, label: 'Location' }, // 2 min - user might move between check-ins
+      PROFILE: { key: 'spartan_cup_profile', ttl: 5 * 60 * 1000, label: 'Profile Data' }, // 5 min - points change with approvals
+      FAN_FEED: { key: 'spartan_cup_fanfeed', ttl: 15 * 60 * 1000, label: 'Fan Feed' }, // 15 min - approved photos are stable
+      EVENTS_LIST: { key: 'spartan_cup_events', ttl: 30 * 60 * 1000, label: 'Events List' }, // 30 min - admin edits rarely
+      ADMIN_QUEUE: { key: 'spartan_cup_admin_queue', ttl: 30 * 1000, label: 'Admin Queue' } // 30 sec - very dynamic
+    };
 
     /**
      * Get cached location if it exists and hasn't expired
-     * @return {Object|null} Location object {lat, lon, acc, timestamp} or null
+     * @return {Object|null} Location object {lat, lon, acc} or null
      */
     function getCachedLocation() {
-      try {
-        const cached = sessionStorage.getItem(LOCATION_CACHE_KEY);
-        if (!cached) return null;
-
-        const data = JSON.parse(cached);
-        const now = Date.now();
-
-        // Check if cache has expired
-        if (now - data.timestamp > LOCATION_CACHE_DURATION) {
-          sessionStorage.removeItem(LOCATION_CACHE_KEY);
-          return null;
-        }
-
-        return { lat: data.lat, lon: data.lon, acc: data.acc };
-      } catch (e) {
-        console.error('Error reading location cache:', e);
-        return null;
-      }
+      return CacheManager.get(CACHE_CONFIG.LOCATION.key, CACHE_CONFIG.LOCATION.ttl, CACHE_CONFIG.LOCATION.label);
     }
 
     /**
-     * Cache the user's location for 5 minutes
+     * Cache the user's location for 2 minutes
+     * Shorter TTL to ensure fresh location if user moves between check-in attempts
      * @param {Object} position - geolocation position object
      */
     function cacheLocation(position) {
-      try {
-        const data = {
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-          acc: position.coords.accuracy,
-          timestamp: Date.now()
-        };
-        sessionStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(data));
-      } catch (e) {
-        console.error('Error caching location:', e);
-      }
+      const locationData = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        acc: position.coords.accuracy
+      };
+      CacheManager.set(CACHE_CONFIG.LOCATION.key, locationData, CACHE_CONFIG.LOCATION.label);
     }
 
     /**
@@ -53,24 +128,7 @@
      * @return {Object|null} Profile data object or null
      */
     function getCachedProfileData() {
-      try {
-        const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
-        if (!cached) return null;
-
-        const data = JSON.parse(cached);
-        const now = Date.now();
-
-        // Check if cache has expired
-        if (now - data.timestamp > PROFILE_CACHE_DURATION) {
-          sessionStorage.removeItem(PROFILE_CACHE_KEY);
-          return null;
-        }
-
-        return data.profileData;
-      } catch (e) {
-        console.error('Error reading profile cache:', e);
-        return null;
-      }
+      return CacheManager.get(CACHE_CONFIG.PROFILE.key, CACHE_CONFIG.PROFILE.ttl, CACHE_CONFIG.PROFILE.label);
     }
 
     /**
@@ -78,26 +136,85 @@
      * @param {Object} profileData - Profile data from getProfileData()
      */
     function cacheProfileData(profileData) {
-      try {
-        const data = {
-          profileData: profileData,
-          timestamp: Date.now()
-        };
-        sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data));
-      } catch (e) {
-        console.error('Error caching profile data:', e);
-      }
+      CacheManager.set(CACHE_CONFIG.PROFILE.key, profileData, CACHE_CONFIG.PROFILE.label);
     }
 
     /**
      * Clear profile cache (called after submission approval or settings change)
      */
     function clearProfileCache() {
-      try {
-        sessionStorage.removeItem(PROFILE_CACHE_KEY);
-      } catch (e) {
-        console.error('Error clearing profile cache:', e);
-      }
+      CacheManager.clear(CACHE_CONFIG.PROFILE.key, CACHE_CONFIG.PROFILE.label);
+    }
+
+    /**
+     * Get cached fan feed data if it exists and hasn't expired
+     * @return {Object|null} Fan feed response object or null
+     */
+    function getCachedFanFeed() {
+      return CacheManager.get(CACHE_CONFIG.FAN_FEED.key, CACHE_CONFIG.FAN_FEED.ttl, CACHE_CONFIG.FAN_FEED.label);
+    }
+
+    /**
+     * Cache fan feed data for 15 minutes
+     * Longer TTL safe since approved photos are stable (only grow, don't change)
+     * @param {Object} feedData - Fan feed response from getFanFeedCached()
+     */
+    function cacheFanFeed(feedData) {
+      CacheManager.set(CACHE_CONFIG.FAN_FEED.key, feedData, CACHE_CONFIG.FAN_FEED.label);
+    }
+
+    /**
+     * Clear fan feed cache (called after new submission approval)
+     */
+    function clearFanFeedCache() {
+      CacheManager.clear(CACHE_CONFIG.FAN_FEED.key, CACHE_CONFIG.FAN_FEED.label);
+    }
+
+    /**
+     * Get cached events list if it exists and hasn't expired
+     * @return {Array|null} Events array or null
+     */
+    function getCachedEventsList() {
+      return CacheManager.get(CACHE_CONFIG.EVENTS_LIST.key, CACHE_CONFIG.EVENTS_LIST.ttl, CACHE_CONFIG.EVENTS_LIST.label);
+    }
+
+    /**
+     * Cache events list for 30 minutes
+     * Longer TTL safe since admin edits events rarely
+     * @param {Array} eventsData - Events list from getEventsList()
+     */
+    function cacheEventsList(eventsData) {
+      CacheManager.set(CACHE_CONFIG.EVENTS_LIST.key, eventsData, CACHE_CONFIG.EVENTS_LIST.label);
+    }
+
+    /**
+     * Clear events list cache (called when admin edits events)
+     */
+    function clearEventsListCache() {
+      CacheManager.clear(CACHE_CONFIG.EVENTS_LIST.key, CACHE_CONFIG.EVENTS_LIST.label);
+    }
+
+    /**
+     * Get cached admin queue if it exists and hasn't expired
+     * @return {Object|null} Admin queue response or null
+     */
+    function getCachedAdminQueue() {
+      return CacheManager.get(CACHE_CONFIG.ADMIN_QUEUE.key, CACHE_CONFIG.ADMIN_QUEUE.ttl, CACHE_CONFIG.ADMIN_QUEUE.label);
+    }
+
+    /**
+     * Cache admin queue for 30 seconds (shorter TTL due to dynamic nature)
+     * @param {Object} queueData - Admin queue from getAdminQueue()
+     */
+    function cacheAdminQueue(queueData) {
+      CacheManager.set(CACHE_CONFIG.ADMIN_QUEUE.key, queueData, CACHE_CONFIG.ADMIN_QUEUE.label);
+    }
+
+    /**
+     * Clear admin queue cache (called after approving/rejecting submissions)
+     */
+    function clearAdminQueueCache() {
+      CacheManager.clear(CACHE_CONFIG.ADMIN_QUEUE.key, CACHE_CONFIG.ADMIN_QUEUE.label);
     }
 
     /**
@@ -553,17 +670,14 @@
           }
         });
         
-        // Load dynamic profile data (use cache if available to reduce API calls)
-        const cachedProfile = getCachedProfileData();
-        if (cachedProfile) {
-          // Use cached data - no backend call needed
-          console.log('[Profile Cache] Using cached profile data');
-          populateProfile(cachedProfile);
-        } else {
-          // Cache miss - fetch from backend
-          console.log('[Profile Cache] Cache miss, fetching from backend');
-          callWithRetry('getProfileData', [], function(data) {
-            cacheProfileData(data); // Cache the response
+        // Load dynamic profile data (always fetch fresh on page load for accurate badge/point data)
+        // Clear cache on profile page load to ensure fresh data after admin approvals
+        clearProfileCache();
+        console.log('[Profile Cache] Cleared cache on profile page load');
+
+        // Always fetch fresh profile data when viewing the profile page
+        callWithRetry('getProfileData', [], function(data) {
+          cacheProfileData(data); // Cache the response
             populateProfile(data);
           });
         }
@@ -1144,8 +1258,9 @@
 
     function handleSubmissionResponse(response) {
       if (response.status === "success") {
-        // Clear profile cache so user sees updated history when they return
-        clearProfileCache();
+        // Clear caches so user sees updated data immediately
+        clearProfileCache(); // Points and history updated
+        clearFanFeedCache(); // New badge award appears in fan feed
 
         // Show success message in styled modal (not alert, which breaks user activation)
         document.getElementById('loading-modal').classList.add('hidden');

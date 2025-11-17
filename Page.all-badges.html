@@ -23,7 +23,19 @@
   <script>
     // Execute immediately since this script runs after DOM is already ready
     // (the page is server-side rendered and included in Index.html)
-    google.script.run.withSuccessHandler(populateAllBadges).getProfileData();
+
+    // Check client-side cache first to avoid unnecessary API call
+    const cachedProfile = getCachedProfileData();
+    if (cachedProfile) {
+      // Use cached data - no backend call needed!
+      populateAllBadges(cachedProfile);
+    } else {
+      // Cache miss - fetch from backend
+      google.script.run.withSuccessHandler((data) => {
+        cacheProfileData(data); // Cache the response
+        populateAllBadges(data);
+      }).getProfileData();
+    }
 
     function populateAllBadges(data) {
       const grid = document.getElementById('badges-grid');
