@@ -105,12 +105,37 @@ function savePhotoToDrive(photoBlob, eventId, email) {
  */
 function submitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventCode = formObject.eventCode;
+  let eventCode = formObject.eventCode;
 
   try {
+    // AUTO-DETECTION FALLBACK: If no eventCode provided but location is available,
+    // automatically detect the closest active event within geofence
+    if (!eventCode || eventCode.trim() === '') {
+      if (formObject.location && formObject.location.lat && formObject.location.lon) {
+        Logger.log('[submitEvent] No eventCode provided, attempting auto-detection with location: ' +
+                   JSON.stringify({lat: formObject.location.lat, lon: formObject.location.lon}));
+
+        const closestEvent = getClosestEvent(formObject.location.lat, formObject.location.lon);
+
+        if (closestEvent.status === 'success') {
+          eventCode = closestEvent.eventCode;
+          Logger.log('[submitEvent] Auto-detected event: ' + eventCode);
+        } else {
+          Logger.log('[submitEvent] Auto-detection failed: ' + closestEvent.message);
+          return { status: "error", message: closestEvent.message };
+        }
+      } else {
+        return { status: "error", message: "No event selected. Please enable location and try again from the Check-In button." };
+      }
+    }
+
+    // Log for debugging
+    Logger.log('[submitEvent] Validating submission for event: ' + eventCode + ' from user: ' + email);
+
     // Unified validation: code + location + time
     const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
     if (!validation.valid) {
+      Logger.log('[submitEvent] Validation failed: ' + validation.message);
       return { status: "error", message: validation.message };
     }
 
@@ -150,12 +175,37 @@ function submitEvent(formObject, photoBlob) {
  */
 function resubmitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventCode = formObject.eventCode;
+  let eventCode = formObject.eventCode;
 
   try {
+    // AUTO-DETECTION FALLBACK: If no eventCode provided but location is available,
+    // automatically detect the closest active event within geofence
+    if (!eventCode || eventCode.trim() === '') {
+      if (formObject.location && formObject.location.lat && formObject.location.lon) {
+        Logger.log('[resubmitEvent] No eventCode provided, attempting auto-detection with location: ' +
+                   JSON.stringify({lat: formObject.location.lat, lon: formObject.location.lon}));
+
+        const closestEvent = getClosestEvent(formObject.location.lat, formObject.location.lon);
+
+        if (closestEvent.status === 'success') {
+          eventCode = closestEvent.eventCode;
+          Logger.log('[resubmitEvent] Auto-detected event: ' + eventCode);
+        } else {
+          Logger.log('[resubmitEvent] Auto-detection failed: ' + closestEvent.message);
+          return { status: "error", message: closestEvent.message };
+        }
+      } else {
+        return { status: "error", message: "No event selected. Please enable location and try again from the Check-In button." };
+      }
+    }
+
+    // Log for debugging
+    Logger.log('[resubmitEvent] Validating submission for event: ' + eventCode + ' from user: ' + email);
+
     // Unified validation: code + location + time
     const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
     if (!validation.valid) {
+      Logger.log('[resubmitEvent] Validation failed: ' + validation.message);
       return { status: "error", message: validation.message };
     }
 

@@ -827,8 +827,18 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
       };
     }
 
+    // Check eventCode is provided
+    if (!eventCode || eventCode.trim() === '') {
+      Logger.log('[validateEventSubmission] No eventCode provided');
+      return {
+        valid: false,
+        message: 'No event code provided. Please try again from the Check-In button.'
+      };
+    }
+
     // Find the active event matching this code
     const activeEvents = getActiveEvents();
+    Logger.log('[validateEventSubmission] Found ' + activeEvents.length + ' active events, looking for: ' + eventCode);
     let matchingEvent = null;
 
     for (let evt of activeEvents) {
@@ -839,11 +849,17 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
     }
 
     if (!matchingEvent) {
+      // Log available event codes for debugging
+      const availableCodes = activeEvents.map(evt => evt.eventCode).join(', ');
+      Logger.log('[validateEventSubmission] No match found. Available codes: ' + availableCodes);
       return {
         valid: false,
-        message: 'Invalid event code or event is not currently active.'
+        message: 'Invalid event code or event is not currently active. Please try again from the Check-In button.'
       };
     }
+
+    Logger.log('[validateEventSubmission] Matched event: ' + matchingEvent.eventName + ' at (' +
+               matchingEvent.eventLat + ', ' + matchingEvent.eventLon + ')');
 
     // Validate location is within 100m of event
     const distance = calculateDistance(
