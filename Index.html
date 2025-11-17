@@ -105,10 +105,9 @@
       <!-- This is where the magic happens. -->
       <!-- 'page' is a server-side variable from doGet() -->
       <!-- It will inject the content of 'Page.profile.html', 'Page.history.html', etc. -->
-      <!-- Admin page is special: it needs components injected at top level to work -->
+      <!-- Admin page uses pre-built content with components injected in correct location -->
       <? if (page === 'admin') { ?>
-        <?!= include('Page.admin'); ?>
-        <?!= getAdminComponents(); ?>
+        <?!= adminPageContent ?>
       <? } else { ?>
         <?!= include('Page.' + page); ?>
       <? } ?>

@@ -52,6 +52,19 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.page = page; // Tell the template which page to load
 
+  // ADMIN PAGE: Build complete page with components injected in correct location
+  if (page === 'admin') {
+    const adminPageHtml = include('Page.admin');
+    const adminComponents = getAdminComponents();
+    // Inject components at marker position (inside the tab container div)
+    template.adminPageContent = adminPageHtml.replace(
+      '<!--ADMIN_COMPONENTS_INJECTION_POINT-->',
+      adminComponents
+    );
+  } else {
+    template.adminPageContent = ''; // Empty for non-admin pages
+  }
+
   // Escape all string values for safe JavaScript embedding
   const rawEmail = user.getEmail();
   const rawUserName = getUserDisplayName(); // Fetch from Student_Profiles sheet (will be empty until formula populates it)
@@ -135,18 +148,20 @@ function include(filename) {
 /**
  * Builds the admin page content by including all modular components.
  *
- * This function solves a specific GAS limitation: Page.admin.html is loaded via
- * include('Page.' + page) in Index.html. Originally, Page.admin.html contained
- * <?!= include(...) ?> directives to load its component files. However, when a
- * file is included, any template directives within it become literal text rather
- * than being evaluated - so users saw raw "<?!= include('Page.admin.review') ?>"
- * text in their browser.
+ * This function solves a specific GAS limitation: When a file is included via
+ * include(), any template directives within it become literal text. Additionally,
+ * we need the admin components to render INSIDE the tab container div in
+ * Page.admin.html for proper layout and functionality.
  *
- * The solution: Move the include() calls from Page.admin.html (which is included
- * and therefore not re-evaluated) into this server-side function (which IS
- * evaluated during template processing). This function executes at the right
- * evaluation level and returns plain HTML that can be safely inserted into
- * Page.admin.html.
+ * The solution: In doGet(), when page === 'admin':
+ * 1. Include Page.admin.html (contains navigation + empty container with marker)
+ * 2. Call this function to get all component HTML
+ * 3. Replace the marker comment with the components
+ * 4. Pass the complete HTML as template.adminPageContent
+ * 5. Index.html outputs this pre-built content
+ *
+ * This ensures components render in the correct location (inside the container div)
+ * and all template directives are properly evaluated.
  *
  * Note: Page.admin.utils is loaded first as it contains shared utilities that
  * other components may reference.
