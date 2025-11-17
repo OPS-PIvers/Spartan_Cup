@@ -819,6 +819,11 @@ function deleteEvent(eventId) {
  */
 function validateEventSubmission(eventCode, userLocation, timestamp) {
   try {
+    // Check eventCode is provided
+    if (!eventCode || eventCode.trim() === '') {
+      Logger.log('[validateEventSubmission] No eventCode provided');
+      return { valid: false, message: 'No event code provided. Please try again from the Check-In button.' };
+    }
     // Check location provided
     if (!userLocation || userLocation.lat === null || userLocation.lon === null) {
       return {
@@ -829,6 +834,8 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
 
     // Find the active event matching this code
     const activeEvents = getActiveEvents();
+    Logger.log(`[validateEventSubmission] Found ${activeEvents.length} active events, looking for: ${eventCode}`);
+
     let matchingEvent = null;
 
     for (let evt of activeEvents) {
@@ -839,9 +846,11 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
     }
 
     if (!matchingEvent) {
+      const availableCodes = activeEvents.map(e => e.eventCode).join(', ');
+      Logger.log(`[validateEventSubmission] Event code not found. Available codes: ${availableCodes}`);
       return {
         valid: false,
-        message: 'Invalid event code or event is not currently active.'
+        message: 'Invalid event ID or no active event found for this code. Please try again from the Check-In button.'
       };
     }
 
@@ -880,7 +889,7 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
       message: 'Submission validated successfully.'
     };
   } catch (e) {
-    // Logger.log('Error in validateEventSubmission: ' + e.message);
+    Logger.log(`Error in validateEventSubmission: ${e.message}`);
     return {
       valid: false,
       message: 'Error validating submission. Please try again.'

@@ -100,28 +100,65 @@ function savePhotoToDrive(photoBlob, eventId, email) {
 }
 
 /**
+ * Internal helper to resolve event code with a location-based fallback.
+ * This reduces code duplication between submitEvent and resubmitEvent.
+ * @param {string} eventCode - The event code from the form.
+ * @param {object} location - The location object from the form.
+ * @returns {object} { status: 'success', eventCode: '...' } or { status: 'error', message: '...' }
+ */
+function _getEventCodeWithFallback(eventCode, location) {
+  // If eventCode is provided, use it
+  if (eventCode && eventCode.trim() !== '') {
+    return { status: 'success', eventCode: eventCode };
+  }
+
+  // Fallback to auto-detection if location is available
+  if (location && location.lat && location.lon) {
+    Logger.log(`[Submission] No eventCode provided, attempting auto-detection with location: ${JSON.stringify(location)}`);
+    const closestEvent = getClosestEvent(location.lat, location.lon);
+    if (closestEvent.status === 'success') {
+      Logger.log(`[Submission] Auto-detected event: ${closestEvent.eventCode}`);
+      return { status: 'success', eventCode: closestEvent.eventCode };
+    } else {
+      Logger.log(`[Submission] Auto-detection failed: ${closestEvent.message}`);
+      return { status: 'error', message: closestEvent.message };
+    }
+  }
+
+  // If no event code and no location, return an error
+  return { status: 'error', message: 'No event selected. Please enable location and try again from the Check-In button.' };
+}
+
+
+/**
  * STEP 1: Called when a user first hits "Submit".
  * Takes eventCode (not eventId in URL) and validates everything at once.
  */
 function submitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventCode = formObject.eventCode;
 
   try {
+    // Resolve event code with fallback
+    const eventCodeResolution = _getEventCodeWithFallback(formObject.eventCode, formObject.location);
+    if (eventCodeResolution.status === 'error') {
+      return { status: 'error', message: eventCodeResolution.message };
+    }
+    const eventCode = eventCodeResolution.eventCode;
+
     // Unified validation: code + location + time
     const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
     if (!validation.valid) {
-      return { status: "error", message: validation.message };
+      return { status: 'error', message: validation.message };
     }
 
     const eventId = validation.eventId;
 
     // Check for duplicate submissions
     if (findVerifiedSubmission(email, eventId)) {
-      return { status: "error", message: "Your submission for this event has already been verified by an admin and cannot be changed." };
+      return { status: 'error', message: 'Your submission for this event has already been verified by an admin and cannot be changed.' };
     }
     if (findPendingSubmission(email, eventId)) {
-      return { status: "pending_conflict", message: "This will delete your current submission for this event. Do you want to proceed?" };
+      return { status: 'pending_conflict', message: 'This will delete your current submission for this event. Do you want to proceed?' };
     }
 
     const file = savePhotoToDrive(photoBlob, eventId, email);
@@ -137,11 +174,11 @@ function submitEvent(formObject, photoBlob) {
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
 
-    return { status: "success", message: "Submission received! You can view it in your 'My History' page." };
+    return { status: 'success', message: 'Submission received! You can view it in your "My History" page.' };
 
   } catch (e) {
-    // Logger.log(e);
-    return { status: "error", message: "An error occurred: " + e.message };
+    Logger.log(e);
+    return { status: 'error', message: `An error occurred: ${e.message}` };
   }
 }
 
@@ -150,13 +187,19 @@ function submitEvent(formObject, photoBlob) {
  */
 function resubmitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
-  const eventCode = formObject.eventCode;
 
   try {
+    // Resolve event code with fallback
+    const eventCodeResolution = _getEventCodeWithFallback(formObject.eventCode, formObject.location);
+    if (eventCodeResolution.status === 'error') {
+      return { status: 'error', message: eventCodeResolution.message };
+    }
+    const eventCode = eventCodeResolution.eventCode;
+
     // Unified validation: code + location + time
     const validation = validateEventSubmission(eventCode, formObject.location, Date.now());
     if (!validation.valid) {
-      return { status: "error", message: validation.message };
+      return { status: 'error', message: validation.message };
     }
 
     const eventId = validation.eventId;
@@ -166,7 +209,7 @@ function resubmitEvent(formObject, photoBlob) {
       try {
         DriveApp.getFileById(oldSubmission.photoId).setTrashed(true);
       } catch (e) {
-        // Logger.log("Could not find old photo to delete: " + oldSubmission.photoId);
+        Logger.log(`Could not find old photo to delete: ${oldSubmission.photoId}`);
       }
       SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending').deleteRow(oldSubmission.row);
     }
@@ -184,11 +227,11 @@ function resubmitEvent(formObject, photoBlob) {
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
 
-    return { status: "success", message: "Your previous submission has been replaced." };
+    return { status: 'success', message: 'Your previous submission has been replaced.' };
 
   } catch (e) {
-    // Logger.log(e);
-    return { status: "error", message: "An error occurred: " + e.message };
+    Logger.log(e);
+    return { status: 'error', message: `An error occurred: ${e.message}` };
   }
 }
 
