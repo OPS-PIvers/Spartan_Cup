@@ -52,17 +52,23 @@ function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.page = page; // Tell the template which page to load
 
+  // Default: empty admin page content (used for non-admin pages)
+  template.adminPageContent = '';
+
   // ADMIN PAGE: Build complete page with components injected in correct location
   if (page === 'admin') {
     const adminPageHtml = include('Page.admin');
     const adminComponents = getAdminComponents();
+    const marker = '<!--ADMIN_COMPONENTS_INJECTION_POINT-->';
+
     // Inject components at marker position (inside the tab container div)
-    template.adminPageContent = adminPageHtml.replace(
-      '<!--ADMIN_COMPONENTS_INJECTION_POINT-->',
-      adminComponents
-    );
-  } else {
-    template.adminPageContent = ''; // Empty for non-admin pages
+    // Validate that marker exists to prevent silent failures
+    if (adminPageHtml.indexOf(marker) === -1) {
+      Logger.log('ERROR: Admin page injection marker not found in Page.admin.html');
+      throw new Error('Admin page structure error: injection marker missing');
+    }
+
+    template.adminPageContent = adminPageHtml.replace(marker, adminComponents);
   }
 
   // Escape all string values for safe JavaScript embedding

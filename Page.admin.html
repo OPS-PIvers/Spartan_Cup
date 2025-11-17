@@ -69,6 +69,22 @@
   <!-- TAB CONTENT CONTAINER -->
   <!-- ===================================================================== -->
   <div class="flex-1 flex flex-col">
+    <!--
+      ADMIN COMPONENTS INJECTION POINT
+
+      This marker comment is replaced server-side by Code.js#doGet() when page === 'admin'.
+      The doGet() function performs the following:
+        1. Includes this file (Page.admin.html) to get navigation structure
+        2. Calls getAdminComponents() to build all tab content HTML
+        3. Replaces this marker with the component HTML
+        4. Passes complete page as template.adminPageContent to Index.html
+
+      This ensures components render INSIDE this container div (correct DOM hierarchy)
+      while avoiding GAS template scriptlet evaluation issues.
+
+      Components injected here: Page.admin.{utils,review,events,season,badges,prizes,points}.html
+      See: Code.js#doGet() (lines ~56-72) and Code.js#getAdminComponents() (lines ~158-168)
+    -->
     <!--ADMIN_COMPONENTS_INJECTION_POINT-->
   </div>
 </div>
