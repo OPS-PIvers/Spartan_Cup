@@ -1,0 +1,1153 @@
+<!-- ===================================================================== -->
+<!-- TAB: BADGE MANAGEMENT -->
+<!-- ===================================================================== -->
+<div id="tab-badges-content" class="flex-1 flex flex-col overflow-y-auto">
+  <!-- Badge Form -->
+  <div class="bg-white dark:bg-gray-800/50 p-4 rounded-xl shadow-sm border-l-4 border-amber-600 mb-4 flex-shrink-0">
+    <h2 class="text-xl font-bold text-amber-600 dark:text-amber-400 mb-3">Add/Edit Badge</h2>
+    <form id="badge-form" class="space-y-3">
+      <!-- Badge Name -->
+      <input id="badge-name" type="text" placeholder="Badge Name (e.g., Basketball Superfan)" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required>
+
+      <!-- Description -->
+      <div>
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Description</label>
+        <textarea id="badge-description" placeholder="Describe what this badge represents..." rows="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" required></textarea>
+      </div>
+
+      <!-- Scope Selection (Radio Buttons) -->
+      <div class="border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-3">Badge Type Scope</label>
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="badge-scope" value="current-season" class="badge-scope-radio">
+            <span class="text-sm text-[#111318] dark:text-white">Current Season Only</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="badge-scope" value="lifetime" class="badge-scope-radio">
+            <span class="text-sm text-[#111318] dark:text-white">Lifetime/Career</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="badge-scope" value="special" class="badge-scope-radio">
+            <span class="text-sm text-[#111318] dark:text-white">Special/Manual</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Trigger Type Selection (Dynamic based on scope) -->
+      <div id="trigger-types-container" class="border border-gray-300 dark:border-gray-600 rounded-lg p-3 hidden">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-3">Select Badge Type</label>
+        <div id="trigger-types-buttons" class="grid grid-cols-2 gap-2">
+          <!-- Buttons populated by JavaScript -->
+        </div>
+        <p id="template-help" class="text-xs text-gray-500 dark:text-gray-400 mt-3 hidden"></p>
+      </div>
+
+      <!-- Hidden field to store selected template (for compatibility with existing code) -->
+      <select id="badge-template" class="hidden">
+        <option value="">Select a Badge Template</option>
+      </select>
+      <select id="badge-category" class="hidden">
+        <option value="">Category (auto-filled)</option>
+      </select>
+
+      <!-- Activity Selection (for activity-specific badges) - Toggle Buttons -->
+      <div id="activity-field" class="hidden">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-2">Select Sport(s)/Activity(ies)</label>
+        <div id="badge-activity-buttons" class="flex flex-wrap gap-2">
+          <p class="text-xs text-gray-500 dark:text-gray-400 w-full">Loading activities...</p>
+        </div>
+      </div>
+
+      <!-- Value Input (dynamic based on template) -->
+      <div id="value-field">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1" id="value-label">Value</label>
+        <input id="badge-value-input" type="number" placeholder="e.g., 5" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="0">
+        <p id="value-help" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></p>
+      </div>
+
+      <!-- Percentage Input (for percentage badges) -->
+      <div id="percentage-field" class="hidden">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white mb-1">Percentage Required (%)</label>
+        <input id="badge-percentage-input" type="number" placeholder="e.g., 25 for 25%" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white" min="1" max="100">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter as whole number (1-100)</p>
+      </div>
+
+      <!-- Preview Badge Criteria -->
+      <div id="badge-preview" class="hidden p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
+        <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">Badge Will Be Awarded When:</p>
+        <p id="preview-text" class="text-sm text-blue-700 dark:text-blue-400"></p>
+      </div>
+
+      <!-- Image Upload -->
+      <div class="space-y-2">
+        <label class="block text-sm font-semibold text-[#111318] dark:text-white">Badge Image</label>
+        <input id="badge-image-input" type="file" accept="image/svg+xml,image/png,image/jpeg" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm">
+        <img id="badge-image-preview" src="" alt="Badge preview" class="hidden w-24 h-24 rounded-lg border border-gray-300 dark:border-gray-600 object-cover">
+        <p id="badge-image-filename" class="hidden text-xs text-gray-600 dark:text-gray-400"></p>
+      </div>
+
+      <!-- Submit/Cancel -->
+      <div class="flex gap-2">
+        <button type="submit" class="flex-1 px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700">
+          Create Badge
+        </button>
+        <button type="button" id="badge-cancel-btn" class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold">
+          Clear
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Badges List -->
+  <div class="flex-shrink-0">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-3">All Badges</h3>
+    <div id="badges-list" class="space-y-3">
+      <div class="text-center py-6 text-gray-500">Loading badges...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // =====================================================================
+  // BADGE MANAGEMENT
+  // =====================================================================
+
+  // Badge form submission
+  let editingBadgeId = null;
+  let badgeImageData = null;
+  let activitiesData = [];
+
+  // Load activities when badge tab is opened
+  function loadActivitiesForBadges() {
+    console.log('[Badge Debug] loadActivitiesForBadges() called');
+
+    apiCall({
+      method: 'getActivitiesForSeason',
+      onSuccess: (response) => {
+        console.log('[Badge Debug] getActivitiesForSeason response:', response);
+        if (response.activities) {
+          console.log(`[Badge Debug] Loaded ${response.activities.length} activities:`, response.activities);
+          activitiesData = response.activities;
+          populateBadgeActivityDropdown();
+        }
+      },
+      onError: (errorMsg) => {
+        console.error('[Badge Debug] Failed to load activities:', errorMsg);
+      },
+      showErrorToast: true
+    });
+  }
+
+  function populateBadgeActivityDropdown() {
+    console.log('[Badge Debug] populateBadgeActivityDropdown() called with activities:', activitiesData);
+    const buttonsContainer = document.getElementById('badge-activity-buttons');
+    if (!buttonsContainer) {
+      console.error('[Badge Debug] Could not find badge-activity-buttons container!');
+      return;
+    }
+
+    // Clear existing buttons
+    buttonsContainer.innerHTML = '';
+
+    // Create toggle button for each activity
+    activitiesData.forEach(activity => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'px-3 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm font-medium hover:border-blue-400 dark:hover:border-blue-400 transition-all';
+      button.textContent = `${activity.activityName}`;
+      button.dataset.activityCode = activity.activityCode;
+      button.dataset.selected = 'false';
+
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Toggle selection
+        const isSelected = button.dataset.selected === 'true';
+        button.dataset.selected = isSelected ? 'false' : 'true';
+
+        // Update button styling
+        if (button.dataset.selected === 'true') {
+          button.classList.add('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+        } else {
+          button.classList.remove('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+        }
+
+        // Update preview
+        updateBadgePreview();
+      });
+
+      buttonsContainer.appendChild(button);
+    });
+    console.log(`[Badge Debug] Activity toggle buttons created for ${activitiesData.length} activities`);
+  }
+
+  // Scope-based template grouping for UI organization
+  const badgeTemplatesByScope = {
+    'current-season': [
+      'season_points',
+      'activity_pct_season',
+      'activity_count_season'
+    ],
+    'lifetime': [
+      'event_count',
+      'activity_pct_lifetime',
+      'activity_count_lifetime',
+      'distinct_sports',
+      'weekly_streak',
+      'alltime_placement',
+      'career_events',
+      'career_seasons',
+      'career_badges'
+    ],
+    'special': [
+      'season_placement',
+      'weekday_coverage',
+      'specific_activities',
+      'manual'
+    ]
+  };
+
+  // User-friendly labels for trigger types
+  const triggerTypeLabels = {
+    'season_points': 'Season Points',
+    'activity_pct_season': 'Activity %',
+    'activity_count_season': 'Activity Count',
+    'home_game_pct': 'Home Games %',
+    'event_count': 'Total Events',
+    'activity_pct_lifetime': 'Activity % (Lifetime)',
+    'activity_count_lifetime': 'Activity Count (Lifetime)',
+    'distinct_sports': 'Different Sports',
+    'weekly_streak': 'Events in 7 Days',
+    'alltime_placement': 'All-Time Rank',
+    'career_events': 'Career Events',
+    'career_seasons': 'Career Seasons',
+    'career_badges': 'Total Badges',
+    'season_placement': 'Season Placement',
+    'weekday_coverage': 'Weekday Coverage',
+    'specific_activities': 'Specific Activities',
+    'manual': 'Manual Award'
+  };
+
+  // Template configuration
+  const badgeTemplates = {
+    event_count: {
+      category: 'Participation',
+      triggerType: 'event_count',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Number of Events',
+      valueHelp: 'How many events must be attended?',
+      valuePlaceholder: 'e.g., 5',
+      help: 'Awarded when student attends X total events',
+      previewFn: (val) => `Student attends ${val} or more events`
+    },
+    season_points: {
+      category: 'Points',
+      triggerType: 'Points_Season',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Points Required',
+      valueHelp: 'How many season points are needed?',
+      valuePlaceholder: 'e.g., 100',
+      help: 'Awarded when student earns X points in current season',
+      previewFn: (val) => `Student earns ${val} or more points this season`
+    },
+    activity_count_lifetime: {
+      category: 'Career',
+      triggerType: 'Activity_Event_Count_Lifetime',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: true,
+      valueLabel: 'Number of Events',
+      valueHelp: 'How many events of this activity (all-time)?',
+      valuePlaceholder: 'e.g., 5',
+      help: 'Awarded when student attends X events of a specific sport/activity ACROSS ALL SEASONS (lifetime). For season-specific, use Activity Count (Season).',
+      previewFn: (val, activityCodes) => {
+        const codes = activityCodes ? activityCodes.split(',') : [];
+        const names = codes.map(code => {
+          const activity = activitiesData.find(a => a.activityCode === code);
+          return activity ? activity.activityName : code;
+        }).join(', ');
+        return `Student attends ${val} or more events from ${names} (lifetime)`;
+      }
+    },
+    distinct_sports: {
+      category: 'Participation',
+      triggerType: 'Distinct_Sports',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Number of Different Sports',
+      valueHelp: 'How many different sports/activities?',
+      valuePlaceholder: 'e.g., 3',
+      help: 'Awarded when student attends events from X different sports/activities',
+      previewFn: (val) => `Student attends events from ${val} or more different sports/activities`
+    },
+    weekly_streak: {
+      category: 'Participation',
+      triggerType: 'Events_In_7_Days',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Events in 7 Days',
+      valueHelp: 'How many events within a 7-day period?',
+      valuePlaceholder: 'e.g., 3',
+      help: 'Awarded when student attends X events within any 7-day period',
+      previewFn: (val) => `Student attends ${val} or more events within a 7-day period`
+    },
+    home_game_pct: {
+      category: 'Participation',
+      triggerType: 'Home_Game_Pct',
+      needsValue: false,
+      needsPercentage: true,
+      needsActivity: false,
+      help: 'Awarded when student attends X% of all home games (across all sports)',
+      previewFn: (pct) => `Student attends ${pct}% or more of all home games`
+    },
+    activity_pct_season: {
+      category: 'Participation',
+      triggerType: 'Activity_Pct_Season',
+      needsValue: false,
+      needsPercentage: true,
+      needsActivity: true,
+      help: 'Awarded when student attends X% of a specific sport games IN CURRENT SEASON ONLY',
+      previewFn: (pct, activityCodes) => {
+        const codes = activityCodes ? activityCodes.split(',') : [];
+        const names = codes.map(code => {
+          const activity = activitiesData.find(a => a.activityCode === code);
+          return activity ? activity.activityName : code;
+        }).join(', ');
+        return `Student attends ${pct}% or more of ${names} games THIS SEASON`;
+      }
+    },
+    activity_pct_lifetime: {
+      category: 'Career',
+      triggerType: 'Activity_Pct_Lifetime',
+      needsValue: false,
+      needsPercentage: true,
+      needsActivity: true,
+      help: 'Awarded when student attends X% of a specific sport games ACROSS ALL SEASONS (LIFETIME)',
+      previewFn: (pct, activityCodes) => {
+        const codes = activityCodes ? activityCodes.split(',') : [];
+        const names = codes.map(code => {
+          const activity = activitiesData.find(a => a.activityCode === code);
+          return activity ? activity.activityName : code;
+        }).join(', ');
+        return `Student attends ${pct}% or more of ${names} games (lifetime)`;
+      }
+    },
+    activity_count_season: {
+      category: 'Participation',
+      triggerType: 'Activity_Event_Count_Season',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: true,
+      valueLabel: 'Number of Events',
+      valueHelp: 'How many events of this activity in current season?',
+      valuePlaceholder: 'e.g., 3',
+      help: 'Awarded when student attends X events of a specific sport IN CURRENT SEASON ONLY',
+      previewFn: (val, activityCodes) => {
+        const codes = activityCodes ? activityCodes.split(',') : [];
+        const names = codes.map(code => {
+          const activity = activitiesData.find(a => a.activityCode === code);
+          return activity ? activity.activityName : code;
+        }).join(', ');
+        return `Student attends ${val} or more events from ${names} THIS SEASON`;
+      }
+    },
+    season_placement: {
+      category: 'Achievement',
+      triggerType: 'Season_Placement',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Placement (1=First, 2=Second, 3=Third)',
+      valueHelp: 'Which place? (1, 2, or 3)',
+      valuePlaceholder: 'e.g., 1',
+      help: 'Awarded at SEASON END to student who finishes in this placement. Use Admin menu to process season-end badges.',
+      previewFn: (val) => {
+        const place = val === 1 ? '1st' : (val === 2 ? '2nd' : (val === 3 ? '3rd' : val + 'th'));
+        return `Student finishes in ${place} place at end of season`;
+      }
+    },
+    alltime_placement: {
+      category: 'Career',
+      triggerType: 'AllTime_Placement_Reached',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'All-Time Rank Threshold',
+      valueHelp: 'Rank to reach (e.g., 10 for "Top 10")',
+      valuePlaceholder: 'e.g., 10',
+      help: 'Awarded when student reaches this rank on all-time leaderboard (awarded once, not removed if rank drops)',
+      previewFn: (val) => `Student reaches Top ${val} on all-time leaderboard`
+    },
+    career_events: {
+      category: 'Career',
+      triggerType: 'Career_Events_Attended',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Total Events (Lifetime)',
+      valueHelp: 'How many total events attended?',
+      valuePlaceholder: 'e.g., 50',
+      help: 'Awarded when student attends X total events ACROSS ALL SEASONS (LIFETIME)',
+      previewFn: (val) => `Student attends ${val} or more total events (lifetime)`
+    },
+    career_seasons: {
+      category: 'Career',
+      triggerType: 'Career_Seasons_Participated',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Number of Seasons',
+      valueHelp: 'How many different seasons participated?',
+      valuePlaceholder: 'e.g., 3',
+      help: 'Awarded when student has attended events in X different seasons',
+      previewFn: (val) => `Student participates in ${val} or more different seasons`
+    },
+    career_badges: {
+      category: 'Career',
+      triggerType: 'Career_Badges_Earned',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Number of Badges',
+      valueHelp: 'How many total badges collected?',
+      valuePlaceholder: 'e.g., 10',
+      help: 'Awarded when student has earned X total badges (badge collector achievement)',
+      previewFn: (val) => `Student earns ${val} or more total badges`
+    },
+    weekday_coverage: {
+      category: 'Participation',
+      triggerType: 'Weekday_Coverage',
+      needsValue: true,
+      needsPercentage: false,
+      needsActivity: false,
+      valueLabel: 'Number of Weekdays',
+      valueHelp: 'Always use 5 for all weekdays (M-F)',
+      valuePlaceholder: '5',
+      help: 'Awarded when student attends events on all 5 weekdays (Monday through Friday)',
+      previewFn: (val) => `Student attends events on ${val} different weekdays (M-F)`
+    },
+    specific_activities: {
+      category: 'Variety',
+      triggerType: 'Specific_Activities',
+      needsValue: false,
+      needsPercentage: false,
+      needsActivity: true,
+      help: 'Awarded when student attends ALL specified activities. Select at least one activity.',
+      previewFn: (val, activityCodes) => {
+        const codes = activityCodes ? activityCodes.split(',') : [];
+        const names = codes.map(code => {
+          const activity = activitiesData.find(a => a.activityCode === code);
+          return activity ? activity.activityName : code;
+        }).join(', ');
+        return `Student attends events from all of these: ${names}`;
+      }
+    },
+    manual: {
+      category: 'Special',
+      triggerType: 'manual',
+      needsValue: false,
+      needsPercentage: false,
+      needsActivity: false,
+      help: 'Manually awarded by admins. No automatic trigger.',
+      previewFn: () => 'Badge must be manually awarded by an admin'
+    }
+  };
+
+  // Populate hidden badge-template select with all template options
+  // This is required for the hidden select to accept all template values
+  function populateHiddenTemplateSelect() {
+    const select = document.getElementById('badge-template');
+    console.log('[Badge Debug] Populating hidden badge-template select with all templates');
+
+    Object.keys(badgeTemplates).forEach(templateId => {
+      const option = document.createElement('option');
+      option.value = templateId;
+      option.textContent = templateId;
+      select.appendChild(option);
+    });
+
+    console.log(`[Badge Debug] Hidden badge-template select populated with ${Object.keys(badgeTemplates).length} options`);
+  }
+
+  // Call on initialization
+  populateHiddenTemplateSelect();
+
+  // Scope selection handler - populates trigger type buttons
+  document.querySelectorAll('.badge-scope-radio').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const scope = e.target.value;
+      const container = document.getElementById('trigger-types-container');
+      const buttonsDiv = document.getElementById('trigger-types-buttons');
+
+      // Clear previous buttons
+      buttonsDiv.innerHTML = '';
+
+      // Get templates for this scope
+      const templateIds = badgeTemplatesByScope[scope] || [];
+
+      // Create buttons for each template
+      templateIds.forEach(templateId => {
+        console.log('[Badge Debug] Creating button for template:', templateId);
+        const config = badgeTemplates[templateId];
+        if (!config) {
+          console.warn('[Badge Debug] Config not found for template:', templateId);
+          return;
+        }
+        const label = triggerTypeLabels[templateId] || config.help;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-[#111318] dark:text-white text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors';
+        button.textContent = label;
+        button.title = config.help; // Show full help text on hover
+        button.dataset.templateId = templateId;
+        console.log('[Badge Debug] Button dataset.templateId set to:', button.dataset.templateId);
+
+        button.addEventListener('click', (evt) => {
+          evt.preventDefault();
+          console.log('[Badge Debug] Button clicked, templateId from closure:', templateId);
+          selectBadgeTemplate(templateId);
+        });
+
+        buttonsDiv.appendChild(button);
+      });
+
+      // Show trigger types container
+      container.classList.remove('hidden');
+      document.getElementById('badge-template').value = '';
+      document.getElementById('badge-category').value = '';
+    });
+  });
+
+  // Helper function to select a badge template
+  function selectBadgeTemplate(templateId) {
+    console.log('[Badge Debug] selectBadgeTemplate() called with templateId:', templateId, 'type:', typeof templateId);
+    const hidden_select = document.getElementById('badge-template');
+    if (!hidden_select) {
+      console.error('[Badge Debug] Could not find badge-template select element!');
+      return;
+    }
+    console.log('[Badge Debug] Setting badge-template value to:', templateId);
+    hidden_select.value = templateId;
+    console.log('[Badge Debug] badge-template.value is now:', hidden_select.value);
+    hidden_select.dispatchEvent(new Event('change'));
+
+    // Highlight selected button
+    document.querySelectorAll('#trigger-types-buttons button').forEach(btn => {
+      if (btn.dataset.templateId === templateId) {
+        btn.classList.add('ring-2', 'ring-amber-600', 'bg-amber-50', 'dark:bg-amber-900/20');
+      } else {
+        btn.classList.remove('ring-2', 'ring-amber-600', 'bg-amber-50', 'dark:bg-amber-900/20');
+      }
+    });
+  }
+
+  // Template change handler
+  document.getElementById('badge-template').addEventListener('change', (e) => {
+    const template = e.target.value;
+    console.log('[Badge Debug] Template changed to:', template);
+
+    if (!template) {
+      console.log('[Badge Debug] Template cleared, hiding all fields');
+      // Hide all dynamic fields
+      document.getElementById('activity-field').classList.add('hidden');
+      document.getElementById('value-field').classList.add('hidden');
+      document.getElementById('percentage-field').classList.add('hidden');
+      document.getElementById('badge-preview').classList.add('hidden');
+      document.getElementById('template-help').classList.add('hidden');
+      return;
+    }
+
+    const config = badgeTemplates[template];
+    if (!config) {
+      console.error('[Badge Debug] Template config not found for:', template);
+      return;
+    }
+    console.log('[Badge Debug] Template config:', config);
+
+    // Show help text
+    document.getElementById('template-help').textContent = config.help;
+    document.getElementById('template-help').classList.remove('hidden');
+
+    // Auto-fill category
+    document.getElementById('badge-category').value = config.category;
+
+    // Show/hide fields based on template
+    if (config.needsActivity) {
+      console.log('[Badge Debug] Showing activity field for template:', template);
+      document.getElementById('activity-field').classList.remove('hidden');
+    } else {
+      console.log('[Badge Debug] Hiding activity field for template:', template);
+      document.getElementById('activity-field').classList.add('hidden');
+    }
+
+    if (config.needsValue) {
+      document.getElementById('value-field').classList.remove('hidden');
+      document.getElementById('value-label').textContent = config.valueLabel;
+      document.getElementById('value-help').textContent = config.valueHelp;
+      document.getElementById('badge-value-input').placeholder = config.valuePlaceholder;
+      document.getElementById('badge-value-input').required = true;
+    } else {
+      document.getElementById('value-field').classList.add('hidden');
+      document.getElementById('badge-value-input').required = false;
+    }
+
+    if (config.needsPercentage) {
+      document.getElementById('percentage-field').classList.remove('hidden');
+      document.getElementById('badge-percentage-input').required = true;
+    } else {
+      document.getElementById('percentage-field').classList.add('hidden');
+      document.getElementById('badge-percentage-input').required = false;
+    }
+
+    updateBadgePreview();
+  });
+
+  // Update preview when inputs change
+  // (Note: toggle button clicks already call updateBadgePreview)
+  document.getElementById('badge-value-input').addEventListener('input', updateBadgePreview);
+  document.getElementById('badge-percentage-input').addEventListener('input', updateBadgePreview);
+
+  function updateBadgePreview() {
+    const template = document.getElementById('badge-template').value;
+    if (!template) return;
+
+    const config = badgeTemplates[template];
+    const value = parseInt(document.getElementById('badge-value-input').value);
+    const percentage = parseInt(document.getElementById('badge-percentage-input').value);
+
+    // Get all selected activity codes from toggle buttons
+    const activityCodes = getSelectedActivityCodes();
+
+    let previewText = '';
+
+    if (config.needsPercentage && !isNaN(percentage)) {
+      previewText = config.previewFn(percentage, activityCodes);
+    } else if (config.needsValue && !isNaN(value)) {
+      previewText = config.previewFn(value, activityCodes);
+    } else if (!config.needsValue && !config.needsPercentage) {
+      previewText = config.previewFn();
+    }
+
+    if (previewText) {
+      document.getElementById('preview-text').textContent = previewText;
+      document.getElementById('badge-preview').classList.remove('hidden');
+    } else {
+      document.getElementById('badge-preview').classList.add('hidden');
+    }
+  }
+
+  let isSubmittingBadge = false;
+
+  document.getElementById('badge-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Prevent multiple concurrent submissions
+    if (isSubmittingBadge) {
+      alert('Please wait while the badge is being saved...');
+      return;
+    }
+
+    isSubmittingBadge = true;
+    try {
+      await saveBadge();
+    } catch (error) {
+      console.error('Badge submission error:', error);
+      alert('An unexpected error occurred: ' + (error.message || error.toString()));
+      document.getElementById('loading-modal').classList.add('hidden');
+    } finally {
+      isSubmittingBadge = false;
+    }
+  });
+
+  document.getElementById('badge-cancel-btn').addEventListener('click', () => {
+    clearBadgeForm();
+  });
+
+  document.getElementById('badge-image-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.match('image/(png|svg\\+xml|jpeg)')) {
+      alert('Please select a PNG, SVG, or JPG image');
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be smaller than 2MB');
+      e.target.value = '';
+      return;
+    }
+
+    // Read file as base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      badgeImageData = {
+        base64: event.target.result,
+        mimeType: file.type
+      };
+      document.getElementById('badge-image-preview').src = event.target.result;
+      document.getElementById('badge-image-preview').classList.remove('hidden');
+      document.getElementById('badge-image-filename').textContent = file.name;
+      document.getElementById('badge-image-filename').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function loadBadgesList() {
+    const listContainer = document.getElementById('badges-list');
+    showLoadingSpinner(listContainer, 'Loading badges...');
+
+    apiCall({
+      method: 'getAllBadgesForAdmin',
+      onSuccess: (response) => {
+        populateBadgesList(response.badges);
+      },
+      onError: (errorMsg) => {
+        showError(listContainer, 'Error loading badges: ' + errorMsg);
+      },
+      showErrorToast: true
+    });
+  }
+
+  function populateBadgesList(badges) {
+    const list = document.getElementById('badges-list');
+    list.innerHTML = '';
+
+    if (badges.length === 0) {
+      list.innerHTML = '<p class="text-gray-500 text-center py-6">No badges yet. Create one to get started.</p>';
+      return;
+    }
+
+    badges.forEach((badge) => {
+      const card = document.createElement('div');
+      card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 sm:gap-3';
+
+      // Badge image - using DOM APIs to prevent XSS via attribute injection
+      const imgDiv = document.createElement('div');
+      imgDiv.className = 'w-16 h-16 flex-shrink-0 mx-auto sm:mx-0';
+
+      const img = document.createElement('img');
+      img.src = badge.imageUrl || 'https://the-spartan-cup.web.app/badges/default-badge.svg';
+      img.alt = badge.badgeName;
+      img.className = 'w-full h-full object-cover rounded-lg';
+      img.onerror = function() { this.src = 'https://the-spartan-cup.web.app/badges/default-badge.svg'; };
+      imgDiv.appendChild(img);
+
+      // Badge details
+      const detailsDiv = document.createElement('div');
+      detailsDiv.className = 'flex-1 sm:flex-1';
+
+      // Format trigger display
+      let triggerDisplay = '';
+      if (badge.triggerType === 'Activity_Pct_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, pct] = badge.triggerValue.split(':');
+        triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCodeStr} games (lifetime)`;
+      } else if (badge.triggerType === 'Activity_Pct_Season' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, pct] = badge.triggerValue.split(':');
+        triggerDisplay = `${Math.round(parseFloat(pct) * 100)}% of ${activityCodeStr} games (this season)`;
+      } else if (badge.triggerType === 'Activity_Event_Count_Lifetime' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, count] = badge.triggerValue.split(':');
+        triggerDisplay = `${count} events from ${activityCodeStr} (lifetime)`;
+      } else if (badge.triggerType === 'Activity_Event_Count_Season' && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, count] = badge.triggerValue.split(':');
+        triggerDisplay = `${count} events from ${activityCodeStr} (this season)`;
+      } else if (badge.triggerType === 'Home_Game_Pct') {
+        triggerDisplay = `${Math.round(badge.triggerValue * 100)}% of home games`;
+      } else if (badge.triggerType === 'Weekday_Coverage') {
+        triggerDisplay = `All ${badge.triggerValue} weekdays (M-F)`;
+      } else if (badge.triggerType === 'Specific_Activities') {
+        const activities = typeof badge.triggerValue === 'string' ? badge.triggerValue.split(',').join(', ') : badge.triggerValue;
+        triggerDisplay = `Activities: ${activities}`;
+      } else {
+        triggerDisplay = `${badge.triggerType}: ${badge.triggerValue}`;
+      }
+
+      detailsDiv.innerHTML = `
+        <p class="font-bold text-[#111318] dark:text-white">${badge.badgeName}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400">ID: ${badge.badgeId}</p>
+        <p class="text-xs text-gray-600 dark:text-gray-400">${badge.category} • ${triggerDisplay}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">${badge.description}</p>
+      `;
+
+      // Action buttons
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'flex gap-2 sm:flex-col sm:gap-2 justify-center sm:justify-start';
+
+      const editButton = document.createElement('button');
+      editButton.className = 'px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex-1 sm:flex-none';
+      editButton.textContent = 'Edit';
+      editButton.addEventListener('click', () => editBadge(badge));
+
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 flex-1 sm:flex-none';
+      deleteButton.textContent = 'Delete';
+      deleteButton.addEventListener('click', () => deleteBadgeConfirm(badge.badgeId, badge.badgeName));
+
+      actionsDiv.appendChild(editButton);
+      actionsDiv.appendChild(deleteButton);
+
+      card.appendChild(imgDiv);
+      card.appendChild(detailsDiv);
+      card.appendChild(actionsDiv);
+      list.appendChild(card);
+    });
+  }
+
+  // Helper function to get selected activity codes from toggle buttons
+  function getSelectedActivityCodes() {
+    const buttonsContainer = document.getElementById('badge-activity-buttons');
+    const buttons = Array.from(buttonsContainer.querySelectorAll('button[data-activity-code]'));
+    return buttons
+      .filter(btn => btn.dataset.selected === 'true')
+      .map(btn => btn.dataset.activityCode)
+      .join(',');
+  }
+
+  // Helper function to set selected activity codes on toggle buttons
+  function setSelectedActivityCodes(activityCodesStr) {
+    const activityCodes = activityCodesStr ? activityCodesStr.split(',') : [];
+    const buttonsContainer = document.getElementById('badge-activity-buttons');
+    const buttons = Array.from(buttonsContainer.querySelectorAll('button[data-activity-code]'));
+
+    buttons.forEach(btn => {
+      const isSelected = activityCodes.includes(btn.dataset.activityCode);
+      btn.dataset.selected = isSelected ? 'true' : 'false';
+
+      // Update button styling
+      if (isSelected) {
+        btn.classList.add('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+      } else {
+        btn.classList.remove('border-blue-500', 'dark:border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20', 'ring-2', 'ring-blue-300', 'dark:ring-blue-600');
+      }
+    });
+  }
+
+  // Helper function to show error and hide loading modal
+  function showBadgeError(message) {
+    document.getElementById('loading-modal').classList.add('hidden');
+    alert(message);
+  }
+
+  async function saveBadge() {
+    document.getElementById('loading-modal').classList.remove('hidden');
+
+    const template = document.getElementById('badge-template').value;
+    const badgeName = document.getElementById('badge-name').value.trim();
+    const description = document.getElementById('badge-description').value.trim();
+
+    if (!template || !badgeName || !description) {
+      showBadgeError('Please fill in all required fields');
+      return;
+    }
+
+    const config = badgeTemplates[template];
+    const category = config.category;
+
+    // Build trigger type and value based on template
+    let triggerType = config.triggerType;
+    let triggerValue;
+
+    if (config.needsPercentage) {
+      const percentageInputValue = document.getElementById('badge-percentage-input').value.trim();
+      if (!percentageInputValue) {
+        showBadgeError('Please enter a percentage value for this badge type');
+        return;
+      }
+      const percentage = parseInt(percentageInputValue);
+      if (isNaN(percentage) || percentage < 1 || percentage > 100) {
+        showBadgeError('Please enter a valid percentage (1-100)');
+        return;
+      }
+
+      if (config.needsActivity) {
+        // Activity percentage badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:0.XX"
+        const activityCodes = getSelectedActivityCodes();
+        if (!activityCodes) {
+          showBadgeError('Please select at least one sport/activity');
+          return;
+        }
+        triggerValue = `${activityCodes}:${(percentage / 100).toFixed(2)}`;
+      } else {
+        // Home game percentage - store as decimal (0-1)
+        triggerValue = percentage / 100;
+      }
+    } else if (config.needsValue) {
+      const valueInputValue = document.getElementById('badge-value-input').value.trim();
+      if (!valueInputValue) {
+        showBadgeError('Please enter a value for this badge type');
+        return;
+      }
+
+      // Regular numeric value
+      const value = parseInt(valueInputValue);
+      if (isNaN(value) || value < 1) {
+        showBadgeError('Please enter a valid number (must be at least 1)');
+        return;
+      }
+
+      if (config.needsActivity) {
+        // Activity count badge - format: "ACTIVITY_CODE1,ACTIVITY_CODE2,...:COUNT"
+        const activityCodes = getSelectedActivityCodes();
+        if (!activityCodes) {
+          showBadgeError('Please select at least one sport/activity');
+          return;
+        }
+        triggerValue = `${activityCodes}:${value}`;
+      } else {
+        // Regular numeric value
+        triggerValue = value;
+      }
+    } else if (config.needsActivity && triggerType === 'Specific_Activities') {
+      // Specific activities badge - activity codes only, no value/percentage
+      const activityCodes = getSelectedActivityCodes();
+      if (!activityCodes) {
+        showBadgeError('Please select at least one sport/activity');
+        return;
+      }
+      triggerValue = activityCodes;
+    } else {
+      // Manual award - no trigger value
+      triggerValue = 0;
+    }
+
+    let firebaseImageUrl = null;
+
+    // Upload image to Firebase Storage if provided
+    if (badgeImageData) {
+      try {
+        firebaseImageUrl = await uploadToFirebaseStorage(badgeName, badgeImageData);
+      } catch (error) {
+        showBadgeError('Error uploading image to Firebase Storage: ' + (error.message || error.toString()));
+        return;
+      }
+    }
+
+    const badgeData = {
+      badgeName: badgeName,
+      category: category,
+      triggerType: triggerType,
+      triggerValue: triggerValue,
+      description: description
+    };
+
+    // Only include image data if a new image was provided
+    if (badgeImageData) {
+      badgeData.imageBase64 = badgeImageData.base64;
+      badgeData.imageMimeType = badgeImageData.mimeType;
+      if (firebaseImageUrl) {
+        badgeData.imageUrl = firebaseImageUrl; // Use Firebase Storage URL for new image
+      }
+    }
+
+    // Wrap server call in Promise to make it awaitable
+    return new Promise((resolve, reject) => {
+      const operation = editingBadgeId ? 'update' : 'create';
+      console.log('[saveBadge] Starting ' + operation + ' operation with badgeData:', badgeData);
+
+      const successHandler = (response) => {
+        console.log('[saveBadge] Server response:', response);
+        document.getElementById('loading-modal').classList.add('hidden');
+        if (response && response.status === 'success') {
+          alert('✅ Badge saved successfully!' + (operation === 'update' ? '\\n(Update)' : '\\n(New Badge)'));
+          clearBadgeForm();
+          loadBadgesList();
+          resolve(response);
+        } else {
+          const errorMsg = response && response.message ? response.message : 'Unknown server error. Check browser console and Apps Script logs.';
+          console.error('[saveBadge] Server returned error:', errorMsg);
+          alert('❌ Failed to save badge:\\n\\n' + errorMsg);
+          reject(new Error(errorMsg));
+        }
+      };
+
+      const failureHandler = (error) => {
+        console.error('[saveBadge] Server communication failed:', error);
+        document.getElementById('loading-modal').classList.add('hidden');
+        alert('❌ Error communicating with server:\\n\\n' + error + '\\n\\nCheck the Apps Script logs for details.');
+        reject(new Error('Server communication error: ' + error));
+      };
+
+      try {
+        console.log('[saveBadge] Calling ' + operation + 'Badge()');
+        if (editingBadgeId) {
+          google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateBadge(editingBadgeId, badgeData);
+        } else {
+          google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).createBadge(badgeData);
+        }
+      } catch (error) {
+        console.error('[saveBadge] Client-side exception:', error);
+        document.getElementById('loading-modal').classList.add('hidden');
+        reject(error);
+      }
+    });
+  }
+
+  // Upload image directly to Firebase Storage
+  async function uploadToFirebaseStorage(badgeName, imageData) {
+    // Convert badge name to snake_case for filename
+    const snakeCaseName = badgeName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '_');
+
+    // Determine file extension from MIME type
+    const extension = imageData.mimeType === 'image/svg+xml' ? '.svg' :
+                     imageData.mimeType === 'image/png' ? '.png' : '.jpg';
+    const filename = snakeCaseName + extension;
+
+    // Get Firebase Storage reference
+    const storage = firebase.storage();
+    const storageRef = storage.ref();
+    const badgeRef = storageRef.child('badges/' + filename);
+
+    // Convert base64 to blob
+    const base64Data = imageData.base64.replace(/^data:image\/[a-z+]+;base64,/, '');
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: imageData.mimeType });
+
+    // Upload to Firebase Storage
+    const snapshot = await badgeRef.put(blob, {
+      contentType: imageData.mimeType,
+      cacheControl: 'public, max-age=31536000' // Cache for 1 year
+    });
+
+    // Get public download URL
+    const downloadURL = await snapshot.ref.getDownloadURL();
+    return downloadURL;
+  }
+
+  function clearBadgeForm() {
+    document.getElementById('badge-form').reset();
+    editingBadgeId = null;
+    badgeImageData = null;
+    document.getElementById('badge-image-preview').classList.add('hidden');
+    document.getElementById('badge-image-filename').classList.add('hidden');
+    document.querySelector('#badge-form button[type="submit"]').textContent = 'Create Badge';
+
+    // Reset scope selection
+    document.querySelectorAll('.badge-scope-radio').forEach(radio => radio.checked = false);
+    document.getElementById('trigger-types-container').classList.add('hidden');
+    document.getElementById('trigger-types-buttons').innerHTML = '';
+
+    // Hide dynamic fields and clear required attributes
+    document.getElementById('activity-field').classList.add('hidden');
+    document.getElementById('value-field').classList.add('hidden');
+    document.getElementById('badge-value-input').required = false;
+    document.getElementById('percentage-field').classList.add('hidden');
+    document.getElementById('badge-percentage-input').required = false;
+    document.getElementById('badge-preview').classList.add('hidden');
+    document.getElementById('template-help').classList.add('hidden');
+  }
+
+  // Reverse lookup: triggerType -> template name
+  // Built dynamically from badgeTemplates to ensure consistency
+  const triggerTypeToTemplate = {};
+  Object.keys(badgeTemplates).forEach(templateName => {
+    const triggerType = badgeTemplates[templateName].triggerType;
+    triggerTypeToTemplate[triggerType] = templateName;
+  });
+  // Add legacy mappings
+  triggerTypeToTemplate['points_threshold'] = 'season_points';
+  triggerTypeToTemplate['season_points'] = 'season_points';
+
+  function editBadge(badge) {
+    document.getElementById('badge-name').value = badge.badgeName;
+    document.getElementById('badge-description').value = badge.description;
+
+    // Reverse lookup: find template from trigger type
+    const template = triggerTypeToTemplate[badge.triggerType] || 'manual';
+
+    if (!triggerTypeToTemplate[badge.triggerType]) {
+      alert('Warning: This badge uses an unsupported trigger type. You may not be able to edit it correctly.');
+    }
+
+    // Find which scope this template belongs to
+    let scope = 'special'; // default
+    for (const [scopeName, templateIds] of Object.entries(badgeTemplatesByScope)) {
+      if (templateIds.includes(template)) {
+        scope = scopeName;
+        break;
+      }
+    }
+
+    // Select the scope and trigger its change handler
+    document.querySelector(`input[name="badge-scope"][value="${scope}"]`).checked = true;
+    document.querySelector(`input[name="badge-scope"][value="${scope}"]`).dispatchEvent(new Event('change'));
+
+    // Wait a bit for scope change to populate buttons, then select template
+    setTimeout(() => {
+      selectBadgeTemplate(template);
+
+      // Populate form fields based on trigger type
+      if ((badge.triggerType === 'Activity_Pct_Lifetime' || badge.triggerType === 'Activity_Pct_Season') && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, pct] = badge.triggerValue.split(':');
+        setSelectedActivityCodes(activityCodeStr);
+        document.getElementById('badge-percentage-input').value = Math.round(parseFloat(pct) * 100);
+      } else if ((badge.triggerType === 'Activity_Event_Count_Lifetime' || badge.triggerType === 'Activity_Event_Count_Season') && typeof badge.triggerValue === 'string' && badge.triggerValue.includes(':')) {
+        const [activityCodeStr, count] = badge.triggerValue.split(':');
+        setSelectedActivityCodes(activityCodeStr);
+        document.getElementById('badge-value-input').value = count;
+      } else if (badge.triggerType === 'Specific_Activities' && typeof badge.triggerValue === 'string') {
+        // Comma-separated activity codes
+        document.getElementById('badge-value-input').value = badge.triggerValue;
+      } else if (badge.triggerType === 'Home_Game_Pct') {
+        document.getElementById('badge-percentage-input').value = Math.round(badge.triggerValue * 100);
+      } else if (typeof badge.triggerValue === 'number' && badge.triggerValue > 0) {
+        // Numeric trigger value (event_count, Points_Season, Distinct_Sports, etc.)
+        document.getElementById('badge-value-input').value = badge.triggerValue;
+      }
+    }, 0);
+
+    if (badge.imageUrl) {
+      document.getElementById('badge-image-preview').src = badge.imageUrl;
+      document.getElementById('badge-image-preview').classList.remove('hidden');
+    }
+
+    document.querySelector('#badge-form button[type="submit"]').textContent = 'Update Badge';
+    editingBadgeId = badge.badgeId;
+
+    // Scroll to form
+    document.getElementById('badge-form').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function deleteBadgeConfirm(badgeId, badgeName) {
+    if (confirm(`Delete badge "${badgeName}" (${badgeId})?\\n\\nWarning: This may affect students who have earned this badge.`)) {
+      document.getElementById('loading-modal').classList.remove('hidden');
+      google.script.run.withSuccessHandler((response) => {
+        document.getElementById('loading-modal').classList.add('hidden');
+        if (response.status === 'success') {
+          alert(response.message);
+          loadBadgesList();
+        } else {
+          alert('Error: ' + response.message);
+        }
+      }).withFailureHandler((error) => {
+        document.getElementById('loading-modal').classList.add('hidden');
+        alert('Error: ' + error);
+      }).deleteBadge(badgeId);
+    }
+  }
+
+  // Initialize on load
+  loadBadgesList();
+  loadActivitiesForBadges();
+})();
+</script>

@@ -131,3 +131,42 @@ function doGet(e) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
+/**
+ * Dynamically loads admin tab HTML content for Phase 3 optimization.
+ * Returns the HTML content for a specific admin dashboard tab on-demand,
+ * reducing initial page load size by ~70%.
+ *
+ * @param {string} tabName - The tab name to load ('events', 'season', 'badges', 'prizes', 'points')
+ * @return {Object} Response object with status and HTML content
+ */
+function getAdminTabHTML(tabName) {
+  const tabFiles = {
+    'events': 'Page.admin.events',
+    'season': 'Page.admin.season',
+    'badges': 'Page.admin.badges',
+    'prizes': 'Page.admin.prizes',
+    'points': 'Page.admin.points'
+  };
+
+  if (!tabFiles[tabName]) {
+    return {
+      status: 'error',
+      message: 'Invalid tab name: ' + tabName
+    };
+  }
+
+  try {
+    const html = include(tabFiles[tabName]);
+    return {
+      status: 'success',
+      html: html
+    };
+  } catch (error) {
+    Logger.log('Error loading admin tab ' + tabName + ': ' + error);
+    return {
+      status: 'error',
+      message: 'Failed to load tab content: ' + error.message
+    };
+  }
+}

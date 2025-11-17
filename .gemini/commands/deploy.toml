@@ -3,5 +3,5 @@ prompt = """
 You must run the following clasp commands in order to push local changes to Google Apps Script:
 1. clasp push --force
 
-2. clasp deploy -i AKfycby30w5xtj2kz4InzGX9sgMaF8M5UnkqcWKF3w5cEHGIaOd-679D3Y5d2Z1L3x-dbPbk
+2. clasp deploy -i AKfycbzox9ZqfP5FWJrJUpBnpUdBT8PPnDl-NroRfCUbjpPnTpllVpZS__y3pKNV13j4CX_j
 """
