@@ -70,7 +70,7 @@
   <!-- ===================================================================== -->
   <div class="flex-1 flex flex-col">
     <!-- All admin components are loaded here via server-side function -->
-    <!-- This approach is necessary because GAS templates don't support nested <?!= ?> directives -->
+    <!-- This approach is necessary because GAS doesn't re-evaluate template directives in included files -->
     <?!= getAdminComponents() ?>
   </div>
 </div>

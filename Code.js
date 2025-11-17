@@ -134,19 +134,26 @@ function include(filename) {
 
 /**
  * Builds the admin page content by including all modular components.
- * This is necessary because Google Apps Script's template system does not support
- * nested template directives (<?!= ?> inside an already-included file).
+ * This is necessary because Google Apps Script does not re-evaluate template directives
+ * in included files - when a file is included via include(), any <?!= ?> directives
+ * within that file are rendered as literal text rather than being evaluated.
  *
  * This function manually concatenates all admin component files in the correct order.
+ * Note: Page.admin.utils is loaded first as it contains shared utilities that other
+ * components may reference.
  *
  * @return {string} The complete HTML content for all admin page components
  */
 function getAdminComponents() {
-  return include('Page.admin.review') + '\n' +
-         include('Page.admin.events') + '\n' +
-         include('Page.admin.season') + '\n' +
-         include('Page.admin.badges') + '\n' +
-         include('Page.admin.prizes') + '\n' +
-         include('Page.admin.points') + '\n' +
-         include('Page.admin.utils');
+  const components = [
+    'Page.admin.utils',   // Shared utilities loaded first
+    'Page.admin.review',
+    'Page.admin.events',
+    'Page.admin.season',
+    'Page.admin.badges',
+    'Page.admin.prizes',
+    'Page.admin.points'
+  ];
+
+  return components.map(include).join('\n');
 }
