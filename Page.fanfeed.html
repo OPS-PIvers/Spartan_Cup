@@ -157,7 +157,7 @@
 
     const imgElement = document.createElement('img');
     imgElement.alt = 'Event photo';
-    imgElement.className = 'w-full h-64 object-cover';
+    imgElement.className = 'w-full aspect-[3/4] object-cover';
 
     let fallbackAttempted = false;
     imgElement.onerror = function() {

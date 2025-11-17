@@ -418,7 +418,7 @@
       loadingState.classList.remove('hidden');
       if (loadButton) loadButton.classList.add('hidden');
 
-      // Request user location (will use cache if available)
+      // Request user location (force fresh to prevent stale cache when user moves)
       requestLocation(
         (location) => {
           // Success: Fetch active events sorted by distance
@@ -473,7 +473,8 @@
           errorElement.textContent = errorMessage;
           errorState.classList.remove('hidden');
           console.error('Geolocation error:', errorMessage);
-        }
+        },
+        true // Force fresh location (don't use cache)
       );
     }
 
@@ -576,6 +577,10 @@
       }
 
       if (pageKey === 'event-select') {
+        // Clear location cache to ensure fresh location is requested
+        // This prevents using stale cached location when user has moved
+        sessionStorage.removeItem(LOCATION_CACHE_KEY);
+
         // Don't auto-load events; wait for user to click the button
         const loadButton = document.getElementById('load-events-button');
         if (loadButton) {
@@ -616,6 +621,9 @@
       }
 
       if (pageKey === 'submit') {
+        // Clear location cache to ensure fresh location for geofence validation
+        sessionStorage.removeItem(LOCATION_CACHE_KEY);
+
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
         // AUTO-EVENT DETECTION: Check if server auto-selected an event based on location
@@ -1129,7 +1137,8 @@
           console.error('Geolocation error:', errorMessage);
           document.getElementById('loading-modal').classList.add('hidden');
           alert(`Location Required: ${errorMessage}\n\nPlease enable location in your browser settings and try again.`);
-        }
+        },
+        true // Force fresh location for accurate geofence validation
       );
     }
 
