@@ -131,3 +131,22 @@ function doGet(e) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
+/**
+ * Builds the admin page content by including all modular components.
+ * This is necessary because Google Apps Script's template system does not support
+ * nested template directives (<?!= ?> inside an already-included file).
+ *
+ * This function manually concatenates all admin component files in the correct order.
+ *
+ * @return {string} The complete HTML content for all admin page components
+ */
+function getAdminComponents() {
+  return include('Page.admin.review') + '\n' +
+         include('Page.admin.events') + '\n' +
+         include('Page.admin.season') + '\n' +
+         include('Page.admin.badges') + '\n' +
+         include('Page.admin.prizes') + '\n' +
+         include('Page.admin.points') + '\n' +
+         include('Page.admin.utils');
+}
