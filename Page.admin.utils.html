@@ -1,0 +1,251 @@
+<!--
+  Shared utility functions for the Admin Dashboard
+  This file is included at the top level in Index.html to provide
+  common functionality across all admin tabs.
+-->
+<script>
+  // =====================================================================
+  // ADMIN DASHBOARD SHARED UTILITIES
+  // =====================================================================
+
+  /**
+   * Escapes HTML special characters to prevent XSS attacks
+   * @param {string} str - The string to escape
+   * @returns {string} The escaped string
+   */
+  function escapeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  /**
+   * Shows a toast notification message
+   * @param {string} message - The message to display
+   * @param {string} type - The type of toast ('success', 'error', 'info')
+   * @param {number} duration - How long to show the toast in milliseconds
+   */
+  function showToast(message, type = 'error', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity z-50 ${
+      type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+    }`;
+    toast.textContent = message;
+    toast.style.opacity = '0';
+    document.body.appendChild(toast);
+
+    // Fade in
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+    });
+
+    // Fade out and remove
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  /**
+   * Converts 24-hour time format to 12-hour format with AM/PM
+   * @param {string} timeStr - Time string in HH:MM format
+   * @returns {string} Time in 12-hour format (e.g., "6:30 PM")
+   */
+  function format24To12Hour(timeStr) {
+    if (!timeStr || !timeStr.includes(':')) return timeStr;
+    const [hours, minutes] = timeStr.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12; // Convert 0 to 12, keep 1-12 as is
+    return `${displayHour}:${minutes} ${ampm}`;
+  }
+
+  /**
+   * Creates a debounced version of a function that delays execution
+   * until after a specified wait time has elapsed since the last call
+   * @param {Function} func - The function to debounce
+   * @param {number} wait - The delay in milliseconds
+   * @returns {Function} The debounced function
+   */
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  /**
+   * Reusable wrapper for google.script.run API calls
+   * Provides standardized error handling and loading states
+   *
+   * @param {Object} options - Configuration object
+   * @param {string} options.method - The backend method name to call
+   * @param {Array} options.args - Arguments to pass to the backend method
+   * @param {Function} options.onSuccess - Success callback (receives response)
+   * @param {Function} options.onError - Error callback (receives error message)
+   * @param {string} options.loadingMessage - Optional loading toast message
+   * @param {boolean} options.showSuccessToast - Whether to show success toast
+   * @param {boolean} options.showErrorToast - Whether to show error toast (default: true)
+   */
+  function apiCall(options) {
+    const {
+      method,
+      args = [],
+      onSuccess = () => {},
+      onError = () => {},
+      loadingMessage = null,
+      showSuccessToast = false,
+      showErrorToast = true
+    } = options;
+
+    // Show loading toast if specified
+    let loadingToast = null;
+    if (loadingMessage) {
+      loadingToast = document.createElement('div');
+      loadingToast.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg bg-blue-500 z-50';
+      loadingToast.textContent = loadingMessage;
+      document.body.appendChild(loadingToast);
+    }
+
+    const successHandler = (response) => {
+      // Remove loading toast
+      if (loadingToast) {
+        loadingToast.remove();
+      }
+
+      // Handle different response formats:
+      // 1. Standard: {status: 'success', data: ...}
+      // 2. Direct: primitive values (string, number, array, etc.)
+      // 3. Error: {status: 'error', message: ...}
+
+      // If response is an object with explicit status field
+      if (response && typeof response === 'object' && 'status' in response) {
+        if (response.status === 'success') {
+          if (showSuccessToast && response.message) {
+            showToast(response.message, 'success');
+          }
+          onSuccess(response);
+        } else {
+          // Explicit error status
+          const errorMsg = response.message || 'An unknown error occurred';
+          if (showErrorToast) {
+            showToast('Error: ' + errorMsg, 'error');
+          }
+          onError(errorMsg);
+        }
+      } else {
+        // Response is direct data (string, array, object without status field)
+        // Treat as success
+        onSuccess(response);
+      }
+    };
+
+    const failureHandler = (error) => {
+      // Remove loading toast
+      if (loadingToast) {
+        loadingToast.remove();
+      }
+
+      const errorMsg = error.message || error.toString();
+      if (showErrorToast) {
+        showToast('Server error: ' + errorMsg, 'error');
+      }
+      onError(errorMsg);
+    };
+
+    // Build the API call dynamically
+    const runner = google.script.run
+      .withSuccessHandler(successHandler)
+      .withFailureHandler(failureHandler);
+
+    // Call the method with spread args
+    runner[method](...args);
+  }
+
+  /**
+   * Shows a loading spinner in a container element
+   * @param {HTMLElement} container - The element to show the spinner in
+   * @param {string} message - Optional loading message
+   */
+  function showLoadingSpinner(container, message = 'Loading...') {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+        <p class="text-gray-600 dark:text-gray-400">${escapeHTML(message)}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Shows an error message in a container element
+   * @param {HTMLElement} container - The element to show the error in
+   * @param {string} message - The error message
+   */
+  function showError(container, message) {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12">
+        <span class="material-symbols-outlined text-red-500 text-5xl mb-4">error</span>
+        <p class="text-red-600 dark:text-red-400">${escapeHTML(message)}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Shows an empty state message in a container element
+   * @param {HTMLElement} container - The element to show the message in
+   * @param {string} message - The empty state message
+   * @param {string} icon - Optional Material Icon name
+   */
+  function showEmptyState(container, message, icon = 'inbox') {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12">
+        <span class="material-symbols-outlined text-gray-400 dark:text-gray-600 text-5xl mb-4">${icon}</span>
+        <p class="text-gray-500 dark:text-gray-400">${escapeHTML(message)}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Formats a date string to a readable format
+   * @param {string|Date} date - The date to format
+   * @returns {string} Formatted date string
+   */
+  function formatDate(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    };
+    return d.toLocaleDateString('en-US', options);
+  }
+
+  /**
+   * Formats a timestamp to a readable date and time
+   * @param {string|Date} timestamp - The timestamp to format
+   * @returns {string} Formatted timestamp string
+   */
+  function formatTimestamp(timestamp) {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return timestamp;
+
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    };
+    return d.toLocaleDateString('en-US', options);
+  }
+</script>

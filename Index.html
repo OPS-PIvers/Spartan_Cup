@@ -102,6 +102,11 @@
     <!-- PAGE CONTENT AREA -->
     <!-- ====================================================================== -->
     <main class="pb-24">
+      <!-- Load admin utilities if on admin page -->
+      <? if (page === 'admin') { ?>
+        <?!= include('Page.admin.utils'); ?>
+      <? } ?>
+
       <!-- This is where the magic happens. -->
       <!-- 'page' is a server-side variable from doGet() -->
       <!-- It will inject the content of 'Page.profile.html', 'Page.history.html', etc. -->

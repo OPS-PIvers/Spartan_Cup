@@ -613,6 +613,51 @@
 
   <script>
     // =====================================================================
+    // ADMIN DASHBOARD - TABLE OF CONTENTS
+    // =====================================================================
+    // This file is organized into the following sections:
+    //
+    // 1. TAB MANAGEMENT (Lines ~617-750)
+    //    - Tab switching logic
+    //    - Mobile/desktop navigation sync
+    //    - Lazy loading triggers
+    //
+    // 2. REVIEW SUBMISSIONS TAB (Lines ~751-1120)
+    //    - Swipe/gesture handlers (touch & mouse)
+    //    - Card rendering and image preloading
+    //    - Approve/deny submission logic
+    //    - Queue management
+    //
+    // 3. EVENTS MANAGEMENT TAB (Lines ~1121-1340)
+    //    - Event CRUD operations
+    //    - Activity dropdown population
+    //    - Event form handling
+    //    - Event list rendering
+    //
+    // 4. SEASON MANAGEMENT TAB (Lines ~1341-1550)
+    //    - Active season selection
+    //    - Activity assignment to seasons
+    //    - Season data loading
+    //
+    // 5. BADGES CONFIGURATION TAB (Lines ~1551-2350)
+    //    - Badge template system (16+ templates)
+    //    - Badge CRUD operations
+    //    - Firebase Storage image upload
+    //    - Activity assignment for badges
+    //    - Badge list rendering
+    //
+    // 6. PRIZES MANAGEMENT TAB (Lines ~2351-2550)
+    //    - Prize CRUD operations
+    //    - Prize list rendering
+    //
+    // 7. POINTS CONFIGURATION TAB (Lines ~2551-2700)
+    //    - Point values management
+    //    - Settings update handlers
+    //
+    // NOTE: Shared utilities (escapeHTML, showToast, format24To12Hour,
+    //       debounce, apiCall) are in Page.admin.utils.html
+    //
+    // =====================================================================
     // TAB MANAGEMENT
     // =====================================================================
     const reviewTab = document.getElementById('tab-review');
@@ -816,29 +861,10 @@
       });
     }
 
-    // HTML escape helper to prevent XSS
-    function escapeHTML(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
+    // NOTE: Common utilities like escapeHTML(), showToast(), format24To12Hour(),
+    // debounce(), apiCall(), etc. are now in Page.admin.utils.html
 
-    // Toast notification system
-    function showToast(message, type = 'error', duration = 3000) {
-      const toast = document.createElement('div');
-      toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg font-semibold text-white text-sm shadow-lg transition-opacity ${
-        type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-      }`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, duration);
-    }
-
-    // Show action confirmation overlay (Approved/Denied)
+    // Show action confirmation overlay (Approved/Denied) - specific to Review tab
     function showConfirmation(message, icon) {
       const overlay = document.getElementById('confirmation-overlay');
       overlay.textContent = icon + ' ' + message;
@@ -1165,7 +1191,7 @@
     }
 
     // =====================================================================
-    // EVENT MANAGEMENT LOGIC
+    // TAB 2: EVENTS MANAGEMENT
     // =====================================================================
     let editingEventCode = null;
 
@@ -1247,17 +1273,30 @@
 
     function loadEventsList() {
       loadActivityDropdown(); // Load activities for the dropdown
-      google.script.run.withSuccessHandler((response) => {
-        if (response.status === 'success') {
+
+      // Show loading state
+      showLoadingSpinner(document.getElementById('events-list'), 'Loading events...');
+
+      // Use apiCall wrapper for cleaner code
+      apiCall({
+        method: 'getEventsList',
+        onSuccess: (response) => {
           populateEventsList(response.events);
-        } else {
-          document.getElementById('events-list').innerHTML = '<p class="text-red-600">Error loading events: ' + escapeHTML(response.message) + '</p>';
-        }
-      }).getEventsList();
+        },
+        onError: (errorMsg) => {
+          showError(document.getElementById('events-list'), 'Error loading events: ' + errorMsg);
+        },
+        showErrorToast: true
+      });
     }
 
     function loadActivityDropdown() {
-      google.script.run.withSuccessHandler(populateActivityDropdown).getActivitiesForSeason();
+      // Use apiCall wrapper
+      apiCall({
+        method: 'getActivitiesForSeason',
+        onSuccess: populateActivityDropdown,
+        showErrorToast: true
+      });
     }
 
     function populateActivityDropdown(response) {
@@ -1277,15 +1316,6 @@
       }
     }
 
-    function format24To12Hour(timeStr) {
-      // Convert "18:30" to "6:30 PM"
-      if (!timeStr || !timeStr.includes(':')) return timeStr;
-      const [hours, minutes] = timeStr.split(':');
-      const hour = parseInt(hours, 10);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour % 12 || 12; // Convert 0 to 12, keep 1-12 as is
-      return `${displayHour}:${minutes} ${ampm}`;
-    }
 
     function populateEventsList(events) {
       const list = document.getElementById('events-list');
@@ -1385,7 +1415,7 @@
     }
 
     // =====================================================================
-    // SEASON MANAGEMENT
+    // TAB 3: SEASON MANAGEMENT
     // =====================================================================
 
     let currentSelectedSeason = null;
@@ -1393,15 +1423,27 @@
     let originalActivitiesForSeason = new Set();
 
     function loadSeasonManagement() {
-      // Load current season
-      google.script.run.withSuccessHandler((activeSeason) => {
-        document.getElementById('current-season-display').textContent = activeSeason || 'Not Set';
-      }).getActiveSeason();
+      // Load current season using apiCall wrapper
+      apiCall({
+        method: 'getActiveSeason',
+        onSuccess: (response) => {
+          // getActiveSeason returns the season directly, not wrapped in response object
+          const activeSeason = typeof response === 'string' ? response : response.season;
+          document.getElementById('current-season-display').textContent = activeSeason || 'Not Set';
+        },
+        showErrorToast: true
+      });
 
-      // Load available seasons
-      google.script.run.withSuccessHandler((seasons) => {
-        populateSeasonsList(seasons || []);
-      }).getAvailableSeasons();
+      // Load available seasons using apiCall wrapper
+      apiCall({
+        method: 'getAvailableSeasons',
+        onSuccess: (response) => {
+          // getAvailableSeasons returns array directly, not wrapped
+          const seasons = Array.isArray(response) ? response : response.seasons || [];
+          populateSeasonsList(seasons);
+        },
+        showErrorToast: true
+      });
 
       // Hide activities management by default
       document.getElementById('activities-management').classList.add('hidden');
@@ -1416,52 +1458,58 @@
         return;
       }
 
-      // Get current season
-      google.script.run.withSuccessHandler((activeSeason) => {
-        seasons.forEach((season) => {
-          const isActive = season === activeSeason;
+      // Get current season using apiCall wrapper
+      apiCall({
+        method: 'getActiveSeason',
+        onSuccess: (response) => {
+          const activeSeason = typeof response === 'string' ? response : response.season;
 
-          // Create container div for season item
-          const container = document.createElement('div');
-          container.className = `flex gap-2 items-center w-full ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border-2 border-blue-500' : ''}`;
+          seasons.forEach((season) => {
+            const isActive = season === activeSeason;
 
-          // Create main season button (for selecting to manage)
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = `flex-1 px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
-            isActive
-              ? 'bg-primary text-white shadow-lg'
-              : 'bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
-          }`;
+            // Create container div for season item
+            const container = document.createElement('div');
+            container.className = `flex gap-2 items-center w-full ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border-2 border-blue-500' : ''}`;
 
-          if (isActive) {
-            button.innerHTML = `✓ ${season} <span class="text-sm ml-2">(Active)</span>`;
-          } else {
-            button.textContent = season;
-          }
+            // Create main season button (for selecting to manage)
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `flex-1 px-6 py-4 rounded-lg font-semibold text-lg transition-all ${
+              isActive
+                ? 'bg-primary text-white shadow-lg'
+                : 'bg-gray-100 dark:bg-gray-700 text-[#111318] dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
+            }`;
 
-          button.addEventListener('click', () => {
-            selectSeasonForManagement(season);
-          });
+            if (isActive) {
+              button.innerHTML = `✓ ${season} <span class="text-sm ml-2">(Active)</span>`;
+            } else {
+              button.textContent = season;
+            }
 
-          container.appendChild(button);
-
-          // Add "Set Active" button for non-active seasons
-          if (!isActive) {
-            const setActiveBtn = document.createElement('button');
-            setActiveBtn.type = 'button';
-            setActiveBtn.className = 'px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-sm transition-all active:scale-95 whitespace-nowrap';
-            setActiveBtn.textContent = 'Set Active';
-            setActiveBtn.addEventListener('click', (e) => {
-              e.stopPropagation(); // Prevent triggering the main button
-              setSeasonActive(season);
+            button.addEventListener('click', () => {
+              selectSeasonForManagement(season);
             });
-            container.appendChild(setActiveBtn);
-          }
 
-          list.appendChild(container);
-        });
-      }).getActiveSeason();
+            container.appendChild(button);
+
+            // Add "Set Active" button for non-active seasons
+            if (!isActive) {
+              const setActiveBtn = document.createElement('button');
+              setActiveBtn.type = 'button';
+              setActiveBtn.className = 'px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold text-sm transition-all active:scale-95 whitespace-nowrap';
+              setActiveBtn.textContent = 'Set Active';
+              setActiveBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering the main button
+                setSeasonActive(season);
+              });
+              container.appendChild(setActiveBtn);
+            }
+
+            list.appendChild(container);
+          });
+        },
+        showErrorToast: true
+      });
     }
 
     function selectSeasonForManagement(season) {
@@ -1469,10 +1517,16 @@
       document.getElementById('selected-season-name').textContent = season;
       document.getElementById('activities-management').classList.remove('hidden');
 
-      // Load activities for this season
-      google.script.run.withSuccessHandler((activities) => {
-        populateActivitiesList(activities || []);
-      }).getActivitiesWithSeasonStatus(season);
+      // Load activities for this season using apiCall wrapper
+      apiCall({
+        method: 'getActivitiesWithSeasonStatus',
+        args: [season],
+        onSuccess: (response) => {
+          const activities = Array.isArray(response) ? response : response.activities || [];
+          populateActivitiesList(activities);
+        },
+        showErrorToast: true
+      });
     }
 
     /**
@@ -1703,18 +1757,22 @@
     // Load activities when badge tab is opened
     function loadActivitiesForBadges() {
       console.log('[Badge Debug] loadActivitiesForBadges() called');
-      google.script.run.withSuccessHandler((response) => {
-        console.log('[Badge Debug] getActivitiesForSeason response:', response);
-        if (response.status === 'success' && response.activities) {
-          console.log(`[Badge Debug] Loaded ${response.activities.length} activities:`, response.activities);
-          activitiesData = response.activities;
-          populateBadgeActivityDropdown();
-        } else {
-          console.error('[Badge Debug] Failed to load activities:', response.message || 'Unknown error');
-        }
-      }).withFailureHandler((error) => {
-        console.error('[Badge Debug] getActivitiesForSeason error:', error);
-      }).getActivitiesForSeason();
+
+      apiCall({
+        method: 'getActivitiesForSeason',
+        onSuccess: (response) => {
+          console.log('[Badge Debug] getActivitiesForSeason response:', response);
+          if (response.activities) {
+            console.log(`[Badge Debug] Loaded ${response.activities.length} activities:`, response.activities);
+            activitiesData = response.activities;
+            populateBadgeActivityDropdown();
+          }
+        },
+        onError: (errorMsg) => {
+          console.error('[Badge Debug] Failed to load activities:', errorMsg);
+        },
+        showErrorToast: true
+      });
     }
 
     function populateBadgeActivityDropdown() {
@@ -2282,17 +2340,18 @@
 
     function loadBadgesList() {
       const listContainer = document.getElementById('badges-list');
-      listContainer.innerHTML = '<div class="text-center py-6 text-gray-500">Loading badges...</div>';
+      showLoadingSpinner(listContainer, 'Loading badges...');
 
-      google.script.run.withSuccessHandler((response) => {
-        if (response.status === 'success') {
+      apiCall({
+        method: 'getAllBadgesForAdmin',
+        onSuccess: (response) => {
           populateBadgesList(response.badges);
-        } else {
-          listContainer.innerHTML = '<p class="text-red-600">Error loading badges: ' + escapeHTML(response.message) + '</p>';
-        }
-      }).withFailureHandler((error) => {
-        listContainer.innerHTML = '<p class="text-red-600">Network error: ' + escapeHTML(error.message || error.toString()) + '</p>';
-      }).getAllBadgesForAdmin();
+        },
+        onError: (errorMsg) => {
+          showError(listContainer, 'Error loading badges: ' + errorMsg);
+        },
+        showErrorToast: true
+      });
     }
 
     function populateBadgesList(badges) {
