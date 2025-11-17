@@ -131,3 +131,38 @@ function doGet(e) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
+/**
+ * Builds the admin page content by including all modular components.
+ *
+ * This function solves a specific GAS limitation: Page.admin.html is loaded via
+ * include('Page.' + page) in Index.html. Originally, Page.admin.html contained
+ * <?!= include(...) ?> directives to load its component files. However, when a
+ * file is included, any template directives within it become literal text rather
+ * than being evaluated - so users saw raw "<?!= include('Page.admin.review') ?>"
+ * text in their browser.
+ *
+ * The solution: Move the include() calls from Page.admin.html (which is included
+ * and therefore not re-evaluated) into this server-side function (which IS
+ * evaluated during template processing). This function executes at the right
+ * evaluation level and returns plain HTML that can be safely inserted into
+ * Page.admin.html.
+ *
+ * Note: Page.admin.utils is loaded first as it contains shared utilities that
+ * other components may reference.
+ *
+ * @return {string} The complete HTML content for all admin page components
+ */
+function getAdminComponents() {
+  const components = [
+    'Page.admin.utils',   // Shared utilities loaded first
+    'Page.admin.review',
+    'Page.admin.events',
+    'Page.admin.season',
+    'Page.admin.badges',
+    'Page.admin.prizes',
+    'Page.admin.points'
+  ];
+
+  return components.map(include).join('\n');
+}
