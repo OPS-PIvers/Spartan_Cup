@@ -118,10 +118,7 @@ function doGet(e) {
     .setTitle('The Spartan Cup')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
-    .setHeaders({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      'Expires': '0'
-    });
+;
 }
 
 /**
