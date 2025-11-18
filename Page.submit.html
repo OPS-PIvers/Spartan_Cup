@@ -23,6 +23,10 @@
       <label class="font-bold text-[#111318] dark:text-white">Take a Photo</label>
       <input type="file" id="photo-input" accept="image/*" capture="environment" required class="w-full text-sm file:mr-4 file:py-3 file:px-5 file:rounded-lg file:border-0 file:font-bold file:bg-primary/10 file:text-primary dark:file:bg-primary/20 dark:file:text-blue-300 hover:file:bg-primary/20">
       <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Tip: Use your camera! Old photos may be denied.</p>
+      <!-- Photo Preview (hidden by default) -->
+      <div id="photo-preview-container" class="hidden mt-2">
+        <img id="photo-preview" class="photo-preview" alt="Photo preview">
+      </div>
     </div>
     
     <div class="flex items-center">
