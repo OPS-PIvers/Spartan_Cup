@@ -148,7 +148,7 @@
   <!-- OFFLINE INDICATOR & TOAST NOTIFICATIONS -->
   <!-- ====================================================================== -->
   <!-- Offline Banner (hidden by default, shown when offline) -->
-  <div id="offline-banner" class="offline-banner">
+  <div id="offline-banner" class="offline-banner" role="alert" aria-live="assertive">
     ⚠️ No internet connection
   </div>
 
@@ -165,23 +165,23 @@
   <!-- ====================================================================== -->
   <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800 flex justify-around" role="navigation" aria-label="Main navigation">
     <!-- Navigation items with loading modal on click -->
-    <a href="<?= getWebAppUrl() ?>?page=profile" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="profile" onclick="event.preventDefault(); navigateToPage('profile');" aria-label="Profile page">
+    <a href="<?= getWebAppUrl() ?>?page=profile" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="profile" onclick="event.preventDefault(); navigateToPage('profile');">
       <span class="material-symbols-outlined text-2xl" aria-hidden="true">person</span>
       <span class="text-xs font-medium">Profile</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=history" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="history" onclick="event.preventDefault(); navigateToPage('history');" aria-label="Event history page">
+    <a href="<?= getWebAppUrl() ?>?page=history" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="history" onclick="event.preventDefault(); navigateToPage('history');">
       <span class="material-symbols-outlined text-2xl" aria-hidden="true">event</span>
       <span class="text-xs font-medium">History</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=prizes" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="prizes" onclick="event.preventDefault(); navigateToPage('prizes');" aria-label="Prizes page">
+    <a href="<?= getWebAppUrl() ?>?page=prizes" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="prizes" onclick="event.preventDefault(); navigateToPage('prizes');">
       <span class="material-symbols-outlined text-2xl" aria-hidden="true">emoji_events</span>
       <span class="text-xs font-medium">Prizes</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=rulebook" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="rulebook" onclick="event.preventDefault(); navigateToPage('rulebook');" aria-label="Rulebook page">
+    <a href="<?= getWebAppUrl() ?>?page=rulebook" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="rulebook" onclick="event.preventDefault(); navigateToPage('rulebook');">
       <span class="material-symbols-outlined text-2xl" aria-hidden="true">gavel</span>
       <span class="text-xs font-medium">Rulebook</span>
     </a>
-    <a href="<?= getWebAppUrl() ?>?page=fanfeed" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="fanfeed" onclick="event.preventDefault(); navigateToPage('fanfeed');" aria-label="Fan feed page">
+    <a href="<?= getWebAppUrl() ?>?page=fanfeed" class="nav-item flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 w-1/5 cursor-pointer" data-page="fanfeed" onclick="event.preventDefault(); navigateToPage('fanfeed');">
       <span class="material-symbols-outlined text-2xl" aria-hidden="true">dynamic_feed</span>
       <span class="text-xs font-medium">Fan Feed</span>
     </a>
