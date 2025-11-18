@@ -852,8 +852,15 @@
       document.getElementById('empty-state').classList.remove('hidden');
     }
 
-    // Use shared escapeHtml() from JavaScript.html (no need to duplicate)
-    // Keeping this helper for JS-specific string escaping
+    // NOTE: This script loads BEFORE JavaScript.html, so we need a local copy of escapeHtml
+    // to avoid ReferenceError when displaying admin errors
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Helper for JS-specific string escaping
     function escapeForJs(text) {
       return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }

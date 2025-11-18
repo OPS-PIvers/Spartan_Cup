@@ -329,9 +329,28 @@
       // Auto-hide after duration
       setTimeout(() => {
         toast.classList.remove('show');
+
+        // Use transitionend event to remove element after animation completes
+        // This is more robust than hardcoded timeout and respects actual CSS transition duration
+        const handleTransitionEnd = (e) => {
+          // Only remove on opacity transition (not transform)
+          if (e.propertyName === 'opacity') {
+            toast.removeEventListener('transitionend', handleTransitionEnd);
+            if (toast.parentNode === container) {
+              container.removeChild(toast);
+            }
+          }
+        };
+
+        toast.addEventListener('transitionend', handleTransitionEnd);
+
+        // Fallback timeout in case transitionend doesn't fire (should never happen)
         setTimeout(() => {
-          container.removeChild(toast);
-        }, 300); // Wait for fade-out animation
+          toast.removeEventListener('transitionend', handleTransitionEnd);
+          if (toast.parentNode === container) {
+            container.removeChild(toast);
+          }
+        }, 500);
       }, duration);
     }
 
@@ -834,6 +853,15 @@
         photoInput.addEventListener('change', (e) => {
           const file = e.target.files[0];
           if (file) {
+            // Validate file type - must be an image
+            if (!file.type.startsWith('image/')) {
+              showToast('Please select a valid image file (JPEG, PNG, etc.)', 'error');
+              hapticFeedback('error');
+              photoInput.value = ''; // Clear the invalid selection
+              photoPreviewContainer.classList.add('hidden');
+              return;
+            }
+
             const reader = new FileReader();
             reader.onload = (event) => {
               photoPreview.src = event.target.result;
@@ -1168,8 +1196,22 @@
 
       try {
         const data = JSON.parse(cached);
+
+        // Validate timestamp exists and is a valid number
+        if (!data || typeof data.timestamp !== 'number' || isNaN(data.timestamp)) {
+          timestampEl.textContent = '';
+          return;
+        }
+
         const now = Date.now();
         const age = now - data.timestamp;
+
+        // Validate age is reasonable (not negative, not impossibly large)
+        if (age < 0 || age > 24 * 60 * 60 * 1000) { // Max 24 hours
+          timestampEl.textContent = '';
+          return;
+        }
+
         const minutes = Math.floor(age / 60000);
 
         if (minutes === 0) {

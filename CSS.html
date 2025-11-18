@@ -7,14 +7,29 @@
       padding-bottom: 80px;
     }
 
-    /* Smooth dark mode transitions */
-    * {
+    /* Smooth dark mode transitions - scoped to specific elements for performance */
+    body,
+    .page,
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    nav,
+    header,
+    .nav-item,
+    .admin-tab-btn,
+    [class*="bg-"],
+    [class*="text-"],
+    [class*="border-"] {
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
 
     /* Disable transitions for animations and transforms to avoid conflicts */
-    *:is(.animate-slide-right, .animate-slide-left, .animate-fade-in) {
-      transition: none;
+    .animate-slide-right,
+    .animate-slide-left,
+    .animate-fade-in {
+      transition: none !important;
     }
 
     /* Material Icon fill setting */
@@ -27,8 +42,10 @@
       touch-action: manipulation;
     }
 
-    /* Ensure minimum 44x44px touch targets for mobile accessibility */
-    button:not(.admin-tab-btn):not([class*="text-"]):not([class*="p-0"]) {
+    /* Ensure minimum 44x44px touch targets for mobile accessibility
+     * Excluded: admin-tab-btn (uses flex layout), small utility buttons (.btn-sm),
+     * icon-only buttons (.icon-btn), and inline text buttons (.btn-inline) */
+    button:not(.admin-tab-btn):not(.btn-sm):not(.icon-btn):not(.btn-inline) {
       min-height: 44px;
       min-width: 44px;
     }
@@ -110,6 +127,7 @@
     .dark .skeleton {
       background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
       background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
     }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
