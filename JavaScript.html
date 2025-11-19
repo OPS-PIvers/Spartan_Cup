@@ -380,6 +380,206 @@
       }
     }
 
+    // --- PULL-TO-REFRESH -----------------------------------------
+
+    /**
+     * Pull-to-refresh gesture detection and handling
+     * Detects downward swipe at top of page and triggers page refresh
+     */
+    let pullStartY = 0;
+    let pullCurrentY = 0;
+    let isPulling = false;
+    const PULL_THRESHOLD = 80; // Pixels to trigger refresh
+    const MAX_PULL_DISTANCE = 120; // Max visual feedback distance
+
+    /**
+     * Initialize pull-to-refresh on supported pages
+     */
+    function setupPullToRefresh() {
+      const indicator = document.getElementById('pull-indicator');
+      const pullText = document.getElementById('pull-text');
+      if (!indicator || !pullText) return;
+
+      // Only enable on profile, history, and admin pages
+      const enabledPages = ['profile', 'history', 'admin'];
+      if (!enabledPages.includes(APP_DATA.page)) {
+        return;
+      }
+
+      // Touch start - detect if at top of page
+      document.addEventListener('touchstart', (e) => {
+        // Only activate if scrolled to top
+        if (window.scrollY === 0 && !isPulling) {
+          pullStartY = e.touches[0].clientY;
+          isPulling = true;
+        }
+      }, { passive: true });
+
+      // Touch move - track pull distance and show indicator
+      document.addEventListener('touchmove', (e) => {
+        if (!isPulling || pullStartY === 0) return;
+
+        pullCurrentY = e.touches[0].clientY;
+        const pullDistance = Math.min(pullCurrentY - pullStartY, MAX_PULL_DISTANCE);
+
+        if (pullDistance > 0) {
+          // Update indicator position and text
+          const progress = Math.min(pullDistance / PULL_THRESHOLD, 1);
+          const indicatorTop = Math.min(pullDistance - 80, 0); // Start at -80, move to 0
+
+          indicator.style.top = `${indicatorTop}px`;
+          indicator.classList.remove('hidden');
+
+          // Update text based on threshold
+          if (pullDistance >= PULL_THRESHOLD) {
+            pullText.textContent = 'Release to refresh';
+            indicator.style.background = 'rgba(181, 18, 27, 0.95)'; // Secondary color when ready
+          } else {
+            pullText.textContent = 'Pull to refresh';
+            indicator.style.background = 'rgba(27, 59, 135, 0.95)'; // Primary color
+          }
+
+          // Rotate spinner based on pull distance
+          const spinner = indicator.querySelector('.pull-spinner');
+          if (spinner) {
+            spinner.style.transform = `rotate(${pullDistance * 3}deg)`;
+          }
+        }
+      }, { passive: true });
+
+      // Touch end - trigger refresh if threshold met
+      document.addEventListener('touchend', () => {
+        if (!isPulling) return;
+
+        const pullDistance = pullCurrentY - pullStartY;
+
+        if (pullDistance >= PULL_THRESHOLD) {
+          // Trigger refresh!
+          triggerPageRefresh(indicator, pullText);
+        } else {
+          // Reset indicator
+          resetPullIndicator(indicator);
+        }
+
+        // Reset state
+        pullStartY = 0;
+        pullCurrentY = 0;
+        isPulling = false;
+      });
+
+      // Touch cancel - reset state
+      document.addEventListener('touchcancel', () => {
+        resetPullIndicator(indicator);
+        pullStartY = 0;
+        pullCurrentY = 0;
+        isPulling = false;
+      });
+    }
+
+    /**
+     * Reset pull indicator to hidden state
+     */
+    function resetPullIndicator(indicator) {
+      indicator.style.top = '-80px';
+      indicator.style.background = 'rgba(27, 59, 135, 0.95)';
+      setTimeout(() => {
+        indicator.classList.add('hidden');
+      }, 300); // Wait for transition
+    }
+
+    /**
+     * Trigger page-specific data refresh
+     */
+    function triggerPageRefresh(indicator, pullText) {
+      // Show refreshing state
+      indicator.classList.add('refreshing');
+      indicator.style.top = '0px';
+      pullText.textContent = 'Refreshing...';
+      hapticFeedback('medium');
+
+      const spinner = indicator.querySelector('.pull-spinner');
+      if (spinner) {
+        spinner.style.transform = 'rotate(0deg)';
+      }
+
+      // Call page-specific refresh handler
+      refreshCurrentPage()
+        .then(() => {
+          // Success!
+          pullText.textContent = 'Updated!';
+          hapticFeedback('success');
+
+          // Hide after short delay
+          setTimeout(() => {
+            indicator.classList.remove('refreshing');
+            resetPullIndicator(indicator);
+          }, 800);
+        })
+        .catch((error) => {
+          console.error('Refresh failed:', error);
+          pullText.textContent = 'Refresh failed';
+          showToast('Failed to refresh. Please try again.', 'error');
+
+          // Hide after short delay
+          setTimeout(() => {
+            indicator.classList.remove('refreshing');
+            resetPullIndicator(indicator);
+          }, 1500);
+        });
+    }
+
+    /**
+     * Refresh current page data based on APP_DATA.page
+     * @return {Promise} Resolves when refresh completes
+     */
+    function refreshCurrentPage() {
+      return new Promise((resolve, reject) => {
+        switch(APP_DATA.page) {
+          case 'profile':
+            // Refresh profile data
+            callWithRetry('getProfileData', [], (data) => {
+              if (data && !data.error) {
+                cacheProfileData(data);
+                populateProfile(data);
+                resolve();
+              } else {
+                reject(data?.error || 'Unknown error');
+              }
+            });
+            break;
+
+          case 'history':
+            // Refresh history data
+            callWithRetry('getEventHistory', [], (data) => {
+              if (data && !data.error) {
+                populateHistory(data);
+                resolve();
+              } else {
+                reject(data?.error || 'Unknown error');
+              }
+            });
+            break;
+
+          case 'admin':
+            // Refresh admin pending submissions
+            if (typeof refreshPendingSubmissions === 'function') {
+              refreshPendingSubmissions();
+              resolve();
+            } else {
+              // Fallback: reload page
+              setTimeout(() => {
+                window.top.location.reload();
+              }, 100);
+              resolve();
+            }
+            break;
+
+          default:
+            reject('Refresh not supported on this page');
+        }
+      });
+    }
+
     /**
      * Check current permission status (iOS may not support this)
      * @return {Promise<string>} 'granted', 'denied', 'prompt', or 'unknown'
@@ -716,6 +916,9 @@
 
       // Initialize offline/online detection
       setupOfflineDetection();
+
+      // Initialize pull-to-refresh (profile, history, admin pages only)
+      setupPullToRefresh();
 
       // 1. Set Page Title from the APP_DATA passed from server
       const pageKey = APP_DATA.page.split('&')[0]; // Get base page (e.g., 'submit' from 'submit&event=123')
