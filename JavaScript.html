@@ -545,27 +545,44 @@
         switch(APP_DATA.page) {
           case 'profile':
             // Refresh profile data
-            callWithRetry('getProfileData', [], (data) => {
-              if (data && !data.error) {
-                cacheProfileData(data);
-                populateProfile(data);
-                resolve();
-              } else {
-                reject(data?.error || 'Unknown error');
+            callWithRetry('getProfileData', [],
+              (data) => {
+                // Success handler
+                if (data && !data.error) {
+                  cacheProfileData(data);
+                  populateProfile(data);
+                  resolve();
+                } else {
+                  reject(data?.error || 'Unknown error');
+                }
+              },
+              (error) => {
+                // Failure handler - prevents UI hang on network/server errors
+                console.error('[Refresh] Profile data fetch failed:', error);
+                reject(error.message || 'Failed to refresh profile data');
               }
-            });
+            );
             break;
 
           case 'history':
-            // Refresh history data
-            callWithRetry('getEventHistory', [], (data) => {
-              if (data && !data.error) {
-                populateHistory(data);
-                resolve();
-              } else {
-                reject(data?.error || 'Unknown error');
+            // Refresh history data (history is part of profile data)
+            callWithRetry('getProfileData', [],
+              (data) => {
+                // Success handler
+                if (data && !data.error) {
+                  cacheProfileData(data); // Cache the refreshed data
+                  populateHistory(data);
+                  resolve();
+                } else {
+                  reject(data?.error || 'Unknown error');
+                }
+              },
+              (error) => {
+                // Failure handler - prevents UI hang on network/server errors
+                console.error('[Refresh] History data fetch failed:', error);
+                reject(error.message || 'Failed to refresh history data');
               }
-            });
+            );
             break;
 
           case 'admin':
@@ -994,10 +1011,18 @@
         console.log('[Profile Cache] Cleared cache on profile page load');
 
         // Always fetch fresh profile data when viewing the profile page
-        callWithRetry('getProfileData', [], function(data) {
-          cacheProfileData(data); // Cache the response
+        callWithRetry('getProfileData', [],
+          function(data) {
+            // Success handler
+            cacheProfileData(data); // Cache the response
             populateProfile(data);
-          });
+          },
+          function(error) {
+            // Failure handler - show error state instead of hanging
+            console.error('[Profile] Failed to load profile data:', error);
+            showToast('Failed to load profile data. Please refresh the page.', 'error', 5000);
+          }
+        );
         }
       }
 
@@ -1033,10 +1058,18 @@
         } else {
           // Cache miss - fetch from backend
           console.log('[Profile Cache] Cache miss, fetching from backend for history');
-          callWithRetry('getProfileData', [], function(data) {
-            cacheProfileData(data); // Cache the response
-            populateHistory(data);
-          }); // Re-using getProfileData
+          callWithRetry('getProfileData', [],
+            function(data) {
+              // Success handler
+              cacheProfileData(data); // Cache the response
+              populateHistory(data);
+            },
+            function(error) {
+              // Failure handler - show error state instead of hanging
+              console.error('[History] Failed to load history data:', error);
+              showToast('Failed to load event history. Please refresh the page.', 'error', 5000);
+            }
+          ); // Re-using getProfileData
         }
       }
       
@@ -1109,7 +1142,13 @@
           // Server successfully auto-detected closest event
           document.getElementById('event-code-input').value = APP_DATA.autoEventCode;
           // Load full event details via backend
-          google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(APP_DATA.autoEventCode);
+          google.script.run
+            .withSuccessHandler(populateEventDetails)
+            .withFailureHandler((error) => {
+              console.error('[Submit] Failed to load auto-detected event details:', error);
+              document.getElementById('event-name').value = 'Error loading event details';
+            })
+            .getEventDetails(APP_DATA.autoEventCode);
         } else if (APP_DATA.autoEventError) {
           // Server tried to auto-detect but failed (no events nearby, location denied, etc.)
           document.getElementById('event-name').value = APP_DATA.autoEventError;
@@ -1123,7 +1162,13 @@
             // User came from event selection, populate the event code
             document.getElementById('event-code-input').value = eventCode;
             // Load the event details via backend
-            google.script.run.withSuccessHandler(populateEventDetails).getEventDetails(eventCode);
+            google.script.run
+              .withSuccessHandler(populateEventDetails)
+              .withFailureHandler((error) => {
+                console.error('[Submit] Failed to load selected event details:', error);
+                document.getElementById('event-name').value = 'Error loading event details';
+              })
+              .getEventDetails(eventCode);
           } else {
             // No event selected; show a message to the user
             document.getElementById('event-name').value = "No event selected. Please check in from the profile page.";
