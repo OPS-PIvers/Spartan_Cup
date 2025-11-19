@@ -313,6 +313,14 @@
         return;
       }
 
+      // Limit maximum visible toasts to prevent overlap and clutter
+      const MAX_TOASTS = 3;
+      const existingToasts = container.querySelectorAll('.toast');
+      if (existingToasts.length >= MAX_TOASTS) {
+        // Remove the oldest toast (first in the list)
+        existingToasts[0].remove();
+      }
+
       // Create toast element
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
@@ -427,7 +435,7 @@
           const progress = Math.min(pullDistance / PULL_THRESHOLD, 1);
           const indicatorTop = Math.min(pullDistance - 80, 0); // Start at -80, move to 0
 
-          indicator.style.top = `${indicatorTop}px`;
+          indicator.style.transform = `translateX(-50%) translateY(${indicatorTop}px)`;
           indicator.classList.remove('hidden');
 
           // Update text based on threshold
@@ -480,7 +488,7 @@
      * Reset pull indicator to hidden state
      */
     function resetPullIndicator(indicator) {
-      indicator.style.top = '-80px';
+      indicator.style.transform = 'translateX(-50%) translateY(-80px)';
       indicator.style.background = 'rgba(27, 59, 135, 0.95)';
       setTimeout(() => {
         indicator.classList.add('hidden');
@@ -493,7 +501,7 @@
     function triggerPageRefresh(indicator, pullText) {
       // Show refreshing state
       indicator.classList.add('refreshing');
-      indicator.style.top = '0px';
+      indicator.style.transform = 'translateX(-50%) translateY(0px)';
       pullText.textContent = 'Refreshing...';
       hapticFeedback('medium');
 
@@ -1362,10 +1370,11 @@
       if (data.badges && data.badges.length > 0) {
         // User has badges - show them
         data.badges.forEach(badge => {
-          // Escape user-controlled values to prevent XSS
+          // Escape user-controlled text values to prevent XSS
           const safeName = escapeHtml(badge.name);
           const safeDescription = escapeHtml(badge.description);
-          const safeImageUrl = escapeHtml(badge.imageUrl);
+          // URLs should NOT be HTML-escaped (breaks URLs with & etc.)
+          const safeImageUrl = badge.imageUrl;
 
           badgeHtml += `
             <div class="flex flex-col items-center gap-1 shrink-0" title="${safeDescription}">
