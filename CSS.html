@@ -18,10 +18,7 @@
     nav,
     header,
     .nav-item,
-    .admin-tab-btn,
-    [class*="bg-"],
-    [class*="text-"],
-    [class*="border-"] {
+    .admin-tab-btn {
       transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
 
@@ -42,10 +39,13 @@
       touch-action: manipulation;
     }
 
-    /* Ensure minimum 44x44px touch targets for mobile accessibility
+    /* Ensure minimum 44x44px touch targets for mobile accessibility (WCAG 2.1)
+     * Applies to buttons and interactive links
      * Excluded: admin-tab-btn (uses flex layout), small utility buttons (.btn-sm),
      * icon-only buttons (.icon-btn), and inline text buttons (.btn-inline) */
-    button:not(.admin-tab-btn):not(.btn-sm):not(.icon-btn):not(.btn-inline) {
+    button:not(.admin-tab-btn):not(.btn-sm):not(.icon-btn):not(.btn-inline),
+    a.nav-item,
+    a[role="button"] {
       min-height: 44px;
       min-width: 44px;
     }
@@ -126,8 +126,7 @@
     }
     .dark .skeleton {
       background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
+      /* background-size and animation inherited from .skeleton */
     }
     @keyframes shimmer {
       0% { background-position: 200% 0; }
@@ -223,7 +222,7 @@
     .photo-preview {
       max-width: 100%;
       max-height: 200px;
-      object-fit: cover;
+      object-fit: contain; /* Show entire image without cropping */
       border-radius: 8px;
       margin-top: 8px;
     }
@@ -248,9 +247,7 @@
       transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       backdrop-filter: blur(8px);
     }
-    .pull-indicator.visible {
-      top: 0;
-    }
+    .pull-indicator.visible,
     .pull-indicator.refreshing {
       top: 0;
     }
