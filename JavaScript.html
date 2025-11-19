@@ -1065,6 +1065,17 @@
               return;
             }
 
+            // Validate file size - max 10MB for mobile performance
+            const maxSizeMB = 10;
+            const maxSizeBytes = maxSizeMB * 1024 * 1024;
+            if (file.size > maxSizeBytes) {
+              showToast(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please select an image under ${maxSizeMB}MB.`, 'error');
+              hapticFeedback('error');
+              photoInput.value = '';
+              photoPreviewContainer.classList.add('hidden');
+              return;
+            }
+
             const reader = new FileReader();
             reader.onload = (event) => {
               photoPreview.src = event.target.result;
@@ -1487,7 +1498,7 @@
             <span class="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-3" aria-hidden="true">event_note</span>
             <p class="text-lg font-bold text-gray-600 dark:text-gray-400">No events yet!</p>
             <p class="text-sm text-gray-500 dark:text-gray-500 mt-2 max-w-xs">Start attending events to build your history and earn points</p>
-            <button onclick="navigateToPage('profile')" class="mt-4 px-6 py-2 bg-primary text-white font-semibold rounded-lg active:scale-95 transition-transform">
+            <button id="history-empty-goto-profile" class="mt-4 px-6 py-2 bg-primary text-white font-semibold rounded-lg active:scale-95 transition-transform">
               Go to Profile
             </button>
           </div>
@@ -1495,6 +1506,12 @@
       }
 
       historyContainer.innerHTML = historyHtml; // Single insert operation (removes skeleton loaders)
+
+      // Add event listener for empty state button (if it exists)
+      const emptyStateBtn = historyContainer.querySelector('#history-empty-goto-profile');
+      if (emptyStateBtn) {
+        emptyStateBtn.addEventListener('click', () => navigateToPage('profile'));
+      }
     }
 
     /**
@@ -1575,7 +1592,7 @@
                 <strong>iOS Safari:</strong> Settings → Safari → Location Services → While Using → Find "script.google.com" or refresh this page to see the permission prompt<br>
                 <strong>Chrome:</strong> Click the location icon in the address bar and select "Allow"
               </p>
-              <button onclick="updateLocationStatus()" class="mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+              <button class="location-recheck-btn mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
                 Recheck Permission
               </button>
             `;
@@ -1587,7 +1604,7 @@
               <p class="text-xs text-yellow-800 dark:text-yellow-200 mt-1">
                 Try moving outdoors or near a window, then click recheck.
               </p>
-              <button onclick="updateLocationStatus()" class="mt-2 text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">
+              <button class="location-recheck-btn mt-2 text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">
                 Recheck Location
               </button>
             `;
@@ -1600,13 +1617,19 @@
               <p class="text-xs text-red-800 dark:text-red-200 mt-1">
                 Check that Location Services are enabled in your device settings.
               </p>
-              <button onclick="updateLocationStatus()" class="mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+              <button class="location-recheck-btn mt-2 text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
                 Recheck Location
               </button>
             `;
           }
 
           statusDiv.innerHTML = message;
+
+          // Add event listener to recheck button (if it exists)
+          const recheckBtn = statusDiv.querySelector('.location-recheck-btn');
+          if (recheckBtn) {
+            recheckBtn.addEventListener('click', updateLocationStatus);
+          }
         }
       );
     }
