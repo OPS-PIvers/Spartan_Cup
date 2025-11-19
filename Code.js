@@ -98,22 +98,6 @@ function doGet(e) {
     }
   }
 
-  // DEBUG LOGGING: Log all template variable values to trace what's breaking JavaScript
-  // Logger.log('=== TEMPLATE VARIABLES DEBUG ===');
-  // Logger.log('page: ' + page);
-  // Logger.log('userEmail: [' + template.userEmail + ']');
-  // Logger.log('userName: [' + template.userName + ']');
-  // Logger.log('userPhoto: [' + template.userPhoto + ']');
-  // Logger.log('isAdmin: ' + template.isAdmin);
-  // Logger.log('appUrl: [' + getWebAppUrl() + ']');
-  // Logger.log('userLat: ' + template.userLat);
-  // Logger.log('userLon: ' + template.userLon);
-  // Logger.log('userAcc: ' + template.userAcc);
-  // Logger.log('autoEventCode: [' + template.autoEventCode + ']');
-  // Logger.log('autoEventName: [' + template.autoEventName + ']');
-  // Logger.log('autoEventError: [' + template.autoEventError + ']');
-  // Logger.log('userSettings: [' + template.userSettings + ']');
-
   return template.evaluate()
     .setTitle('The Spartan Cup')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT)

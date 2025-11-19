@@ -4,12 +4,50 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       /* This padding-bottom ensures content isn't hidden by the fixed nav bar */
-      padding-bottom: 80px; 
+      padding-bottom: 80px;
     }
-    
+
+    /* Smooth dark mode transitions - scoped to specific elements for performance */
+    body,
+    .page,
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    nav,
+    header,
+    .nav-item,
+    .admin-tab-btn {
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Disable transitions for animations and transforms to avoid conflicts */
+    .animate-slide-right,
+    .animate-slide-left,
+    .animate-fade-in {
+      transition: none !important;
+    }
+
     /* Material Icon fill setting */
     .material-symbols-outlined {
       font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24
+    }
+
+    /* Prevent double-tap zoom on interactive elements (mobile optimization) */
+    button, a, input, textarea, select {
+      touch-action: manipulation;
+    }
+
+    /* Ensure minimum 44x44px touch targets for mobile accessibility (WCAG 2.1)
+     * Applies to buttons and interactive links
+     * Excluded: admin-tab-btn (uses flex layout), small utility buttons (.btn-sm),
+     * icon-only buttons (.icon-btn), and inline text buttons (.btn-inline) */
+    button:not(.admin-tab-btn):not(.btn-sm):not(.icon-btn):not(.btn-inline),
+    a.nav-item,
+    a[role="button"] {
+      min-height: 44px;
+      min-width: 44px;
     }
     
     /* Simple page transition */
@@ -77,5 +115,175 @@
     }
     .dark .admin-tab-btn .material-symbols-outlined {
       color: #9ca3af; /* gray-400 */
+    }
+
+    /* Skeleton Loader Styles */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+    }
+    .dark .skeleton {
+      background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Offline Indicator */
+    .offline-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #dc2626;
+      color: white;
+      text-align: center;
+      padding: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 9999;
+      transform: translateY(-100%);
+      transition: transform 0.3s ease;
+    }
+    .offline-banner.show {
+      transform: translateY(0);
+    }
+
+    /* Toast Notification Container - prevents overlap by stacking toasts */
+    #toast-container {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9998;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 90%;
+    }
+
+    /* Toast Notification Styles */
+    .toast {
+      position: relative;
+      background: #1f2937;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      pointer-events: auto;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .toast.error {
+      background: #dc2626;
+    }
+    .toast.success {
+      background: #16a34a;
+    }
+    .toast.warning {
+      background: #ca8a04;
+    }
+    .dark .toast {
+      background: #374151;
+    }
+    .dark .toast.error {
+      background: #ef4444;
+    }
+    .dark .toast.success {
+      background: #22c55e;
+    }
+    .dark .toast.warning {
+      background: #eab308;
+    }
+
+    /* Success animation for checkmark */
+    @keyframes checkmark-pop {
+      0% { transform: scale(0) rotate(0deg); }
+      50% { transform: scale(1.2) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    .checkmark-animate {
+      animation: checkmark-pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    /* Photo preview styles */
+    .photo-preview {
+      max-width: 100%;
+      max-height: 200px;
+      object-fit: contain; /* Show entire image without cropping */
+      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    /* Pull-to-refresh indicator */
+    .pull-indicator {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      max-width: 400px;
+      width: auto;
+      padding: 12px 24px;
+      background: rgba(27, 59, 135, 0.95);
+      color: white;
+      border-radius: 0 0 12px 12px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(8px);
+    }
+    .pull-indicator.visible,
+    .pull-indicator.refreshing {
+      transform: translateX(-50%) translateY(0);
+    }
+    .dark .pull-indicator {
+      background: rgba(27, 59, 135, 0.98);
+    }
+
+    /* Pull-to-refresh spinner */
+    .pull-spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+    }
+    .pull-indicator.refreshing .pull-spinner {
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Pull text */
+    .pull-text {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Prevent native pull-to-refresh on mobile browsers */
+    body {
+      overscroll-behavior-y: contain;
+    }
+    .max-w-md {
+      overscroll-behavior-y: contain;
     }
 </style>

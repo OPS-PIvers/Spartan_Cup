@@ -669,7 +669,7 @@
       const status = document.getElementById('queue-status');
 
       if (!response || response.status === 'error') {
-        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${escapeHTML(response ? response.message : 'An unexpected error occurred.')}</p>`;
+        status.innerHTML = `<p class="text-red-600 dark:text-red-400">${escapeHtml(response ? response.message : 'An unexpected error occurred.')}</p>`;
         showEmptyState();
         return;
       }
@@ -852,13 +852,15 @@
       document.getElementById('empty-state').classList.remove('hidden');
     }
 
-    // Helper functions for escaping HTML and JS strings
+    // NOTE: This script loads BEFORE JavaScript.html, so we need a local copy of escapeHtml
+    // to avoid ReferenceError when displaying admin errors
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
 
+    // Helper for JS-specific string escaping
     function escapeForJs(text) {
       return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
     }
