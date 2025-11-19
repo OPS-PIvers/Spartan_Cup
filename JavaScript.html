@@ -557,9 +557,10 @@
             break;
 
           case 'history':
-            // Refresh history data
-            callWithRetry('getEventHistory', [], (data) => {
+            // Refresh history data (history is part of profile data)
+            callWithRetry('getProfileData', [], (data) => {
               if (data && !data.error) {
+                cacheProfileData(data); // Cache the refreshed data
                 populateHistory(data);
                 resolve();
               } else {
