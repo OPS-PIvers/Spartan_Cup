@@ -22,7 +22,7 @@
  */
 function updateActiveEventStatus() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const eventsSheet = ss.getSheetByName('Events');
     if (!eventsSheet) {
       Logger.log('Events sheet not found');
@@ -478,7 +478,7 @@ function findEventIdByCode(eventId) {
  */
 function getEventsList(category) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Events');
     if (!sheet) {
       return { status: 'error', message: 'Events sheet not found' };
@@ -620,7 +620,7 @@ function getEventsList(category) {
  */
 function addEvent(eventData) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName('Events');
     if (!sheet) {
       return { status: 'error', message: 'Events sheet not found' };
@@ -707,7 +707,7 @@ function updateEvent(eventId, eventData) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(eventId).trim()) {
         // Now get sheet reference for write operation
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
         const sheet = ss.getSheetByName('Events');
         if (!sheet) {
           return { status: 'error', message: 'Events sheet not found' };
@@ -784,7 +784,7 @@ function deleteEvent(eventId) {
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(eventId).trim()) {
         // Now get sheet reference for delete operation
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
         const sheet = ss.getSheetByName('Events');
         if (!sheet) {
           return { status: 'error', message: 'Events sheet not found' };

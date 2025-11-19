@@ -39,7 +39,7 @@ function onOpen() {
 }
 
 function setDataValidation() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Config_Badges');
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Config_Badges');
   if (!sheet) {
     SpreadsheetApp.getUi().alert('Sheet "Config_Badges" not found.');
     return;
@@ -144,7 +144,7 @@ function setupDriveFolders() {
  * - If sheet doesn't exist: creates it with all required headers
  */
 function setupSpreadsheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   ss.setName('[The Spartan Cup] - MASTER');
 
   // Define ALL sheets with their required headers
@@ -285,7 +285,7 @@ function setupSpreadsheet() {
 }
 
 function setupBadgeDropdowns() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const badgesSheet = ss.getSheetByName('Config_Badges');
 
   if (!badgesSheet) {
@@ -303,7 +303,7 @@ function setupBadgeDropdowns() {
  * Safe to run multiple times - clears old test data first.
  */
 function generateSampleSubmissions() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
   try {
     // Sample student data
@@ -474,7 +474,7 @@ function generateSampleSubmissions() {
  */
 function populateSampleBadges() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const badgesSheet = ss.getSheetByName('Config_Badges');
 
     // Clear existing badges (except header)

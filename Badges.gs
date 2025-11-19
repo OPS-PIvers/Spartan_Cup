@@ -57,7 +57,7 @@ function getBadgeData() {
  */
 function calculateBadges(email, skipSeasonEndBadges = false) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
     // Use cached student data to find student profile (reduces Sheets API calls)
     const studentData = getStudentProfilesData();
@@ -664,7 +664,7 @@ function processSeasonEndBadges() {
       ]);
     });
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const studentSheet = ss.getSheetByName('Student_Profiles');
 
     // Get current season for display
@@ -986,7 +986,7 @@ function createBadge(badgeData) {
     Logger.log('[createBadge] Received badgeData: ' + JSON.stringify(badgeData));
 
     // Validate sheet exists
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const badgesSheet = ss.getSheetByName('Config_Badges');
     if (!badgesSheet) {
       Logger.log('[createBadge] ERROR: Config_Badges sheet not found');
@@ -1067,7 +1067,7 @@ function updateBadge(badgeId, badgeData) {
     Logger.log('[updateBadge] Received badgeId: ' + badgeId + ' | badgeData: ' + JSON.stringify(badgeData));
 
     // Validate sheet exists
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const badgesSheet = ss.getSheetByName('Config_Badges');
     if (!badgesSheet) {
       Logger.log('[updateBadge] ERROR: Config_Badges sheet not found');
@@ -1176,7 +1176,7 @@ function deleteBadge(badgeId) {
     }
 
     // Now get sheet reference and find row for delete operation
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const badgesSheet = ss.getSheetByName('Config_Badges');
     const badgesData = badgesSheet.getDataRange().getValues();
 

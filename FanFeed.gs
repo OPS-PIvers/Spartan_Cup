@@ -10,7 +10,7 @@
  */
 function getFanFeed() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const daysBack = 7;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysBack);
@@ -160,7 +160,7 @@ function clearFanFeedCache() {
  */
 function calculateStreakBonus(email) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const verifiedSheet = ss.getSheetByName('Submissions_Verified');
     const verifiedData = verifiedSheet.getDataRange().getValues();
 

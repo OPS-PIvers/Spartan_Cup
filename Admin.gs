@@ -49,7 +49,7 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       return { status: "error", message: "Submission not found." };
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
     // Validate required sheets exist before attempting operations
     const pendingSheet = ss.getSheetByName('Submissions_Pending');
@@ -171,7 +171,7 @@ function denySubmission(submissionId, reason) {
       return { status: "error", message: "Submission not found." };
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
     // Validate required sheets exist before attempting operations
     const pendingSheet = ss.getSheetByName('Submissions_Pending');

@@ -227,7 +227,7 @@ function saveUserSettings(settings) {
         // Logger.log('Saving JSON: ' + settingsJson);
 
         // Now get sheet reference for the write operation
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
         const studentSheet = ss.getSheetByName('Student_Profiles');
         studentSheet.getRange(i + 1, 9).setValue(settingsJson); // Column I = column 9
         SpreadsheetApp.flush(); // Force immediate write to sheet
@@ -275,7 +275,7 @@ function getProfileData() {
     // If user not in sheet, create a new profile entry (rare case - new user)
     if (!userProfile) {
       // Only now do we need direct sheet access
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
       const studentSheet = ss.getSheetByName('Student_Profiles');
 
       const defaultSettings = { darkMode: false, eventNotifications: true, approvalNotifications: true, badgeNotifications: true };

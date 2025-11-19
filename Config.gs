@@ -18,6 +18,11 @@
  */
 
 // --- GLOBAL CONFIGURATION ---------------------------------------------------
+
+// IMPORTANT: Spreadsheet ID for web app deployment
+// Web apps cannot use getActiveSpreadsheet() - must use openById()
+const SPREADSHEET_ID = '1kaXx2iYHdhgQ7K-If17C8zLw9EaR_TSaIm8C75irqS4';
+
 const CAMPUS_GEOFENCE = [
   [44.9702, -93.6300], [44.9702, -93.6180],
   [44.9630, -93.6180], [44.9630, -93.6300],
@@ -72,7 +77,7 @@ function getAdminEmails() {
     }
 
     // Cache miss or parse error: read from Sheets
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const adminSheet = ss.getSheetByName('Config_Admins');
     const adminData = adminSheet.getDataRange().getValues();
     const adminEmails = [];
@@ -110,7 +115,7 @@ function getStudentProfilesData() {
   }
 
   // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const studentSheet = ss.getSheetByName('Student_Profiles');
   const studentData = studentSheet.getDataRange().getValues();
 
@@ -138,7 +143,7 @@ function getBadgeMapCache() {
   }
 
   // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const badgesSheet = ss.getSheetByName('Config_Badges');
   const badgesData = badgesSheet.getDataRange().getValues();
   const badgeMap = {};
@@ -181,7 +186,7 @@ function getEventMapCache() {
   }
 
   // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
   // Load Activities_Data to get activity names for Activity_Code lookup
   const activitiesSheet = ss.getSheetByName('Activities_Data');
@@ -236,7 +241,7 @@ function getCachedSheetData(sheetName, cacheKey, ttl, description) {
   }
 
   // Cache miss or parse error: read from Sheets
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(sheetName);
 
   if (!sheet) {

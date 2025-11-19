@@ -163,7 +163,7 @@ function submitEvent(formObject, photoBlob) {
 
     const file = savePhotoToDrive(photoBlob, eventId, email);
 
-    const pendingSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending');
+    const pendingSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Submissions_Pending');
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),
@@ -211,12 +211,12 @@ function resubmitEvent(formObject, photoBlob) {
       } catch (e) {
         Logger.log(`Could not find old photo to delete: ${oldSubmission.photoId}`);
       }
-      SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending').deleteRow(oldSubmission.row);
+      SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Submissions_Pending').deleteRow(oldSubmission.row);
     }
 
     const file = savePhotoToDrive(photoBlob, eventId, email);
 
-    const pendingSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions_Pending');
+    const pendingSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Submissions_Pending');
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),

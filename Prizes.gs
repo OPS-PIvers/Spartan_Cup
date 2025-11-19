@@ -11,7 +11,7 @@
 function getAllSeasonPrizes() {
   try {
     Logger.log('[getAllSeasonPrizes] Starting');
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
 
     if (!prizesSheet) {
@@ -57,7 +57,7 @@ function createPrize(rank, description) {
   try {
     Logger.log('[createPrize] Rank: ' + rank + ' | Description: ' + description);
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
 
     if (!prizesSheet) {
@@ -100,7 +100,7 @@ function updatePrize(rowIndex, rank, description) {
   try {
     Logger.log('[updatePrize] Row: ' + rowIndex + ' | Rank: ' + rank + ' | Description: ' + description);
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
 
     if (!prizesSheet) {
@@ -147,7 +147,7 @@ function deletePrize(rowIndex) {
   try {
     Logger.log('[deletePrize] Deleting row: ' + rowIndex);
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
 
     if (!prizesSheet) {

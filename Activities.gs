@@ -20,7 +20,7 @@ function getActiveSeason() {
       return cachedSeason;
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const seasonSheet = ss.getSheetByName('Config_Active_Season');
     const seasonData = seasonSheet.getDataRange().getValues();
 
@@ -48,7 +48,7 @@ function getActiveSeason() {
  */
 function setActiveSeason(season) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const seasonSheet = ss.getSheetByName('Config_Active_Season');
     const seasonData = seasonSheet.getDataRange().getValues();
 
@@ -147,7 +147,7 @@ function updateActivitySeasonAssignments(season, activityCodes) {
     const codeSet = new Set(activityCodes);
 
     // Now get sheet reference for write operations
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const activitiesSheet = ss.getSheetByName('Activities_Data');
 
     // Update each activity's season assignment
@@ -213,7 +213,7 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
     }
 
     // Now get sheet reference for write operation
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const activitiesSheet = ss.getSheetByName('Activities_Data');
 
     // Add new activity row

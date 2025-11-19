@@ -6,7 +6,7 @@
 
 function initializeConfigPoints() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const pointsSheet = ss.getSheetByName('Config_Points');
 
     // Only initialize if empty (no data rows beyond header)
@@ -48,7 +48,7 @@ function getPointsConfig() {
       return safeJSONParse(cached, null, 'points config cache');
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const pointsSheet = ss.getSheetByName('Config_Points');
     const data = pointsSheet.getDataRange().getValues();
 
@@ -166,7 +166,7 @@ function updatePointsConfig(config) {
       }
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const pointsSheet = ss.getSheetByName('Config_Points');
     const data = pointsSheet.getDataRange().getValues();
 
@@ -230,7 +230,7 @@ function resetPointsToDefaults() {
       'Spotlight_Game_Multiplier': 1.5
     };
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const pointsSheet = ss.getSheetByName('Config_Points');
     const data = pointsSheet.getDataRange().getValues();
 
