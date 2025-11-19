@@ -10,14 +10,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Runtime:** Google Apps Script (V8)
 - **Database:** Google Sheets (via SpreadsheetApp API)
-- **File Storage:** Google Drive (via DriveApp API)
+- **File Storage:** Google Drive (via DriveApp API), Firebase Storage (badge images)
 - **Frontend Framework:** Vanilla JavaScript SPA with server-driven routing
 - **CSS:** Tailwind CSS (CDN-hosted)
 - **Libraries:**
   - Google Material Icons for icons
   - Google Fonts (Public Sans) for typography
+  - Firebase SDK (Storage)
 - **Deployment Tools:** Clasp (Google Apps Script CLI), Firebase Hosting (geolocation wrapper)
 - **Hosting:** Firebase Hosting (wrapper to capture geolocation for iOS Safari)
+
+## Codebase Statistics
+
+- **Backend:** 6,447 lines across 13 .gs modules (96 functions)
+- **Frontend:** 2,576 lines (Index.html, JavaScript.html, CSS.html, Modals.html)
+- **Page Templates:** 4,981 lines across 17 page files
+- **Total:** ~14,000+ lines of code
 
 ## Repository Structure
 
@@ -25,241 +33,319 @@ The project combines Google Apps Script files (flat structure required by GAS) w
 
 ```
 Spartan_Cup/
-├── Code.js                 # Server-side business logic (V8 Apps Script)
-├── Index.html              # Main SPA template entry point
-├── JavaScript.html         # Client-side JS (SPA router, form handling, location services)
-├── CSS.html                # Styling and theme configuration
-├── Modals.html             # Modal dialog components
-├── Page.*.html             # Modular page components (profile, history, submit, etc.)
+├── Code.js                 # Router only (157 lines) - doGet, include, getAdminTabHTML
+├── *.gs                    # Backend modules (see Backend Architecture below)
+├── Index.html              # Main SPA template entry point (205 lines)
+├── JavaScript.html         # Client-side SPA application (1,823 lines)
+├── CSS.html                # Styling and theme configuration (289 lines)
+├── Modals.html             # Modal dialog components (102 lines)
+│
+├── Page.profile.html       # Dashboard - points, rank, badges, leaderboard
+├── Page.submit.html        # Event submission form
+├── Page.history.html       # Event history list
+├── Page.welcome.html       # First-visit onboarding
+├── Page.event-select.html  # Event picker with distance sorting
+├── Page.prizes.html        # Season awards + upcoming events
+├── Page.fanfeed.html       # Social feed - photos + badge awards
+├── Page.rulebook.html      # Rules and point system
+├── Page.all-badges.html    # Badge gallery
+├── Page.settings.html      # Dark mode, notifications, logout
+├── Page.admin.html         # Admin dashboard - swipe-to-approve
+├── Page.admin.events.html  # Event CRUD
+├── Page.admin.badges.html  # Badge management + Firebase uploads
+├── Page.admin.season.html  # Season/activity management
+├── Page.admin.prizes.html  # Prize configuration
+├── Page.admin.points.html  # Points value configuration
+├── Page.admin.utils.html   # Admin utilities (cache clear, debug)
+│
 ├── appsscript.json         # Apps Script runtime configuration
 ├── .clasp.json             # Clasp deployment configuration
 ├── firebase.json           # Firebase configuration
 ├── storage.rules           # Firebase Storage security rules
 ├── cors.json               # CORS configuration for Firebase Storage
+│
 ├── README.md               # Main project documentation
 ├── CLAUDE.md               # This file - AI assistant instructions
 ├── SPREADSHEET_SCHEMA.md   # Complete Google Sheets backend schema
+│
 ├── docs/                   # Documentation folder
-│   ├── SHEETS_API_SETUP.md         # Google Sheets API setup guide
-│   ├── BADGE_DEPLOYMENT_GUIDE.md   # Badge deployment reference
-│   ├── FIREBASE_STORAGE_SETUP.md   # Firebase Storage setup
-│   ├── FIREBASE_STORAGE_CLI_SETUP.md # Firebase CLI setup
-│   ├── ios_icon_image.md           # iOS icon configuration
-│   ├── templates/                   # Template files
-│   │   └── firebase-wrapper-index.html  # Firebase wrapper template
-│   └── archive/                     # Archived/historical documentation
-│       ├── DEPLOYMENT_COMPLETE.md
-│       ├── BADGE_SYSTEM_IMPROVEMENTS.md
-│       ├── IMPLEMENTATION_CHECKLIST.md
-│       └── GEMINI.md
+│   ├── SHEETS_API_SETUP.md
+│   ├── BADGE_DEPLOYMENT_GUIDE.md
+│   ├── FIREBASE_STORAGE_SETUP.md
+│   ├── FIREBASE_STORAGE_CLI_SETUP.md
+│   ├── ios_icon_image.md
+│   ├── templates/
+│   │   └── firebase-wrapper-index.html
+│   └── archive/
+│
 ├── assets/                 # Image and media assets
-│   ├── The Spartan Cup_logo_FINAL.svg
-│   ├── The_Spartan_Cup-QR.svg
-│   ├── spartan_cup_FINAL.png
-│   └── spartan_cup_QR.png
 ├── scripts/                # Python utility scripts
-│   ├── read_sheet.py       # Read Google Sheets data
-│   └── write_sheet.py      # Write Google Sheets data
+│   ├── read_sheet.py
+│   └── write_sheet.py
 ├── public/                 # Firebase Hosting public directory
-│   └── index.html          # Geolocation wrapper (deployed to Firebase)
-├── credentials.json        # Google service account credentials (in .gitignore)
-└── .env                    # Environment configuration (in .gitignore)
+│   ├── index.html          # Geolocation wrapper
+│   └── 404.html
+├── credentials.json        # Service account credentials (gitignored)
+└── .env                    # Environment configuration (gitignored)
 ```
 
-## Architecture
+## Backend Architecture
 
-**Pattern: Server-Driven SPA Router**
-- Single entry point: `doGet(e)` in Code.js routes based on `?page=` URL parameter
-- HTML templates are modular: each Page.*.html is a self-contained component
-- Server injects page content via the `include()` template function
-- Client-side navigation handled via JavaScript without full page reloads
-- Communication between frontend and backend via `google.script.run` (Apps Script AJAX)
+The backend is organized into 13 modular .gs files with 96 total functions:
 
-**Data Layer:**
-- **Backend storage:** Google Sheets with tabs (see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md) for complete schema)
-  - **Core Data:** Student_Profiles, Activities_Data, Events, Submissions_Pending, Submissions_Verified
-  - **Configuration:** Config_Points, Config_Badges, Config_Admins, Config_Active_Season
-  - **Operational:** Active_Season_Prizes, Badge_Awards
-- **File storage:** Google Drive for photo submissions (base64-encoded, saved with metadata)
-- **Frontend state:** Minimal client-side state; mostly stateless per request
+| Module | Lines | Functions | Purpose |
+|--------|-------|-----------|---------|
+| **Code.js** | 157 | 3 | Router - doGet, include, getAdminTabHTML |
+| **Setup.gs** | 1,690 | 10 | First-time setup, DB initialization, triggers |
+| **Badges.gs** | 1,278 | 13 | Badge system, award logic, Firebase uploads |
+| **Events.gs** | 898 | 12 | Event CRUD, scheduling, geofencing |
+| **Auth.gs** | 536 | 9 | User authentication, profiles, permissions |
+| **Config.gs** | 368 | 11 | Caching hub, data retrieval helpers |
+| **Activities.gs** | 300+ | 8 | Season/activity management |
+| **Submissions.gs** | 300+ | 7 | Photo submissions, Drive storage |
+| **Points.gs** | 200+ | 5 | Point calculations and configuration |
+| **Prizes.gs** | 150+ | 4 | Prize CRUD operations |
+| **FanFeed.gs** | 150+ | 5 | Social feed data |
+| **Admin.gs** | 100+ | 2 | Approval/denial workflow |
+| **Notifications.gs** | 100+ | 3 | Notification system (UI only) |
+| **Utils.gs** | 150+ | 7 | Utilities - distance calc, formatting |
 
-**Key Components:**
-`Code.js` (944 lines): All backend functions, spreadsheet operations, Drive API, authentication, photo handling
-`JavaScript.html` (337 lines): Client-side routing, page navigation, location services, form submission handlers
-- `Page.profile.html`: Main dashboard showing student stats, badges, leaderboard
-- `Page.submit.html`: Event submission form with location-based check-in
-- `Page.admin.html`: Admin approval dashboard
+### Key Backend Functions
 
-**Geofencing:** Location verification is hardcoded (coordinates in Code.js lines 16-19) to prevent cheating submissions from outside campus.
+**Auth.gs:**
+- `getUserEmail()`, `getUserDisplayName()` - Current user info
+- `getUserIsAdmin()` - Admin check (cached 6 hours)
+- `getProfileData()` - Dashboard data (points, rank, badges, leaderboard, history)
+- `saveUserSettings()` - Persist student preferences
+
+**Events.gs:**
+- `getActiveEvents()` - Events happening now/soon
+- `getEventsByDistance()` - Sort by GPS distance
+- `validateEventSubmission()` - Geofence validation
+- `addEvent()`, `updateEvent()`, `deleteEvent()` - CRUD
+
+**Submissions.gs:**
+- `submitEvent()` - Main submission handler
+- `savePhotoToDrive()` - Store image on Google Drive
+- `getAdminQueue()` - Pending submissions list
+
+**Badges.gs:**
+- `calculateBadges()` - Check user against all badge triggers
+- `uploadBadgeImage()` - Upload to Firebase Storage
+- `createBadge()`, `updateBadge()`, `deleteBadge()` - CRUD
+
+**Admin.gs:**
+- `approveSubmission()` - Mark verified, award points, calculate badges
+- `denySubmission()` - Reject submission
+
+## Frontend Architecture
+
+### JavaScript.html (1,823 lines)
+
+The main client-side SPA application includes:
+
+**Core Systems:**
+- **CacheManager** - Session storage with TTL (profile 5min, events 30min, queue 30sec)
+- **callWithRetry()** - Automatic retry for rate limits (429) with exponential backoff
+- **Location Services** - Three-tier fallback: Firebase wrapper → cache → browser
+- **Page Router** - `navigateToPage()` with location preservation
+
+**UI Features:**
+- Haptic feedback for mobile
+- Toast notifications
+- Offline detection banner
+- Pull-to-refresh gesture
+- Loading modal
+
+**Page Functions:**
+- `loadEventsByDistance()` - Event selection
+- `populateProfile()`, `populateHistory()` - Dashboard rendering
+- `handleFormSubmit()` - Photo submission
+- `updateLeaderboardDisplay()` - Leaderboard UI
+
+**Security:**
+- `escapeHtml()` - XSS prevention
+- Safe DOM construction (avoids innerHTML for user data)
+- Input validation
+
+### Frontend State
+
+The app uses client-side caching via sessionStorage:
+- Profile data (5 min TTL)
+- Fan feed (15 min)
+- Events list (30 min)
+- Admin queue (30 sec)
+- Location (2 min)
+
+Persistent JavaScript variables hold form state and current user context.
 
 ## Common Commands
 
 ### Initial Setup (One-Time)
 
-In Google Sheets where the script is bound, click the **"🏆 Spartan Cup Admin"** menu and select **"1. Run First-Time Setup"**. This creates all spreadsheet tabs, Drive folders, and dynamically generates all HTML page files.
+In Google Sheets where the script is bound, click **"🏆 Spartan Cup Admin"** → **"1. Run First-Time Setup"**. This creates all spreadsheet tabs, Drive folders, and HTML files.
 
-### Firebase Deployment (For iOS Safari Geolocation)
+### Deployment
 
-The project uses Firebase Hosting to host a geolocation wrapper that fixes iOS Safari's iframe geolocation blocking.
+**Google Apps Script:**
+```bash
+clasp push
+```
 
-**Deployed Firebase Project:**
-- **Project ID:** `the-spartan-cup`
-- **Firebase Hosting URL:** `https://the-spartan-cup.web.app`
-- **Wrapper location:** `/public/index.html`
-
-**To deploy updates to the wrapper:**
+**Firebase Hosting:**
 ```bash
 firebase deploy --only hosting
 ```
 
-**To verify wrapper is live:**
-1. Open `https://the-spartan-cup.web.app` in a browser
-2. Grant location permission when prompted
-3. Browser should redirect to GAS app with location params in URL
-
-See [docs/FIREBASE_STORAGE_SETUP.md](docs/FIREBASE_STORAGE_SETUP.md) for Firebase Storage setup and the wrapper template in [docs/templates/firebase-wrapper-index.html](docs/templates/firebase-wrapper-index.html).
-
 ### Direct Google Sheets Access (Python Scripts)
 
-The project includes Python scripts for reading and writing to Google Sheets directly via service account authentication. This allows Claude Code and CLI users to query and modify sheet data without going through the Apps Script API.
-
-**Setup Status:**
-- Service account: `claude-code@spartan-cup.iam.gserviceaccount.com`
-- Credentials: `credentials.json` (in .gitignore)
-- Spreadsheet ID configured in `.env`
-
-**Reading from Sheets:**
 ```bash
-# Read as CSV (default)
+# Read data
 python3 scripts/read_sheet.py Student_Profiles
-
-# Read as JSON
 python3 scripts/read_sheet.py Events json
 
-# Read as formatted table
-python3 scripts/read_sheet.py Config_Badges table
-```
-
-**Writing to Sheets:**
-```bash
-# Append a new row
-python3 scripts/write_sheet.py Student_Profiles append "email@example.com,Name,100,Gold"
-
-# Update a specific cell
+# Write data
+python3 scripts/write_sheet.py Student_Profiles append "email,Name,100,Gold"
 python3 scripts/write_sheet.py Events update A2 "New Value"
-
-# Update a range
-python3 scripts/write_sheet.py Config_Badges update_range "A2:C2" "Badge,Description,Points"
-
-# Clear a sheet (use with caution!)
-python3 scripts/write_sheet.py Test_Sheet clear
 ```
 
-**Available Sheet Tabs:**
-- Student_Profiles
-- Events
-- Submissions_Pending
-- Submissions_Verified
-- Config_Badges
-- Config_Admins
-- Config_Points
-- Config_Active_Season
-- Activities_Data
+**Service account:** `claude-code@spartan-cup.iam.gserviceaccount.com`
 
-**Note:** The service account must have Editor access to the spreadsheet. See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for complete setup instructions.
+See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for setup.
 
 ### Testing
 
-There is no automated test framework configured. Testing is manual:
-- Open the deployed web app URL in a browser
-- Test location-based check-in at events
-- Verify spreadsheet data updates correctly
+Manual testing required:
+- Open `https://the-spartan-cup.web.app` in browser
+- Test location-based check-in
+- Verify spreadsheet updates
 - Test admin approval workflow
-- Test on iOS Safari to verify geolocation works via Firebase wrapper
-
-### Linting
-
-No linting is configured. Google Apps Script Editor provides basic syntax checking. Consider using a local linter if making significant changes to Code.js.
+- Test on iOS Safari for geolocation
 
 ## Important Implementation Notes
 
-1. **Mock Data:** Profile and history pages currently return mock/placeholder data. Real student data needs to be fetched from the Sheets tabs.
+1. **Submission Workflow:** Pending → Verified (by admin) → Points awarded → Badges calculated
 
-2. **Submission Workflow:** Submissions follow: Pending → Verified (by admin) → Archived. The verification system prevents duplicate approvals.
+2. **Admin Access:** Email whitelist in **Config_Admins** sheet. `getUserIsAdmin()` checks with 6-hour caching.
 
-3. **Admin Access:** Based on email whitelist in the **Config_Admins** sheet. Add user email addresses to this sheet to grant admin dashboard access. The `getUserIsAdmin()` function checks this sheet (with caching) for both UI visibility and backend permission enforcement.
+3. **Dark Mode:** Implemented via Tailwind `dark:` classes. Toggle in settings persists via `saveUserSettings()`.
 
-4. **Dark Mode:** Implemented via Tailwind's `dark:` classes and CSS variables. Toggle is planned in settings page.
+4. **Photo Handling:** Client-side compression (800x600, 65-75% JPEG quality) → base64 → Google Drive with metadata.
 
-5. **Photo Handling:** Photos are base64-encoded in client and saved to Google Drive with metadata. Large photo sizes may impact quota.
+5. **Geolocation with Firebase Wrapper:** iOS Safari blocks geolocation in iframes. Solution: Firebase wrapper at `https://the-spartan-cup.web.app` captures location BEFORE loading GAS, passes via URL params.
 
-6. **Geolocation with Firebase Wrapper:** iOS Safari blocks geolocation in iframes (GAS runs in an iframe). Solution: Firebase Hosting wrapper captures location BEFORE loading GAS. Flow: Firebase wrapper → requests location permission (works on iOS!) → passes location via URL params → GAS receives it in `doGet(e)` and passes to frontend via `APP_DATA`. See [FIREBASE_SETUP_GUIDE.md](FIREBASE_SETUP_GUIDE.md) for setup instructions. The wrapper location is checked first in `requestLocation()` (JavaScript.html), with fallback to cache/browser geolocation.
+6. **Google Apps Script Navigation (IMPORTANT):** Navigation requires user activation chain:
+   - **DO NOT** use `confirm()` dialogs before navigation
+   - **DO NOT** use `setTimeout()` before navigation
+   - **USE** custom modals instead (see Modals.html)
+   - If you see "Unsafe attempt to navigate" errors, you've broken the activation chain
 
-7. **Google Apps Script Navigation (IMPORTANT):** Navigation in Google Apps Script web apps requires user activation. This means you MUST navigate in direct response to user interactions (click handlers, form submissions) without breaking the activation chain. Common pitfalls:
-   - **DO NOT use `confirm()` dialogs before navigation** - Browser dialogs break the user activation chain, causing "Unsafe attempt to navigate" errors
-   - **DO NOT use `setTimeout()` before navigation** - Async delays break the activation chain
-   - **USE custom modals instead** - See Modals.html for the pattern (show modal on click, then navigate when button clicked within modal)
-   - **The Index.html `<base target="_top">` is required** for proper frame navigation
-   - If you see the error: "The frame attempting navigation of the top-level window is sandboxed with the 'allow-top-navigation-by-user-activation' flag, but has no user activation" - you've broken the user activation chain. Fix by removing async delays and browser dialogs between the user click and `navigateToPage()`.
+7. **Rate Limiting:** `callWithRetry()` handles 429 errors with exponential backoff (1s, 2s, 4s).
 
-## Key Known TODOs
+## Feature Status
 
-From in-code comments, these features need completion:
-- Connect real student profile data from Sheets (currently returns mock data)
-- Build admin verification queue UI (swipe-to-approve interface planned)
-- Implement badge system calculation logic
-- Complete settings page (dark mode toggle, notification preferences)
-- Populate event details dynamically from Event_Schedule tab
-- Add fan feed/social interaction features
-- Implement real leaderboard data fetching
+### Fully Implemented
+
+- Location-based check-in with geofencing
+- Photo submissions with compression
+- Real-time leaderboards (season + all-time)
+- Admin swipe-to-approve dashboard
+- Badge system with 13+ triggers
+- Event management (CRUD + spotlight games)
+- Dark mode toggle
+- iOS Safari support via Firebase wrapper
+- Offline detection
+- Pull-to-refresh
+- Fan feed with photos + badge awards
+
+### Partially Implemented
+
+- **Settings Page:** Dark mode works; notifications and logout are UI-only (no backend)
+- **Notifications:** Functions exist in Notifications.gs but are no-ops
 
 ## Adding Features
 
 **Create a new page:**
 1. Create `Page.newpage.html` with UI markup
-2. Add navigation link in `JavaScript.html` navbar
-3. Add case in the router switch statement in `JavaScript.html`
-4. Add backend functions in `Code.js` if needed
-5. Call backend functions via `google.script.run.functionName()`
+2. Add navigation in JavaScript.html
+3. Add case in router switch
+4. Add backend functions in appropriate .gs file
+5. Call via `google.script.run.functionName()`
 
 **Add backend functionality:**
-1. Define function in `Code.js` with `@param` and `@return` JSDoc comments
-2. Call from frontend via `google.script.run.functionName(args, callback)`
-3. If returning data to a spreadsheet tab, follow existing patterns in Code.js for reading/writing
+1. Define function in appropriate .gs module
+2. Add `@param` and `@return` JSDoc comments
+3. Call from frontend via `google.script.run`
 
 **Styling:**
-- Use existing Tailwind CSS classes from the CDN
-- Add custom CSS to `CSS.html` for non-Tailwind styles
-- School colors: Primary blue (#1b3b87), Secondary red (#b5121b)
+- Tailwind CSS classes from CDN
+- Custom CSS in `CSS.html`
+- School colors: Primary #1b3b87, Secondary #b5121b
+
+## Performance Optimizations
+
+**Server-side Caching:**
+- Admin emails: 6 hours
+- Active season: 1 hour
+- Badge/event maps: On-demand with cache
+
+**Client-side Caching:**
+- sessionStorage with TTL
+- Cache invalidation on relevant actions
+
+**Photo Compression:**
+- Canvas-based JPEG compression (65-75% quality)
+- Max dimensions: 800x600
+
+**Database:**
+- O(n) badge calculation
+- Pre-calculated aggregates
+- Batch caching
+
+## Troubleshooting
+
+### Skeleton loaders stuck
+Clear browser cache (CTRL+Shift+Delete) or use Admin Utils → Clear All Caches
+
+### Location not working on iOS
+Ensure using Firebase wrapper URL (`https://the-spartan-cup.web.app`), not direct GAS URL
+
+### 429 rate limit errors
+Handled automatically by `callWithRetry()` with exponential backoff
+
+### Admin queue not updating
+30-second cache TTL; pull-to-refresh or wait
+
+### Navigation errors
+"Unsafe attempt to navigate" = broken user activation chain. Remove async delays/dialogs before `navigateToPage()`
 
 ## Spreadsheet Schema Reference
 
-For complete schema documentation with column definitions, data types, relationships, and caching strategy, see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md).
+For complete schema documentation, see [SPREADSHEET_SCHEMA.md](SPREADSHEET_SCHEMA.md).
 
 ### Core Data Sheets
 
-- **Student_Profiles:** Student records with Email (unique key), Display_Name, Total_Points_Season, Total_Points_AllTime, Badges_Earned (JSON array), Loyalty_Stats_JSON, Variety_Stats_Set (JSON array), Disqualified flag, Student_Settings (JSON object)
-- **Activities_Data:** Master list of sports/arts activities by season. Columns: Activity_Code (unique key), Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
-- **Events:** Individual event instances (games, performances). Columns: Event_ID (unique key, format "ACTIVITYCODE-NNN"), Activity_Code (FK to Activities_Data), Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active (auto-updated by trigger)
-- **Submissions_Pending:** User submissions awaiting admin review. Columns: Submission_ID (UUID), Timestamp, Email (FK to Student_Profiles), Event_ID (FK to Events), Photo_URL, Photo_ID, Location_Data_JSON, Dressed_For_Theme, Notes
-- **Submissions_Verified:** Approved submissions archive (immutable). Columns: Submission_ID, Timestamp_Submitted, Timestamp_Approved, Email, Event_ID, Admin_Email, Points_Base, Points_Theme, Points_Spotlight_Multiplier, Points_Total, Photo_URL
+- **Student_Profiles:** Email, Display_Name, Total_Points_Season, Total_Points_AllTime, Badges_Earned (JSON), Loyalty_Stats_JSON, Variety_Stats_Set (JSON), Disqualified, Student_Settings (JSON)
+- **Activities_Data:** Activity_Code, Activity_Name, Season, Location_Name, Event_Lat, Event_Lon
+- **Events:** Event_ID, Activity_Code, Event_Name, Date, Location, Lat/Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme, Is_Active
+- **Submissions_Pending:** Submission_ID, Timestamp, Email, Event_ID, Photo_URL, Photo_ID, Location_Data_JSON, Dressed_For_Theme, Notes
+- **Submissions_Verified:** Submission_ID, Timestamps, Email, Event_ID, Admin_Email, Points_Base/Theme/Multiplier/Total, Photo_URL
 
 ### Configuration Sheets
 
-- **Config_Points:** Point value configuration. Columns: Setting_Name (unique key), Points_Value, Description. Updated via admin UI dialog `openPointsConfigDialog()`
-- **Config_Badges:** Badge definition library. Columns: Badge_ID (unique key, format "badge_NNN"), Badge_Name, Category, Trigger_Type, Trigger_Value, Description, Badge_Image_URL. See SPREADSHEET_SCHEMA.md for complete trigger type reference
-- **Config_Admins:** Admin access control list (single source of truth). Columns: Admin_Email (unique key), Role. Checked by `getUserIsAdmin()` (cached 6 hours)
-- **Config_Active_Season:** Single-value store for current season. Columns: Setting_Name ("Active_Season"), Setting_Value (e.g., "Winter", "Spring", "Fall"). Referenced by `getActiveSeason()` (cached 1 hour)
+- **Config_Points:** Point values for submission types
+- **Config_Badges:** Badge definitions with triggers
+- **Config_Admins:** Admin email whitelist
+- **Config_Active_Season:** Current season setting
 
 ### Operational Sheets
 
-- **Active_Season_Prizes:** Prize definitions for current season. Columns: Rank (e.g., "1st Place", "Most Spirited"), Description. Displayed on Prizes & Events page
-- **Badge_Awards:** Historical log of badge awards (optional). Columns: Award_ID (UUID), Timestamp, Email, Display_Name, Badge_ID, Badge_Name, Badge_Image_URL. Used for fan feed and analytics
+- **Active_Season_Prizes:** Prize definitions
+- **Badge_Awards:** Badge award history log
 
 ### Important Notes
 
-- All sheets use 1-indexed row numbers (row 1 = headers, data starts row 2)
-- Foreign keys use Email (Student_Profiles), Event_ID (Events), Activity_Code (Activities_Data), Badge_ID (Config_Badges)
-- JSON fields store arrays and objects as stringified JSON
-- Caching is used extensively (see SPREADSHEET_SCHEMA.md for TTL values)
-- The `updateActiveEventStatus()` trigger runs every 10 minutes to update Events.Is_Active based on current time vs. Start_Time + Duration_Hours
+- All sheets 1-indexed (headers row 1, data starts row 2)
+- Foreign keys: Email, Event_ID, Activity_Code, Badge_ID
+- JSON fields store stringified arrays/objects
+- `updateActiveEventStatus()` trigger runs every 10 minutes
