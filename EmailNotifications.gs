@@ -21,53 +21,6 @@ const PRIMARY_COLOR = '#1b3b87';
 const SECONDARY_COLOR = '#b5121b';
 
 /**
- * Escapes HTML special characters to prevent XSS attacks.
- * @param {string} str - String to sanitize
- * @return {string} Sanitized string safe for HTML insertion
- */
-function escapeHtml(str) {
-  if (str === null || str === undefined) {
-    return '';
-  }
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/**
- * Validates and sanitizes a URL for use in HTML attributes.
- * @param {string} url - URL to validate
- * @return {string} Sanitized URL or empty string if invalid
- */
-function sanitizeUrl(url) {
-  if (!url || typeof url !== 'string') {
-    return '';
-  }
-  // Only allow http, https, and data URLs for images
-  const trimmedUrl = url.trim();
-  if (trimmedUrl.match(/^(https?:\/\/|data:image\/)/i)) {
-    return escapeHtml(trimmedUrl);
-  }
-  return '';
-}
-
-/**
- * Validates that a value is a safe number for display.
- * @param {*} value - Value to validate
- * @return {number} Validated number or 0
- */
-function sanitizeNumber(value) {
-  const num = Number(value);
-  if (isNaN(num) || !isFinite(num)) {
-    return 0;
-  }
-  return num;
-}
-
-/**
  * Builds a Map of student emails to their profile data for O(1) lookups.
  * @return {Map} Map of email -> {displayName, settings}
  */
