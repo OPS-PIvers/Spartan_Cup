@@ -43,7 +43,7 @@ Firebase Hosting (the-spartan-cup.web.app)
     ↓ captures geolocation, redirects with params
     │
 Google Apps Script (V8)
-    ├── Backend: 6,447 lines / 96 functions / 13 modules
+    ├── Backend: 6,460 lines / 99 functions / 13 modules
     │   ├── Auth, Events, Submissions, Badges
     │   ├── Admin, Config, Points, Prizes
     │   └── Activities, FanFeed, Notifications, Utils
@@ -126,10 +126,10 @@ python3 scripts/write_sheet.py Student_Profiles append "email,Name,100,Gold"
 
 | Component | Lines | Description |
 |-----------|-------|-------------|
-| Backend (.gs) | 6,447 | 96 functions across 13 modules |
+| Backend (.gs) | 6,460 | 99 functions across 13 modules |
 | JavaScript.html | 1,823 | Client-side SPA application |
-| Page templates | 4,981 | 17 page components |
-| Total | ~14,000 | Complete codebase |
+| Page templates | 4,998 | 17 page components |
+| Total | ~13,900 | Complete codebase |
 
 ### Key Files
 

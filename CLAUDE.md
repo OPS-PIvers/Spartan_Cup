@@ -22,10 +22,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Codebase Statistics
 
-- **Backend:** 6,447 lines across 13 .gs modules (96 functions)
-- **Frontend:** 2,576 lines (Index.html, JavaScript.html, CSS.html, Modals.html)
-- **Page Templates:** 4,981 lines across 17 page files
-- **Total:** ~14,000+ lines of code
+- **Backend:** 6,460 lines across 13 .gs modules (99 functions)
+- **Frontend:** 2,423 lines (Index.html, JavaScript.html, CSS.html, Modals.html)
+- **Page Templates:** 4,998 lines across 17 page files
+- **Total:** ~13,900 lines of code
 
 ## Repository Structure
 
@@ -33,7 +33,7 @@ The project combines Google Apps Script files (flat structure required by GAS) w
 
 ```
 Spartan_Cup/
-├── Code.js                 # Router only (157 lines) - doGet, include, getAdminTabHTML
+├── Code.js                 # Router only (158 lines) - doGet, include, getAdminTabHTML
 ├── *.gs                    # Backend modules (see Backend Architecture below)
 ├── Index.html              # Main SPA template entry point (205 lines)
 ├── JavaScript.html         # Client-side SPA application (1,823 lines)
@@ -91,24 +91,24 @@ Spartan_Cup/
 
 ## Backend Architecture
 
-The backend is organized into 13 modular .gs files with 96 total functions:
+The backend is organized into 13 modular .gs files with 99 total functions:
 
 | Module | Lines | Functions | Purpose |
 |--------|-------|-----------|---------|
-| **Code.js** | 157 | 3 | Router - doGet, include, getAdminTabHTML |
-| **Setup.gs** | 1,690 | 10 | First-time setup, DB initialization, triggers |
+| **Code.js** | 158 | 3 | Router - doGet, include, getAdminTabHTML |
+| **Setup.gs** | 1,691 | 10 | First-time setup, DB initialization, triggers |
 | **Badges.gs** | 1,278 | 13 | Badge system, award logic, Firebase uploads |
 | **Events.gs** | 898 | 12 | Event CRUD, scheduling, geofencing |
 | **Auth.gs** | 536 | 9 | User authentication, profiles, permissions |
 | **Config.gs** | 368 | 11 | Caching hub, data retrieval helpers |
-| **Activities.gs** | 300+ | 8 | Season/activity management |
-| **Submissions.gs** | 300+ | 7 | Photo submissions, Drive storage |
-| **Points.gs** | 200+ | 5 | Point calculations and configuration |
-| **Prizes.gs** | 150+ | 4 | Prize CRUD operations |
-| **FanFeed.gs** | 150+ | 5 | Social feed data |
-| **Admin.gs** | 100+ | 2 | Approval/denial workflow |
-| **Notifications.gs** | 100+ | 3 | Notification system (UI only) |
-| **Utils.gs** | 150+ | 7 | Utilities - distance calc, formatting |
+| **Activities.gs** | 304 | 8 | Season/activity management |
+| **Submissions.gs** | 312 | 7 | Photo submissions, Drive storage |
+| **Points.gs** | 215 | 5 | Point calculations and configuration |
+| **Prizes.gs** | 156 | 4 | Prize CRUD operations |
+| **FanFeed.gs** | 148 | 5 | Social feed data |
+| **Admin.gs** | 108 | 2 | Approval/denial workflow |
+| **Notifications.gs** | 103 | 3 | Notification system (UI only) |
+| **Utils.gs** | 185 | 7 | Utilities - distance calc, formatting |
 
 ### Key Backend Functions
 
