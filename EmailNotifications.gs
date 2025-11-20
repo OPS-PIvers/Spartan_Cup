@@ -11,7 +11,9 @@
  * - sendBadgeAwardEmail(): Email when badge is earned
  * - sendEventReminderEmail(): Email for upcoming event reminders
  *
- * All functions respect user notification preferences from Student_Profiles sheet.
+ * Most functions respect user notification preferences from Student_Profiles sheet.
+ * Exception: sendDenialEmail() always sends regardless of preferences, as students
+ * must be informed when their submissions are not approved.
  */
 
 // School branding constants
@@ -444,8 +446,9 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
  * @param {string} studentEmail - Student email address
  * @param {Array} events - Array of event objects to include in reminder
  * @param {Map} profileMap - Optional pre-built profile map for batch operations
+ * @param {number} spotlightMultiplier - Multiplier for spotlight events (default 1.5)
  */
-function sendEventReminderEmail(studentEmail, events, profileMap) {
+function sendEventReminderEmail(studentEmail, events, profileMap, spotlightMultiplier) {
   try {
     // Check user preferences
     const prefs = getNotificationPreferences(studentEmail, profileMap);
@@ -475,9 +478,10 @@ function sendEventReminderEmail(studentEmail, events, profileMap) {
       // Spotlight badge for this event
       let spotlightBadge = '';
       if (event.isSpotlight) {
+        const multiplierText = spotlightMultiplier ? `${spotlightMultiplier}x` : 'BONUS';
         spotlightBadge = `
           <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-left: 8px;">
-            2x POINTS
+            ${multiplierText} POINTS
           </span>
         `;
       }
@@ -573,6 +577,19 @@ function sendDailyEventReminders() {
 
     // Get all events
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+    // Get spotlight multiplier from Config_Points
+    let spotlightMultiplier = 1.5; // Default
+    const configSheet = ss.getSheetByName('Config_Points');
+    if (configSheet) {
+      const configData = configSheet.getDataRange().getValues();
+      for (let i = 1; i < configData.length; i++) {
+        if (configData[i][0] === 'Spotlight_Game_Multiplier') {
+          spotlightMultiplier = configData[i][1] || 1.5;
+          break;
+        }
+      }
+    }
     const eventsSheet = ss.getSheetByName('Events');
     if (!eventsSheet) {
       Logger.log('Events sheet not found');
@@ -637,7 +654,7 @@ function sendDailyEventReminders() {
       if (!profile.settings.eventNotifications) continue;
 
       // Send single email with all events
-      sendEventReminderEmail(studentEmail, tomorrowEvents, profileMap);
+      sendEventReminderEmail(studentEmail, tomorrowEvents, profileMap, spotlightMultiplier);
       emailsSent++;
 
       // Rate limiting - avoid hitting email quota
