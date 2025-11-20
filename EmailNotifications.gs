@@ -11,7 +11,7 @@
  * - sendBadgeAwardEmail(): Email when badge is earned
  * - sendEventReminderEmail(): Email for upcoming event reminders
  *
- * All functions respect user notification preferences from Student_Settings.
+ * All functions respect user notification preferences from Student_Profiles sheet.
  */
 
 // School branding constants
@@ -21,13 +21,103 @@ const PRIMARY_COLOR = '#1b3b87';
 const SECONDARY_COLOR = '#b5121b';
 
 /**
+ * Escapes HTML special characters to prevent XSS attacks.
+ * @param {string} str - String to sanitize
+ * @return {string} Sanitized string safe for HTML insertion
+ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) {
+    return '';
+  }
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Validates and sanitizes a URL for use in HTML attributes.
+ * @param {string} url - URL to validate
+ * @return {string} Sanitized URL or empty string if invalid
+ */
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  // Only allow http, https, and data URLs for images
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.match(/^(https?:\/\/|data:image\/)/i)) {
+    return escapeHtml(trimmedUrl);
+  }
+  return '';
+}
+
+/**
+ * Validates that a value is a safe number for display.
+ * @param {*} value - Value to validate
+ * @return {number} Validated number or 0
+ */
+function sanitizeNumber(value) {
+  const num = Number(value);
+  if (isNaN(num) || !isFinite(num)) {
+    return 0;
+  }
+  return num;
+}
+
+/**
+ * Builds a Map of student emails to their profile data for O(1) lookups.
+ * @return {Map} Map of email -> {displayName, settings}
+ */
+function buildStudentProfileMap() {
+  const studentData = getStudentProfilesData();
+  const profileMap = new Map();
+
+  for (let i = 1; i < studentData.length; i++) {
+    const email = studentData[i][0];
+    if (email) {
+      let settings = {
+        darkMode: false,
+        eventNotifications: true,
+        approvalNotifications: true,
+        badgeNotifications: true
+      };
+
+      const settingsJson = studentData[i][8];
+      if (settingsJson && settingsJson.toString().trim()) {
+        const parsed = safeJSONParse(settingsJson.toString().trim(), {}, 'notification preferences');
+        if (parsed && Object.keys(parsed).length > 0) {
+          settings = parsed;
+        }
+      }
+
+      profileMap.set(email, {
+        displayName: studentData[i][1] || email.split('@')[0],
+        settings: settings
+      });
+    }
+  }
+
+  return profileMap;
+}
+
+/**
  * Gets user's notification preferences from Student_Profiles.
  * Returns settings object with defaults if not found.
  * @param {string} email - Student email
+ * @param {Map} profileMap - Optional pre-built profile map for batch operations
  * @return {Object} Settings object with notification preferences
  */
-function getNotificationPreferences(email) {
+function getNotificationPreferences(email, profileMap) {
   try {
+    // Use pre-built map if provided (for batch operations)
+    if (profileMap && profileMap.has(email)) {
+      return profileMap.get(email).settings;
+    }
+
+    // Otherwise do a single lookup
     const studentData = getStudentProfilesData();
 
     for (let i = 1; i < studentData.length; i++) {
@@ -58,10 +148,17 @@ function getNotificationPreferences(email) {
 /**
  * Gets user's display name from Student_Profiles.
  * @param {string} email - Student email
+ * @param {Map} profileMap - Optional pre-built profile map for batch operations
  * @return {string} Display name or email prefix if not found
  */
-function getStudentDisplayName(email) {
+function getStudentDisplayName(email, profileMap) {
   try {
+    // Use pre-built map if provided (for batch operations)
+    if (profileMap && profileMap.has(email)) {
+      return profileMap.get(email).displayName;
+    }
+
+    // Otherwise do a single lookup
     const studentData = getStudentProfilesData();
 
     for (let i = 1; i < studentData.length; i++) {
@@ -128,35 +225,42 @@ function sendApprovalEmail(studentEmail, eventName, pointsAwarded, pointsBreakdo
       return;
     }
 
-    const displayName = getStudentDisplayName(studentEmail);
-    const subject = `Submission Approved! You earned ${pointsAwarded} points`;
+    // Sanitize all inputs
+    const safeDisplayName = escapeHtml(getStudentDisplayName(studentEmail));
+    const safeEventName = escapeHtml(eventName);
+    const safePoints = sanitizeNumber(pointsAwarded);
+    const subject = `Submission Approved! You earned ${safePoints} points`;
 
     // Build points breakdown HTML if provided
     let breakdownHtml = '';
     if (pointsBreakdown) {
+      const safeBase = sanitizeNumber(pointsBreakdown.base);
+      const safeTheme = sanitizeNumber(pointsBreakdown.theme);
+      const safeMultiplier = sanitizeNumber(pointsBreakdown.multiplier);
+
       breakdownHtml = `
         <div style="background-color: #f0f7ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h4 style="margin: 0 0 10px 0; color: ${PRIMARY_COLOR};">Points Breakdown:</h4>
           <table style="width: 100%; font-size: 14px;">
             <tr>
               <td style="padding: 3px 0;">Base Points:</td>
-              <td style="text-align: right; font-weight: bold;">${pointsBreakdown.base || 0}</td>
+              <td style="text-align: right; font-weight: bold;">${safeBase}</td>
             </tr>
-            ${pointsBreakdown.theme ? `
+            ${safeTheme ? `
             <tr>
               <td style="padding: 3px 0;">Theme Bonus:</td>
-              <td style="text-align: right; font-weight: bold; color: #22c55e;">+${pointsBreakdown.theme}</td>
+              <td style="text-align: right; font-weight: bold; color: #22c55e;">+${safeTheme}</td>
             </tr>
             ` : ''}
-            ${pointsBreakdown.multiplier && pointsBreakdown.multiplier > 1 ? `
+            ${safeMultiplier && safeMultiplier > 1 ? `
             <tr>
               <td style="padding: 3px 0;">Spotlight Multiplier:</td>
-              <td style="text-align: right; font-weight: bold; color: #f59e0b;">x${pointsBreakdown.multiplier}</td>
+              <td style="text-align: right; font-weight: bold; color: #f59e0b;">x${safeMultiplier}</td>
             </tr>
             ` : ''}
             <tr style="border-top: 1px solid #ddd;">
               <td style="padding: 8px 0 3px 0; font-weight: bold;">Total:</td>
-              <td style="text-align: right; font-weight: bold; font-size: 18px; color: ${PRIMARY_COLOR};">${pointsAwarded}</td>
+              <td style="text-align: right; font-weight: bold; font-size: 18px; color: ${PRIMARY_COLOR};">${safePoints}</td>
             </tr>
           </table>
         </div>
@@ -173,17 +277,17 @@ function sendApprovalEmail(studentEmail, eventName, pointsAwarded, pointsBreakdo
           </h2>
 
           <p style="font-size: 16px; color: #333; margin: 0 0 15px 0;">
-            Hi ${displayName},
+            Hi ${safeDisplayName},
           </p>
 
           <p style="font-size: 14px; color: #555; line-height: 1.6;">
-            Great news! Your submission for <strong>${eventName}</strong> has been approved.
+            Great news! Your submission for <strong>${safeEventName}</strong> has been approved.
           </p>
 
           <div style="text-align: center; padding: 20px; background-color: #f8fafc; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 0 0 5px 0; font-size: 14px; color: #666;">Points Earned</p>
             <p style="margin: 0; font-size: 36px; font-weight: bold; color: ${PRIMARY_COLOR};">
-              +${pointsAwarded}
+              +${safePoints}
             </p>
           </div>
 
@@ -221,8 +325,11 @@ function sendApprovalEmail(studentEmail, eventName, pointsAwarded, pointsBreakdo
  */
 function sendDenialEmail(studentEmail, eventName, reason) {
   try {
-    const displayName = getStudentDisplayName(studentEmail);
-    const subject = `Submission Not Approved - ${eventName}`;
+    // Sanitize all inputs
+    const safeDisplayName = escapeHtml(getStudentDisplayName(studentEmail));
+    const safeEventName = escapeHtml(eventName);
+    const safeReason = escapeHtml(reason) || 'No specific reason provided';
+    const subject = `Submission Not Approved - ${safeEventName}`;
 
     const htmlBody = `
       <div style="font-family: 'Public Sans', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -234,16 +341,16 @@ function sendDenialEmail(studentEmail, eventName, reason) {
           </h2>
 
           <p style="font-size: 16px; color: #333; margin: 0 0 15px 0;">
-            Hi ${displayName},
+            Hi ${safeDisplayName},
           </p>
 
           <p style="font-size: 14px; color: #555; line-height: 1.6;">
-            Unfortunately, your submission for <strong>${eventName}</strong> was not approved.
+            Unfortunately, your submission for <strong>${safeEventName}</strong> was not approved.
           </p>
 
           <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid ${SECONDARY_COLOR}; margin: 20px 0;">
             <p style="margin: 0; font-size: 14px; color: #7f1d1d;">
-              <strong>Reason:</strong> ${reason || 'No specific reason provided'}
+              <strong>Reason:</strong> ${safeReason}
             </p>
           </div>
 
@@ -301,15 +408,19 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
       return;
     }
 
-    const displayName = getStudentDisplayName(studentEmail);
-    const subject = `New Badge Earned: ${badgeName}`;
+    // Sanitize all inputs
+    const safeDisplayName = escapeHtml(getStudentDisplayName(studentEmail));
+    const safeBadgeName = escapeHtml(badgeName);
+    const safeDescription = escapeHtml(badgeDescription) || 'A special achievement badge';
+    const safeImageUrl = sanitizeUrl(badgeImageUrl);
+    const subject = `New Badge Earned: ${safeBadgeName}`;
 
-    // Badge image HTML (if URL provided)
+    // Badge image HTML (if URL provided and valid)
     let badgeImageHtml = '';
-    if (badgeImageUrl) {
+    if (safeImageUrl) {
       badgeImageHtml = `
         <div style="text-align: center; margin: 20px 0;">
-          <img src="${badgeImageUrl}" alt="${badgeName}" style="width: 120px; height: 120px; object-fit: contain;" />
+          <img src="${safeImageUrl}" alt="${safeBadgeName}" style="width: 120px; height: 120px; object-fit: contain;" />
         </div>
       `;
     } else {
@@ -333,7 +444,7 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
           </h2>
 
           <p style="font-size: 16px; color: #333; margin: 0 0 15px 0;">
-            Hi ${displayName},
+            Hi ${safeDisplayName},
           </p>
 
           <p style="font-size: 14px; color: #555; line-height: 1.6;">
@@ -344,10 +455,10 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
 
           <div style="text-align: center; padding: 15px; background-color: #f5f3ff; border-radius: 8px; margin: 15px 0;">
             <h3 style="margin: 0 0 8px 0; color: #6d28d9; font-size: 20px;">
-              ${badgeName}
+              ${safeBadgeName}
             </h3>
             <p style="margin: 0; font-size: 14px; color: #7c3aed;">
-              ${badgeDescription || 'A special achievement badge'}
+              ${safeDescription}
             </p>
           </div>
 
@@ -375,47 +486,80 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
 }
 
 /**
- * Sends an email reminder about an upcoming event.
+ * Sends an email reminder about upcoming events.
  * Respects user's eventNotifications preference.
  * @param {string} studentEmail - Student email address
- * @param {string} eventName - Name of the event
- * @param {string} eventDate - Date of the event
- * @param {string} eventTime - Time of the event
- * @param {string} location - Event location
- * @param {boolean} isSpotlight - Whether it's a spotlight event
- * @param {string} theme - Event theme (optional)
+ * @param {Array} events - Array of event objects to include in reminder
+ * @param {Map} profileMap - Optional pre-built profile map for batch operations
  */
-function sendEventReminderEmail(studentEmail, eventName, eventDate, eventTime, location, isSpotlight, theme) {
+function sendEventReminderEmail(studentEmail, events, profileMap) {
   try {
     // Check user preferences
-    const prefs = getNotificationPreferences(studentEmail);
+    const prefs = getNotificationPreferences(studentEmail, profileMap);
     if (!prefs.eventNotifications) {
       Logger.log('Event reminder skipped - user disabled notifications: ' + studentEmail);
       return;
     }
 
-    const displayName = getStudentDisplayName(studentEmail);
-    const subject = isSpotlight ? `Spotlight Event Tomorrow: ${eventName}` : `Event Reminder: ${eventName}`;
+    // Sanitize display name
+    const safeDisplayName = escapeHtml(getStudentDisplayName(studentEmail, profileMap));
 
-    // Spotlight badge HTML
-    let spotlightBadge = '';
-    if (isSpotlight) {
-      spotlightBadge = `
-        <div style="background-color: #fef3c7; color: #92400e; padding: 8px 15px; border-radius: 20px; display: inline-block; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
-          SPOTLIGHT EVENT - 2x POINTS
-        </div>
-      `;
-    }
+    // Determine if any events are spotlight events
+    const hasSpotlight = events.some(e => e.isSpotlight);
+    const subject = hasSpotlight
+      ? `Spotlight Event${events.length > 1 ? 's' : ''} Tomorrow!`
+      : `${events.length} Event${events.length > 1 ? 's' : ''} Tomorrow`;
 
-    // Theme info HTML
-    let themeHtml = '';
-    if (theme) {
-      themeHtml = `
-        <div style="background-color: #ecfdf5; padding: 12px 15px; border-radius: 8px; margin: 15px 0;">
-          <p style="margin: 0; font-size: 14px; color: #065f46;">
-            <strong>Theme:</strong> ${theme}
-            <br><span style="font-size: 12px;">Dress for the theme to earn bonus points!</span>
-          </p>
+    // Build events list HTML
+    let eventsHtml = '';
+    for (const event of events) {
+      const safeEventName = escapeHtml(event.eventName);
+      const safeLocation = escapeHtml(event.location);
+      const safeTheme = escapeHtml(event.theme);
+      const safeDate = escapeHtml(event.formattedDate);
+      const safeTime = escapeHtml(event.formattedTime);
+
+      // Spotlight badge for this event
+      let spotlightBadge = '';
+      if (event.isSpotlight) {
+        spotlightBadge = `
+          <span style="background-color: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-left: 8px;">
+            2x POINTS
+          </span>
+        `;
+      }
+
+      // Theme info for this event
+      let themeHtml = '';
+      if (safeTheme) {
+        themeHtml = `
+          <tr>
+            <td style="padding: 3px 0;"><strong>Theme:</strong></td>
+            <td>${safeTheme} <span style="font-size: 11px; color: #22c55e;">(bonus points!)</span></td>
+          </tr>
+        `;
+      }
+
+      eventsHtml += `
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid ${event.isSpotlight ? '#f59e0b' : PRIMARY_COLOR};">
+          <h4 style="margin: 0 0 10px 0; color: ${PRIMARY_COLOR};">
+            ${safeEventName}${spotlightBadge}
+          </h4>
+          <table style="width: 100%; font-size: 13px; color: #555;">
+            <tr>
+              <td style="padding: 3px 0; width: 70px;"><strong>Date:</strong></td>
+              <td>${safeDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0;"><strong>Time:</strong></td>
+              <td>${safeTime}</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 0;"><strong>Location:</strong></td>
+              <td>${safeLocation}</td>
+            </tr>
+            ${themeHtml}
+          </table>
         </div>
       `;
     }
@@ -425,45 +569,21 @@ function sendEventReminderEmail(studentEmail, eventName, eventDate, eventTime, l
         ${getEmailHeader()}
 
         <div style="padding: 25px;">
-          <div style="text-align: center;">
-            ${spotlightBadge}
-          </div>
-
           <h2 style="color: ${PRIMARY_COLOR}; margin: 0 0 15px 0;">
-            Don't Miss This Event!
+            ${events.length > 1 ? "Don't Miss These Events!" : "Don't Miss This Event!"}
           </h2>
 
           <p style="font-size: 16px; color: #333; margin: 0 0 15px 0;">
-            Hi ${displayName},
+            Hi ${safeDisplayName},
           </p>
 
           <p style="font-size: 14px; color: #555; line-height: 1.6;">
-            Reminder: There's an event coming up tomorrow!
+            Reminder: ${events.length > 1 ? 'There are ' + events.length + ' events' : "There's an event"} coming up tomorrow!
           </p>
 
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: ${PRIMARY_COLOR};">
-              ${eventName}
-            </h3>
-            <table style="width: 100%; font-size: 14px; color: #555;">
-              <tr>
-                <td style="padding: 5px 0; width: 80px;"><strong>Date:</strong></td>
-                <td>${eventDate}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0;"><strong>Time:</strong></td>
-                <td>${eventTime}</td>
-              </tr>
-              <tr>
-                <td style="padding: 5px 0;"><strong>Location:</strong></td>
-                <td>${location}</td>
-              </tr>
-            </table>
-          </div>
+          ${eventsHtml}
 
-          ${themeHtml}
-
-          <p style="font-size: 14px; color: #555; line-height: 1.6;">
+          <p style="font-size: 14px; color: #555; line-height: 1.6; margin-top: 15px;">
             Remember to check in via the app and submit your photo to earn points!
           </p>
         </div>
@@ -488,6 +608,7 @@ function sendEventReminderEmail(studentEmail, eventName, eventDate, eventTime, l
 
 /**
  * Sends daily event reminder emails to all students with eventNotifications enabled.
+ * Consolidates all events into a single email per student.
  * This should be set up as a daily trigger (e.g., 4 PM the day before events).
  */
 function sendDailyEventReminders() {
@@ -496,9 +617,6 @@ function sendDailyEventReminders() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-
-    const dayAfter = new Date(tomorrow);
-    dayAfter.setDate(dayAfter.getDate() + 1);
 
     // Get all events
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -517,12 +635,34 @@ function sendDailyEventReminders() {
       eventDate.setHours(0, 0, 0, 0);
 
       if (eventDate.getTime() === tomorrow.getTime() && eventsData[i][12]) { // Is_Active check
+        // Format date nicely
+        const dateObj = new Date(eventsData[i][3]);
+        const formattedDate = dateObj.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        // Format time
+        let formattedTime = 'TBD';
+        if (eventsData[i][6]) {
+          try {
+            const timeDate = new Date(eventsData[i][6]);
+            formattedTime = timeDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit'
+            });
+          } catch (e) {
+            formattedTime = String(eventsData[i][6]);
+          }
+        }
+
         tomorrowEvents.push({
           eventId: eventsData[i][0],
           eventName: eventsData[i][2],
-          date: eventsData[i][3],
+          formattedDate: formattedDate,
+          formattedTime: formattedTime,
           location: eventsData[i][4],
-          startTime: eventsData[i][6],
           isSpotlight: eventsData[i][11],
           theme: eventsData[i][10]
         });
@@ -534,62 +674,26 @@ function sendDailyEventReminders() {
       return;
     }
 
-    // Get all students with email notifications enabled
-    const studentData = getStudentProfilesData();
+    // Build profile map for O(1) lookups during batch processing
+    const profileMap = buildStudentProfileMap();
     let emailsSent = 0;
 
-    for (let i = 1; i < studentData.length; i++) {
-      const studentEmail = studentData[i][0];
-      if (!studentEmail) continue;
+    // Send one consolidated email per student
+    for (const [studentEmail, profile] of profileMap) {
+      // Check preferences using the map
+      if (!profile.settings.eventNotifications) continue;
 
-      // Check preferences
-      const prefs = getNotificationPreferences(studentEmail);
-      if (!prefs.eventNotifications) continue;
+      // Send single email with all events
+      sendEventReminderEmail(studentEmail, tomorrowEvents, profileMap);
+      emailsSent++;
 
-      // Send reminder for each event tomorrow
-      for (const event of tomorrowEvents) {
-        // Format date nicely
-        const dateObj = new Date(event.date);
-        const formattedDate = dateObj.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric'
-        });
-
-        // Format time
-        let formattedTime = 'TBD';
-        if (event.startTime) {
-          try {
-            const timeDate = new Date(event.startTime);
-            formattedTime = timeDate.toLocaleTimeString('en-US', {
-              hour: 'numeric',
-              minute: '2-digit'
-            });
-          } catch (e) {
-            formattedTime = String(event.startTime);
-          }
-        }
-
-        sendEventReminderEmail(
-          studentEmail,
-          event.eventName,
-          formattedDate,
-          formattedTime,
-          event.location,
-          event.isSpotlight,
-          event.theme
-        );
-
-        emailsSent++;
-
-        // Rate limiting - avoid hitting email quota
-        if (emailsSent % 50 === 0) {
-          Utilities.sleep(1000);
-        }
+      // Rate limiting - avoid hitting email quota
+      if (emailsSent % 50 === 0) {
+        Utilities.sleep(1000);
       }
     }
 
-    Logger.log('Daily event reminders sent: ' + emailsSent + ' emails');
+    Logger.log('Daily event reminders sent: ' + emailsSent + ' emails for ' + tomorrowEvents.length + ' events');
 
   } catch (e) {
     Logger.log('Error in sendDailyEventReminders: ' + e.message);
