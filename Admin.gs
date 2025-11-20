@@ -122,9 +122,14 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     // Get event details from cache for notification
     const eventMap = getEventMapCache();
 
-    // Send notification to student
+    // Send notification to student (includes email)
     const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
-    notifySubmissionApproved(submissionInfo[2], eventInfo.eventName, pointsTotal);
+    const pointsBreakdown = {
+      base: basePoints,
+      theme: pointsTheme,
+      multiplier: pointsMultiplier
+    };
+    notifySubmissionApproved(submissionInfo[2], eventInfo.eventName, pointsTotal, pointsBreakdown);
 
     return {
       status: "success",
@@ -211,6 +216,11 @@ function denySubmission(submissionId, reason) {
     } catch (e) {
       // Logger.log("Could not delete photo: " + e.message);
     }
+
+    // Send notification to student (includes email)
+    const eventMap = getEventMapCache();
+    const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
+    notifySubmissionDenied(submissionInfo[2], eventInfo.eventName, reason);
 
     return {
       status: "success",

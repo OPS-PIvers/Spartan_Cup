@@ -568,8 +568,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
           ]);
         }
 
-        // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+        // Send notification for new badge (includes email with description and image)
+        notifyBadgeEarned(email, badgesData[i][1], badgesData[i][5], badgesData[i][6]); // Badge_Name, Description, Image_URL
       }
     }
 
@@ -721,16 +721,19 @@ function processSeasonEndBadges() {
 
           // Log badge award to Badge_Awards sheet for fan feed
           const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
-          if (badgeAwardsSheet) {
-            // Find badge image URL from Config_Badges
-            let badgeImageUrl = '';
-            for (let j = 1; j < badgesData.length; j++) {
-              if (badgesData[j][0] === badge.badgeId) {
-                badgeImageUrl = badgesData[j][6] || ''; // Badge_Image_URL column
-                break;
-              }
-            }
+          let badgeImageUrl = '';
+          let badgeDescription = '';
 
+          // Find badge image URL and description from Config_Badges
+          for (let j = 1; j < badgesData.length; j++) {
+            if (badgesData[j][0] === badge.badgeId) {
+              badgeDescription = badgesData[j][5] || ''; // Description column
+              badgeImageUrl = badgesData[j][6] || ''; // Badge_Image_URL column
+              break;
+            }
+          }
+
+          if (badgeAwardsSheet) {
             badgeAwardsSheet.appendRow([
               Utilities.getUuid(),          // Award_ID
               new Date(),                   // Timestamp
@@ -742,8 +745,8 @@ function processSeasonEndBadges() {
             ]);
           }
 
-          // Send notification
-          notifyBadgeEarned(topStudent.email, badge.badgeName);
+          // Send notification (includes email with description and image)
+          notifyBadgeEarned(topStudent.email, badge.badgeName, badgeDescription, badgeImageUrl);
         }
       }
     }
