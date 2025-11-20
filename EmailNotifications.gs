@@ -267,7 +267,7 @@ function sendApprovalEmail(studentEmail, eventName, pointsAwarded, pointsBreakdo
     Logger.log('Approval email sent to: ' + studentEmail);
 
   } catch (e) {
-    Logger.log('Error sending approval email: ' + e.message);
+    Logger.log('Error sending approval email to ' + studentEmail + ': ' + e.message);
   }
 }
 
@@ -342,7 +342,7 @@ function sendDenialEmail(studentEmail, eventName, reason) {
     Logger.log('Denial email sent to: ' + studentEmail);
 
   } catch (e) {
-    Logger.log('Error sending denial email: ' + e.message);
+    Logger.log('Error sending denial email to ' + studentEmail + ': ' + e.message);
   }
 }
 
@@ -436,7 +436,7 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
     Logger.log('Badge email sent to: ' + studentEmail);
 
   } catch (e) {
-    Logger.log('Error sending badge email: ' + e.message);
+    Logger.log('Error sending badge email to ' + studentEmail + ': ' + e.message);
   }
 }
 
@@ -488,7 +488,7 @@ function sendEventReminderEmail(studentEmail, events, profileMap, spotlightMulti
 
       // Theme info for this event
       let themeHtml = '';
-      if (safeTheme) {
+      if (safeTheme && safeTheme.trim() !== '') {
         themeHtml = `
           <tr>
             <td style="padding: 3px 0;"><strong>Theme:</strong></td>
@@ -559,7 +559,7 @@ function sendEventReminderEmail(studentEmail, events, profileMap, spotlightMulti
     Logger.log('Event reminder email sent to: ' + studentEmail);
 
   } catch (e) {
-    Logger.log('Error sending event reminder email: ' + e.message);
+    Logger.log('Error sending event reminder email to ' + studentEmail + ': ' + e.message);
   }
 }
 

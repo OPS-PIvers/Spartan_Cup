@@ -721,6 +721,8 @@ function processSeasonEndBadges() {
 
           // Find badge image URL and description from Config_Badges
           for (let j = 1; j < badgesData.length; j++) {
+            // Destructure: [Badge_ID, Badge_Name, Category, Trigger_Type, Trigger_Value, Description, Image_URL]
+            // We only need id (0), desc (5), imgUrl (6) - skip indices 1-4
             const [id, , , , , desc, imgUrl] = badgesData[j];
             if (id === badge.badgeId) {
               badgeDescription = desc || '';
