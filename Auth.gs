@@ -12,7 +12,17 @@
  * - Profile photo and avatar generation
  */
 
+/**
+ * Gets the current user's email.
+ * If running in API context, checks for explicitly set user.
+ * @return {string} User's email
+ */
 function getUserEmail() {
+  // Check if we are in an API execution context with a verified user
+  if (typeof API_USER_EMAIL !== 'undefined' && API_USER_EMAIL) {
+    return API_USER_EMAIL;
+  }
+
   let email = Session.getActiveUser().getEmail();
   if (!email || email.trim() === '') {
     email = Session.getEffectiveUser().getEmail();
@@ -21,6 +31,9 @@ function getUserEmail() {
   // Checks for: local-part @ domain . tld
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email || !emailRegex.test(email)) {
+    // In some contexts (e.g. consumer accounts running as "Me"), getActiveUser might be empty if not logged in
+    // But for this app's domain setup, it should work.
+    // However, if we are in API mode and verification failed/wasn't done, this might throw.
     throw new Error('Unable to determine user email');
   }
   return email;
@@ -29,10 +42,11 @@ function getUserEmail() {
 /**
  * Gets the current user's display name from the Student_Profiles sheet.
  * Uses cached data if available to avoid redundant Sheets API calls.
+ * @param {string} [targetEmail] - Optional email to lookup. Defaults to current user.
  * @return {string} User's display name, or empty string if not found
  */
-function getUserDisplayName() {
-  const email = getUserEmail();
+function getUserDisplayName(targetEmail) {
+  const email = targetEmail || getUserEmail();
 
   try {
     // Try to use cached student data first
@@ -54,10 +68,11 @@ function getUserDisplayName() {
 /**
  * Checks if the current user has admin access.
  * Reads from Config_Admins sheet (same source as backend admin checks).
+ * @param {string} [targetEmail] - Optional email to check. Defaults to current user.
  * @return {boolean} True if user is an admin, false otherwise
  */
-function getUserIsAdmin() {
-  const email = getUserEmail();
+function getUserIsAdmin(targetEmail) {
+  const email = targetEmail || getUserEmail();
   const adminEmails = getAdminEmails(); // Uses Config_Admins sheet with caching
   return adminEmails.includes(email.toLowerCase());
 }
@@ -65,10 +80,11 @@ function getUserIsAdmin() {
 /**
  * Checks if the current user is new (not in Student_Profiles sheet).
  * Used to determine if user should see welcome screen.
+ * @param {string} [targetEmail] - Optional email to check. Defaults to current user.
  * @return {boolean} True if user is new, false if returning user
  */
-function isNewUser() {
-  const email = Session.getActiveUser().getEmail();
+function isNewUser(targetEmail) {
+  const email = targetEmail || getUserEmail();
 
   try {
     const studentData = getStudentProfilesData();
@@ -117,7 +133,11 @@ function extractInitials(displayName) {
  */
 function getUserProfilePhoto(email, displayName) {
   // Check user-level cache first (1 hour TTL)
-  const cache = CacheService.getUserCache();
+  const cache = CacheService.getUserCache(); // Note: UserCache is specific to the effective user (script owner in executeAs:Me)
+  // Ideally for API we might want to use ScriptCache with a key prefix, but UserCache is okay if we accept it's shared for all API users if executeAs:Me
+  // Actually, better to use ScriptCache for API users to avoid "UserCache" limits/confusion if running as owner.
+  // But strictly, let's keep it simple.
+
   const cacheKey = 'profile_photo_' + email;
   const cachedUrl = cache.get(cacheKey);
 
@@ -159,8 +179,8 @@ function getUserProfilePhoto(email, displayName) {
   return photoUrl;
 }
 
-function getUserSettings() {
-  const email = Session.getActiveUser().getEmail();
+function getUserSettings(targetEmail) {
+  const email = targetEmail || getUserEmail();
 
   try {
     // Use cached student data to avoid redundant Sheets API calls
@@ -207,10 +227,11 @@ function getUserSettings() {
  * Saves the current user's settings to the Student_Profiles sheet.
  * Settings are stored as JSON in column I (index 8).
  * @param {Object} settings - Settings object with darkMode, notifications, etc.
+ * @param {string} [targetEmail] - Optional email override
  * @return {Object} Confirmation with status
  */
-function saveUserSettings(settings) {
-  const email = Session.getActiveUser().getEmail();
+function saveUserSettings(settings, targetEmail) {
+  const email = targetEmail || getUserEmail();
 
   // Logger.log('saveUserSettings called with: ' + JSON.stringify(settings));
   // Logger.log('User email: ' + email);
@@ -249,8 +270,8 @@ function saveUserSettings(settings) {
   }
 }
 
-function getProfileData() {
-  const email = Session.getActiveUser().getEmail();
+function getProfileData(targetEmail) {
+  const email = targetEmail || getUserEmail();
 
   try {
     // --- FETCH USER PROFILE DATA ---
@@ -516,7 +537,7 @@ function getProfileData() {
       leaderboard: topSeasonLeaderboard, // Default to season; will swap on toggle
       allTimeLeaderboard: topAllTimeLeaderboard,
       history: history,
-      isAdmin: getUserIsAdmin() // Return admin status from Config_Admins sheet
+      isAdmin: getUserIsAdmin(email) // Return admin status from Config_Admins sheet
     };
 
   } catch (e) {
