@@ -38,6 +38,11 @@
  * @return {HtmlOutput} The rendered HTML template with injected variables
  */
 function doGet(e) {
+  // Check for API request
+  if (e.parameter.api === 'true' || e.parameter.endpoint) {
+    return handleApiRequest(e);
+  }
+
   let page = e.parameter.page || 'profile'; // Default to profile page
 
   const user = Session.getActiveUser();
@@ -113,6 +118,13 @@ function doGet(e) {
  * @param {string} filename - Name of the HTML file to include (without .html extension)
  * @return {string} The raw HTML content from the specified file
  */
+function doPost(e) {
+  // Check for API request
+  if (e.parameter.api === 'true' || e.parameter.endpoint) {
+    return handleApiRequest(e);
+  }
+}
+
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
