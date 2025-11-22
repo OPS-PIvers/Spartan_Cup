@@ -45,13 +45,43 @@ function escapeJavaScriptString(str) {
  * @return {string} Escaped text
  */
 function escapeHtml(text) {
-  if (!text) return '';
-  return text
+  if (text === null || text === undefined) return '';
+  return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Validates and sanitizes a URL for use in HTML attributes.
+ * @param {string} url - URL to validate
+ * @return {string} Sanitized URL or empty string if invalid
+ */
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  // Only allow http, https, and data URLs for images
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.match(/^(https?:\/\/|data:image\/)/i)) {
+    return escapeHtml(trimmedUrl);
+  }
+  return '';
+}
+
+/**
+ * Validates that a value is a safe number for display.
+ * @param {*} value - Value to validate
+ * @return {number} Validated number or 0
+ */
+function sanitizeNumber(value) {
+  const num = Number(value);
+  if (isNaN(num) || !isFinite(num)) {
+    return 0;
+  }
+  return num;
 }
 
 /**

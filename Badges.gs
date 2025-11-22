@@ -156,9 +156,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
 
     // Check which badges should be earned
     for (let i = 1; i < badgesData.length; i++) {
-      const badgeId = badgesData[i][0];
-      const triggerType = badgesData[i][3];
-      const triggerValue = badgesData[i][4];
+      // Destructure badge data for better readability
+      const [badgeId, badgeName, category, triggerType, triggerValue, description, imageUrl, pointsBase, pointsMultiplier] = badgesData[i];
 
       // Skip if badge ID is empty
       if (!badgeId) continue;
@@ -542,10 +541,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
       if (shouldEarn) {
         studentProfile.earnedBadges.push(badgeId);
 
-        // Calculate and award badge points
-        const badgePointsBase = badgesData[i][7] || 0; // Badge_Points_Base (column H, index 7)
-        const badgePointsMultiplier = badgesData[i][8] || 1.0; // Badge_Points_Multiplier (column I, index 8)
-        const badgePointsAwarded = Math.round(badgePointsBase * badgePointsMultiplier);
+        // Calculate and award badge points using destructured variables
+        const badgePointsAwarded = Math.round((pointsBase || 0) * (pointsMultiplier || 1.0));
 
         if (badgePointsAwarded > 0) {
           // Update student's season and all-time points
@@ -563,13 +560,13 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
             email,                        // Email
             displayName,                  // Display_Name
             badgeId,                      // Badge_ID
-            badgesData[i][1],             // Badge_Name
-            badgesData[i][6]              // Badge_Image_URL
+            badgeName,                    // Badge_Name
+            imageUrl                      // Badge_Image_URL
           ]);
         }
 
-        // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+        // Send notification for new badge (includes email with description and image)
+        notifyBadgeEarned(email, badgeName, description, imageUrl);
       }
     }
 
@@ -688,10 +685,8 @@ function processSeasonEndBadges() {
     // Find all Season_Placement badges
     const placementBadges = [];
     for (let i = 1; i < badgesData.length; i++) {
-      const badgeId = badgesData[i][0];
-      const badgeName = badgesData[i][1];
-      const triggerType = badgesData[i][3];
-      const triggerValue = badgesData[i][4];
+      // Destructure badge data for better readability
+      const [badgeId, badgeName, category, triggerType, triggerValue, description, imageUrl] = badgesData[i];
 
       if (triggerType === 'Season_Placement' && badgeId) {
         placementBadges.push({
@@ -721,16 +716,22 @@ function processSeasonEndBadges() {
 
           // Log badge award to Badge_Awards sheet for fan feed
           const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
-          if (badgeAwardsSheet) {
-            // Find badge image URL from Config_Badges
-            let badgeImageUrl = '';
-            for (let j = 1; j < badgesData.length; j++) {
-              if (badgesData[j][0] === badge.badgeId) {
-                badgeImageUrl = badgesData[j][6] || ''; // Badge_Image_URL column
-                break;
-              }
-            }
+          let badgeImageUrl = '';
+          let badgeDescription = '';
 
+          // Find badge image URL and description from Config_Badges
+          for (let j = 1; j < badgesData.length; j++) {
+            // Destructure: [Badge_ID, Badge_Name, Category, Trigger_Type, Trigger_Value, Description, Image_URL]
+            // We only need id (0), desc (5), imgUrl (6) - skip indices 1-4
+            const [id, , , , , desc, imgUrl] = badgesData[j];
+            if (id === badge.badgeId) {
+              badgeDescription = desc || '';
+              badgeImageUrl = imgUrl || '';
+              break;
+            }
+          }
+
+          if (badgeAwardsSheet) {
             badgeAwardsSheet.appendRow([
               Utilities.getUuid(),          // Award_ID
               new Date(),                   // Timestamp
@@ -742,8 +743,8 @@ function processSeasonEndBadges() {
             ]);
           }
 
-          // Send notification
-          notifyBadgeEarned(topStudent.email, badge.badgeName);
+          // Send notification (includes email with description and image)
+          notifyBadgeEarned(topStudent.email, badge.badgeName, badgeDescription, badgeImageUrl);
         }
       }
     }
