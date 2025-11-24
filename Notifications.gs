@@ -1,14 +1,23 @@
 /**
  * Notifications.gs
- * Notification Management Functions
+ * In-App Notification Management Functions
  *
- * This module handles user notifications.
- * Includes functions for:
- * - Sending notifications to users
- * - Notifying users when submissions are approved
- * - Notifying users when badges are earned
+ * This module handles in-app notifications stored in UserProperties.
+ * NOTE: Email notifications are handled by EmailNotifications.gs.
+ *
+ * This module is currently reserved for future in-app notification features
+ * (e.g., notification bell in the UI, unread badges, notification center).
+ *
+ * For current email notification functionality, see EmailNotifications.gs.
  */
 
+/**
+ * Stores an in-app notification in UserProperties for later retrieval.
+ * Reserved for future notification center feature.
+ * @param {string} studentEmail - Student email
+ * @param {string} type - Notification type (e.g., 'approved', 'badge', 'event')
+ * @param {string} message - Notification message
+ */
 function sendNotification(studentEmail, type, message) {
   try {
     const userProperties = PropertiesService.getUserProperties();
@@ -41,25 +50,4 @@ function sendNotification(studentEmail, type, message) {
   } catch (e) {
     // Logger.log('Error in sendNotification: ' + e.message);
   }
-}
-
-/**
- * Called when a submission is approved - sends notification to student.
- * @param {string} studentEmail - Student email
- * @param {string} eventName - Event name
- * @param {number} pointsAwarded - Points awarded
- */
-function notifySubmissionApproved(studentEmail, eventName, pointsAwarded) {
-  const message = 'Your submission for ' + eventName + ' was approved! You earned ' + pointsAwarded + ' points.';
-  sendNotification(studentEmail, 'approved', message);
-}
-
-/**
- * Called when a badge is earned - sends notification to student.
- * @param {string} studentEmail - Student email
- * @param {string} badgeName - Badge name
- */
-function notifyBadgeEarned(studentEmail, badgeName) {
-  const message = 'You earned the "' + badgeName + '" badge!';
-  sendNotification(studentEmail, 'badge', message);
 }

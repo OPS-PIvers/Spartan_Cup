@@ -13,7 +13,8 @@
  * - Activities.gs: Activity and schedule management
  * - Points.gs: Points calculation and tracking
  * - Badges.gs: Badge system and award logic
- * - Notifications.gs: User notification functions
+ * - EmailNotifications.gs: Email notification functions (Gmail API)
+ * - Notifications.gs: In-app notification functions (reserved for future use)
  * - FanFeed.gs: Social feed and engagement features
  * - Prizes.gs: Prize management functions
  * - Utils.gs: Utility and helper functions
