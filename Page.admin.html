@@ -487,11 +487,7 @@
 
       document.getElementById('btn-deny').addEventListener('click', () => {
         if (!isProcessing) {
-          isProcessing = true;
-          denyCurrentSubmission(true);  // optimistic mode
-          setTimeout(() => {
-            isProcessing = false;
-          }, 200);
+          openDenialReasonModal();
         }
       });
     }
@@ -620,8 +616,10 @@
         isProcessing = true;
         card.classList.add('animate-slide-left');
 
-        // Fire denial action (optimistic - shows next card immediately)
-        denyCurrentSubmission(true);
+        // Show denial modal instead of immediately denying
+        setTimeout(() => {
+          openDenialReasonModal();
+        }, 300); // Let animation complete first
       } else {
         // Small swipe - reset card position and feedback
         card.style.transform = '';
@@ -794,7 +792,7 @@
       }
     }
 
-    function denyCurrentSubmission(optimistic = false) {
+    function denyCurrentSubmission(optimistic = false, reason = '', isResubmittable = false) {
       const submission = currentQueue[currentIndex];
 
       // Guard: Check if submission exists
@@ -822,7 +820,7 @@
           }
         }).withFailureHandler((error) => {
           showToast('❌ Network error: ' + error, 'error', 4000);
-        }).denySubmission(submission.submissionId, 'Denied via swipe');
+        }).denySubmission(submission.submissionId, reason, isResubmittable);
       } else {
         // FALLBACK MODE: Wait for backend (used for manual button clicks)
         google.script.run.withSuccessHandler((response) => {
@@ -843,9 +841,88 @@
           // Reset card for retry
           document.getElementById('swipe-card').style.transform = '';
           document.getElementById('swipe-card').classList.remove('animate-slide-left');
-        }).denySubmission(submission.submissionId, 'Denied via swipe');
+        }).denySubmission(submission.submissionId, reason, isResubmittable);
       }
     }
+
+    // Denial Reason Modal Handlers
+    function openDenialReasonModal() {
+      const modal = document.getElementById('denial-reason-modal');
+      const reasonsList = document.getElementById('denial-reasons-list');
+
+      // Clear previous reasons
+      reasonsList.innerHTML = '';
+
+      // Load denial reasons from backend
+      google.script.run.withSuccessHandler((reasons) => {
+        if (reasons && reasons.length > 0) {
+          reasons.forEach(reason => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+              <label class="flex items-center p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-700 transition">
+                <input type="radio" name="denial-reason" value="${escapeForJs(reason)}" class="w-4 h-4 text-primary">
+                <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">${escapeHtml(reason)}</span>
+              </label>
+            `;
+            reasonsList.appendChild(div);
+          });
+        }
+      }).withFailureHandler((error) => {
+        console.error('Error loading denial reasons:', error);
+      }).getDenialReasons();
+
+      // Clear custom reason field
+      document.getElementById('denial-custom-reason').value = '';
+
+      // Show modal
+      modal.classList.remove('hidden');
+    }
+
+    function closeDenialReasonModal() {
+      const modal = document.getElementById('denial-reason-modal');
+      modal.classList.add('hidden');
+
+      // Reset card animation
+      const card = document.getElementById('swipe-card');
+      card.style.transform = '';
+      card.classList.remove('animate-slide-left');
+      isProcessing = false;
+    }
+
+    function proceedWithDenial(isResubmittable) {
+      // Get selected reason
+      let reason = '';
+      const selectedRadio = document.querySelector('input[name="denial-reason"]:checked');
+      const customReason = document.getElementById('denial-custom-reason').value.trim();
+
+      if (selectedRadio) {
+        reason = selectedRadio.value;
+      } else if (customReason) {
+        reason = customReason;
+      } else {
+        showToast('Please select or enter a denial reason', 'error');
+        return;
+      }
+
+      // Close modal
+      closeDenialReasonModal();
+
+      // Proceed with denial (optimistic mode)
+      denyCurrentSubmission(true, reason, isResubmittable);
+    }
+
+    // Setup modal button listeners
+    document.getElementById('deny-resubmit-btn').addEventListener('click', () => {
+      proceedWithDenial(true);  // isResubmittable = true
+    });
+
+    document.getElementById('deny-reject-btn').addEventListener('click', () => {
+      proceedWithDenial(false);  // isResubmittable = false
+    });
+
+    document.getElementById('deny-cancel-btn').addEventListener('click', () => {
+      closeDenialReasonModal();
+    });
 
     function showEmptyState() {
       document.getElementById('swipe-card').classList.add('hidden');

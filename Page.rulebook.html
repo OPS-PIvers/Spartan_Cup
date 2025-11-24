@@ -106,7 +106,30 @@
       </div>
     </details>
 
-    <!-- Section 3: Winning & Awards -->
+    <!-- Section 3: Badge System (Dynamic) -->
+    <div id="badgeSystemContainer" class="hidden">
+      <details class="rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group" data-section-title="badge system" data-section-id="badge_system">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-blue-400">
+              <span class="material-symbols-outlined">stars</span>
+            </div>
+            <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Badge System</p>
+          </div>
+          <div class="text-gray-900 dark:text-gray-300 group-open:rotate-180 transition-transform">
+            <span class="material-symbols-outlined">expand_more</span>
+          </div>
+        </summary>
+        <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4 space-y-4">
+          <p>Collect badges by achieving milestones throughout the season! Badges are awarded automatically when you meet specific criteria. Each badge category has unique achievements to unlock.</p>
+          <div id="badgeCategories" class="space-y-3">
+            <p class="text-center text-gray-500 dark:text-gray-400 text-sm">Loading badge information...</p>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <!-- Section 4: Winning & Awards -->
     <details class="rulebook-section flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group" data-section-title="winning awards" data-section-id="awards">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
         <div class="flex items-center gap-4">
@@ -129,7 +152,7 @@
       </div>
     </details>
 
-    <!-- Section 4: Misconduct & Cheating (Warning Section) -->
+    <!-- Section 5: Misconduct & Cheating (Warning Section) -->
     <details class="rulebook-section flex flex-col rounded-xl border-2 border-red-500/50 dark:border-red-500/70 bg-red-500/5 dark:bg-red-500/10 p-4 group" data-section-title="misconduct cheating" data-section-id="misconduct">
       <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
         <div class="flex items-center gap-4">
@@ -159,29 +182,6 @@
       </div>
     </details>
 
-  </div>
-
-  <!-- Badge System Section (Dynamic) -->
-  <div id="badgeSystemContainer" class="hidden px-4 pb-4">
-    <details class="flex flex-col rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 p-4 group">
-      <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
-        <div class="flex items-center gap-4">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:text-blue-400">
-            <span class="material-symbols-outlined">stars</span>
-          </div>
-          <p class="text-gray-900 dark:text-white text-base font-semibold leading-normal">Badge System</p>
-        </div>
-        <div class="text-gray-900 dark:text-gray-300 group-open:rotate-180 transition-transform">
-          <span class="material-symbols-outlined">expand_more</span>
-        </div>
-      </summary>
-      <div class="text-gray-600 dark:text-gray-400 text-sm font-normal leading-relaxed pt-4 space-y-4">
-        <p>Collect badges by achieving milestones throughout the season! Badges are awarded automatically when you meet specific criteria. Each badge category has unique achievements to unlock.</p>
-        <div id="badgeCategories" class="space-y-3">
-          <p class="text-center text-gray-500 dark:text-gray-400 text-sm">Loading badge information...</p>
-        </div>
-      </div>
-    </details>
   </div>
 
   <script>

@@ -168,6 +168,70 @@ python3 scripts/write_sheet.py Test_Sheet clear
 
 **Note:** The service account must have Editor access to the spreadsheet. See [docs/SHEETS_API_SETUP.md](docs/SHEETS_API_SETUP.md) for complete setup instructions.
 
+### Email Notifications (Gmail API)
+
+The application sends email notifications to students via Gmail API for approvals, denials, badge awards, and event reminders. This requires configuration of a Gmail service account.
+
+**Notification Types:**
+- **Approval Emails:** Sent when admin approves a photo submission with points breakdown
+- **Denial Emails:** Always sent (regardless of preferences) when admin rejects a submission with reason
+- **Badge Award Emails:** Sent when student earns a badge (respects user notification preferences)
+- **Event Reminder Emails:** Sent with upcoming events list (respects user notification preferences)
+
+**Configuration (Required for Email Functionality):**
+
+1. **Create a Gmail Service Account:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Select your project (or create one)
+   - Go to **APIs & Services > Credentials**
+   - Click **Create Credentials > Service Account**
+   - Fill in service account name (e.g., `spartan-cup-notifications`)
+   - Grant necessary permissions (can skip for now)
+   - Click **Create and Continue**
+
+2. **Generate Service Account Key (JSON):**
+   - In the service account details, go to **Keys** tab
+   - Click **Add Key > Create new key**
+   - Choose **JSON** format
+   - Click **Create** (downloads JSON file)
+
+3. **Configure in Apps Script:**
+   - Open Google Apps Script Editor (Extensions > Apps Script)
+   - Go to **Project Settings** (gear icon)
+   - Scroll to **Script Properties**
+   - Add a new property:
+     - **Property:** `GMAIL_SERVICE_ACCOUNT`
+     - **Value:** Paste the entire JSON content from the downloaded key file
+   - Click **Save**
+
+4. **Enable Gmail API in Google Cloud:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Go to **APIs & Services > Library**
+   - Search for **Gmail API**
+   - Click it and select **Enable**
+
+**Testing Email Configuration:**
+- Approve a test submission in the admin dashboard
+- Check that the student receives an email with points breakdown
+- If no email arrives, check the Apps Script Execution Log (Extensions > Execution Log) for errors
+
+**Failure Handling:**
+- If email sending fails, the submission is still approved/denied
+- A warning is logged but doesn't block the workflow
+- Students simply won't receive notification emails
+- This is intentional to prevent email config blocking the app
+
+**User Notification Preferences:**
+Students can control notification preferences via Student_Settings JSON in Student_Profiles sheet:
+```json
+{
+  "approvalNotifications": true,
+  "badgeNotifications": true,
+  "eventNotifications": true
+}
+```
+Denial emails are **always sent** regardless of preferences.
+
 ### Testing
 
 There is no automated test framework configured. Testing is manual:

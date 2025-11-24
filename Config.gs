@@ -366,3 +366,69 @@ function clearAllCaches() {
     return 'Error: ' + e.message;
   }
 }
+
+/**
+ * Fetches stock denial reasons from the Config_Denial_Reasons sheet.
+ * These are displayed in the admin denial modal for consistency.
+ * @return {string[]} Array of denial reason strings
+ */
+function getDenialReasons() {
+  try {
+    // Check cache first
+    const cache = CacheService.getScriptCache();
+    const cachedReasons = cache.get('denial_reasons');
+    if (cachedReasons) {
+      const parsed = safeJSONParse(cachedReasons, null, 'denial_reasons cache');
+      if (parsed) return parsed;
+      cache.remove('denial_reasons');
+    }
+
+    // Cache miss: read from Sheets
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const denialSheet = ss.getSheetByName('Config_Denial_Reasons');
+
+    if (!denialSheet) {
+      Logger.log('WARNING: Config_Denial_Reasons sheet not found. Using default reasons.');
+      // Return default reasons if sheet doesn't exist yet
+      const defaultReasons = [
+        'Photo quality too low',
+        'Not at event location',
+        'Missing event theme',
+        'Duplicate submission',
+        'Off-topic/inappropriate content'
+      ];
+      cache.put('denial_reasons', JSON.stringify(defaultReasons), 86400); // Cache for 24 hours
+      return defaultReasons;
+    }
+
+    const data = denialSheet.getDataRange().getValues();
+    const reasons = [];
+
+    // Skip header row, iterate through data
+    for (let i = 1; i < data.length; i++) {
+      const reasonText = data[i][1]; // Column B: Reason_Text
+      const isActive = data[i][3]; // Column D: Is_Active
+
+      // Only include active reasons
+      if (reasonText && reasonText.trim() && (isActive === true || isActive === 'TRUE' || isActive === '')) {
+        reasons.push(reasonText.trim());
+      }
+    }
+
+    // Cache for 24 hours (static configuration)
+    cache.put('denial_reasons', JSON.stringify(reasons), 86400);
+
+    return reasons;
+
+  } catch (e) {
+    Logger.log('ERROR in getDenialReasons: ' + e.message);
+    // Return default reasons on error
+    return [
+      'Photo quality too low',
+      'Not at event location',
+      'Missing event theme',
+      'Duplicate submission',
+      'Off-topic/inappropriate content'
+    ];
+  }
+}

@@ -100,3 +100,43 @@
     <span class="font-semibold text-gray-600 dark:text-gray-300">Loading...</span>
   </div>
 </div>
+
+<!-- Admin Denial Reason Modal -->
+<div id="denial-reason-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-background-light dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full max-h-96 overflow-y-auto">
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white mb-4">Reason for Denial</h3>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">Select a reason or enter a custom message:</p>
+
+    <!-- Stock Reasons List -->
+    <div id="denial-reasons-list" class="space-y-2 mb-4">
+      <!-- Populated dynamically by JavaScript -->
+    </div>
+
+    <!-- Custom Reason Text Area -->
+    <textarea
+      id="denial-custom-reason"
+      placeholder="Or type a custom reason..."
+      maxlength="500"
+      class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+      rows="3"
+    ></textarea>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col gap-2 mt-4">
+      <!-- Resubmit Button -->
+      <button id="deny-resubmit-btn" class="w-full px-4 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all active:scale-95">
+        <span class="material-symbols-outlined text-lg align-middle">restart_alt</span> Return for Resubmission
+      </button>
+
+      <!-- Reject Button -->
+      <button id="deny-reject-btn" class="w-full px-4 py-3 rounded bg-secondary hover:bg-opacity-90 text-white font-semibold transition-all active:scale-95">
+        <span class="material-symbols-outlined text-lg align-middle">block</span> Reject
+      </button>
+
+      <!-- Cancel Button -->
+      <button id="deny-cancel-btn" class="w-full px-4 py-3 rounded bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-white font-semibold transition-all active:scale-95">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>

@@ -568,8 +568,11 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
           ]);
         }
 
-        // Send notification for new badge
-        notifyBadgeEarned(email, badgesData[i][1]); // badgesData[i][1] is Badge_Name
+        // Send email notification for new badge
+        const badgeName = badgesData[i][1];
+        const badgeDescription = badgesData[i][5];
+        const badgeImageUrl = badgesData[i][6];
+        sendBadgeAwardEmail(email, badgeName, badgeDescription, badgeImageUrl);
       }
     }
 
@@ -742,8 +745,15 @@ function processSeasonEndBadges() {
             ]);
           }
 
-          // Send notification
-          notifyBadgeEarned(topStudent.email, badge.badgeName);
+          // Send email notification for badge award
+          let badgeDescription = '';
+          for (let j = 1; j < badgesData.length; j++) {
+            if (badgesData[j][0] === badge.badgeId) {
+              badgeDescription = badgesData[j][5] || ''; // Description column
+              break;
+            }
+          }
+          sendBadgeAwardEmail(topStudent.email, badge.badgeName, badgeDescription, badgeImageUrl);
         }
       }
     }

@@ -155,10 +155,11 @@ function setupSpreadsheet() {
     'Config_Active_Season': ['Setting_Name', 'Setting_Value'],
     'Submissions_Pending': ['Submission_ID', 'Timestamp', 'Email', 'Event_ID', 'Photo_URL', 'Photo_ID', 'Location_Data_JSON', 'Dressed_For_Theme', 'Notes'],
     'Submissions_Verified': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Approved', 'Email', 'Event_ID', 'Admin_Email', 'Points_Base', 'Points_Theme', 'Points_Spotlight_Multiplier', 'Points_Total', 'Photo_URL', 'Photo_ID'],
-    'Submissions_Denied': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Denied', 'Email', 'Event_ID', 'Admin_Email', 'Denial_Reason', 'Photo_URL', 'Photo_ID'],
+    'Submissions_Denied': ['Submission_ID', 'Timestamp_Submitted', 'Timestamp_Denied', 'Email', 'Event_ID', 'Admin_Email', 'Denial_Reason', 'Is_Resubmittable', 'Photo_URL', 'Photo_ID'],
     'Config_Badges': ['Badge_ID', 'Badge_Name', 'Category', 'Trigger_Type', 'Trigger_Value', 'Description', 'Badge_Image_URL'],
     'Config_Admins': ['Admin_Email', 'Role'],
     'Config_Points': ['Setting_Name', 'Points_Value', 'Description'],
+    'Config_Denial_Reasons': ['Reason_ID', 'Reason_Text', 'Description', 'Is_Active'],
     'Active_Season_Prizes': ['Rank', 'Description'],
     'Badge_Awards': ['Award_ID', 'Timestamp', 'Email', 'Display_Name', 'Badge_ID', 'Badge_Name', 'Badge_Image_URL']
   };
@@ -255,6 +256,18 @@ function setupSpreadsheet() {
     const adminsSheet = ss.getSheetByName('Config_Admins');
     if (adminsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
       adminsSheet.appendRow([Session.getActiveUser().getEmail(), 'Owner']);
+    }
+  }
+
+  if (sheetsCreated.includes('Config_Denial_Reasons')) {
+    const reasonsSheet = ss.getSheetByName('Config_Denial_Reasons');
+    if (reasonsSheet.getLastRow() === 1) { // Only header row exists (no data rows)
+      // Add default denial reasons
+      reasonsSheet.appendRow([1, 'Photo quality too low', 'Image is blurry, too dark, or hard to read', true]);
+      reasonsSheet.appendRow([2, 'Not at event location', 'Location verification failed or photo taken elsewhere', true]);
+      reasonsSheet.appendRow([3, 'Missing event theme', 'Student did not follow the event theme/dress code', true]);
+      reasonsSheet.appendRow([4, 'Duplicate submission', 'This event/submission was already approved', true]);
+      reasonsSheet.appendRow([5, 'Off-topic/inappropriate content', 'Photo does not meet community standards', true]);
     }
   }
 

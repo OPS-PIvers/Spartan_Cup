@@ -333,9 +333,11 @@
     touchCurrentY = 0;
   }, { passive: true });
 
-  // Initialize immediately since this script runs after DOM is already ready
-  // (the page is server-side rendered and included in Index.html)
-  loadFanFeed();
-  // Update the "last updated" text every minute
-  setInterval(updateLastUpdatedText, 60000);
+  // Defer initialization until all scripts (including JavaScript.html) have loaded
+  // This prevents "getCachedFanFeed is not defined" errors on first load
+  window.addEventListener('load', function() {
+    loadFanFeed();
+    // Update the "last updated" text every minute
+    setInterval(updateLastUpdatedText, 60000);
+  });
 </script>

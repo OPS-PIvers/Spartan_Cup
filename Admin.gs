@@ -121,10 +121,16 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     // Get event details from cache for notification
     const eventMap = getEventMapCache();
-
-    // Send notification to student
     const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
-    notifySubmissionApproved(submissionInfo[2], eventInfo.eventName, pointsTotal);
+
+    // Send approval email to student
+    sendApprovalEmail(
+      submissionInfo[2], // studentEmail
+      eventInfo.eventName,
+      basePoints,
+      pointsTheme,
+      pointsMultiplier
+    );
 
     return {
       status: "success",
@@ -141,11 +147,13 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 }
 
 /**
- * Denies a pending submission and optionally saves denial reason.
+ * Denies a pending submission and archives to Submissions_Denied.
+ * Sends denial notification email to student with reason.
  * @param {string} submissionId - The submission ID to deny
- * @param {string} reason - Reason for denial (optional)
+ * @param {string} reason - Reason for denial (stock reason or custom)
+ * @param {boolean} isResubmittable - If true, allows student to resubmit (returns to Pending). If false, archives permanently.
  */
-function denySubmission(submissionId, reason) {
+function denySubmission(submissionId, reason, isResubmittable) {
   const email = Session.getActiveUser().getEmail();
 
   // Check if user is admin
@@ -179,22 +187,51 @@ function denySubmission(submissionId, reason) {
       return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found. Check spreadsheet schema." };
     }
 
-    // Move to Submissions_Denied for record keeping
-    const deniedSheet = ss.getSheetByName('Submissions_Denied');
-    if (deniedSheet) {
-      deniedSheet.appendRow([
-        submissionInfo[0], // Submission_ID
-        submissionInfo[1], // Timestamp_Submitted
-        new Date(), // Timestamp_Denied
-        submissionInfo[2], // Email
-        submissionInfo[3], // Event_ID
-        email, // Admin_Email
-        reason || "No reason provided", // Denial_Reason
-        submissionInfo[4], // Photo_URL
-        submissionInfo[5] // Photo_ID
-      ]);
+    // If resubmittable: just clear from pending and notify (student will need to resubmit fresh)
+    // If not resubmittable: move to Submissions_Denied for record keeping
+    if (!isResubmittable) {
+      const deniedSheet = ss.getSheetByName('Submissions_Denied');
+      if (deniedSheet) {
+        deniedSheet.appendRow([
+          submissionInfo[0], // Submission_ID
+          submissionInfo[1], // Timestamp_Submitted
+          new Date(), // Timestamp_Denied
+          submissionInfo[2], // Email
+          submissionInfo[3], // Event_ID
+          email, // Admin_Email
+          reason || "No reason provided", // Denial_Reason
+          false, // Is_Resubmittable
+          submissionInfo[4], // Photo_URL
+          submissionInfo[5] // Photo_ID
+        ]);
+      } else {
+        Logger.log('WARNING: Submissions_Denied sheet not found. Denial not archived.');
+      }
+
+      // Optionally delete photo from Drive
+      try {
+        DriveApp.getFileById(submissionInfo[5]).setTrashed(true);
+      } catch (e) {
+        // File may have already been deleted
+      }
     } else {
-      Logger.log('WARNING: Submissions_Denied sheet not found. Denial not archived.');
+      // For resubmittable denials, still log to Submissions_Denied but mark as resubmittable
+      const deniedSheet = ss.getSheetByName('Submissions_Denied');
+      if (deniedSheet) {
+        deniedSheet.appendRow([
+          submissionInfo[0], // Submission_ID
+          submissionInfo[1], // Timestamp_Submitted
+          new Date(), // Timestamp_Denied
+          submissionInfo[2], // Email
+          submissionInfo[3], // Event_ID
+          email, // Admin_Email
+          reason || "No reason provided", // Denial_Reason
+          true, // Is_Resubmittable
+          submissionInfo[4], // Photo_URL
+          submissionInfo[5] // Photo_ID
+        ]);
+      }
+      // Don't delete photo for resubmittable - student might reference it
     }
 
     // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)
@@ -205,16 +242,22 @@ function denySubmission(submissionId, reason) {
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
 
-    // Optionally delete photo from Drive
-    try {
-      DriveApp.getFileById(submissionInfo[5]).setTrashed(true);
-    } catch (e) {
-      // Logger.log("Could not delete photo: " + e.message);
-    }
+    // Get event details for email notification
+    const eventMap = getEventMapCache();
+    const eventInfo = eventMap[submissionInfo[3]] || { eventName: 'Event' };
+
+    // Send denial email to student (always sent, regardless of preferences)
+    sendDenialEmail(
+      submissionInfo[2], // studentEmail
+      eventInfo.eventName,
+      reason || "Your submission did not meet the requirements.",
+      isResubmittable || false
+    );
 
     return {
       status: "success",
-      message: "Submission denied. Reason: " + (reason || "No reason provided")
+      message: "Submission denied. " + (isResubmittable ? "Student can resubmit." : "Archived."),
+      reason: reason
     };
 
   } catch (e) {
