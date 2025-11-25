@@ -250,20 +250,17 @@ function getActiveEvents(userLat = null, userLon = null) {
       // Transform and cache the event data
       eventData = [];
       for (let i = 1; i < eventsData.length; i++) {
-        const isActive = eventsData[i][COL_IS_ACTIVE];
         const activityCode = String(eventsData[i][COL_ACTIVITY_CODE]).trim();
 
-        // Only include active events from the active season
+        // Only include events from the active season
+        // NOTE: We now cache ALL season events and filter by time at runtime to avoid latency.
         const activity = activitiesMap[activityCode];
-        if (isActive === true && activity && activity.season === activeSeason) {
+        if (activity && activity.season === activeSeason) {
           // Normalize startTime to prevent UTC conversion when caching
           let startTime = eventsData[i][COL_START_TIME];
           if (startTime instanceof Date) {
             // Convert Date object to Central Time string to avoid UTC conversion in JSON.stringify
             startTime = Utilities.formatDate(startTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-          } else if (typeof startTime === 'string') {
-            // Keep string as-is
-            startTime = startTime;
           }
 
           eventData.push({
@@ -279,13 +276,14 @@ function getActiveEvents(userLat = null, userLon = null) {
         }
       }
 
-      // Cache for 10 minutes (600 seconds) - shorter since Is_Active is updated by trigger
+      // Cache for 10 minutes (600 seconds) - filtering happens at runtime
       cache.put(cacheKey, JSON.stringify(eventData), 600);
     } else {
       eventData = safeJSONParse(eventData, null, 'event data cache');
     }
 
     const activeEvents = [];
+    const now = new Date();
 
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
@@ -295,55 +293,40 @@ function getActiveEvents(userLat = null, userLon = null) {
       let eventEndTime;
 
       try {
-        if (item.startTime instanceof Date) {
-          eventStartTime = item.startTime;
-        } else if (typeof item.startTime === 'string') {
-          const str = item.startTime;
+        eventStartTime = parseEventDate(item.startTime);
+        if (!eventStartTime) continue;
 
-          // Handle UTC ISO format (from JSON.stringify): "2025-11-06T01:25:00.000Z"
-          if (str.endsWith('Z') || str.includes('+') || /\-\d{2}:\d{2}$/.test(str)) {
-            const utcDate = new Date(str);
-            const centralStr = Utilities.formatDate(utcDate, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-            eventStartTime = Utilities.parseDate(centralStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-          }
-          // Handle local ISO format without timezone: "2025-11-06T18:30"
-          else if (str.includes('T')) {
-            const normalized = str.substring(0, 16).replace('T', ' ');
-            eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-          }
-          // Handle space-separated format: "2025-11-06 18:30"
-          else {
-            eventStartTime = Utilities.parseDate(str, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-          }
-        } else {
-          eventStartTime = new Date(String(item.startTime));
-        }
         eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
-        Logger.log(`Active event found: ${item.eventName} (${item.eventCode})`);
+        // Determine if event is active dynamically (now vs window)
+        const isActive = (now >= eventStartTime && now <= eventEndTime);
+
+        if (isActive) {
+          Logger.log(`Active event found: ${item.eventName} (${item.eventCode})`);
+
+          const event = {
+            eventCode: item.eventCode,
+            eventName: item.eventName,
+            locationName: item.locationName,
+            eventLat: item.eventLat,
+            eventLon: item.eventLon,
+            startTime: eventStartTime,
+            endTime: eventEndTime,
+            durationHours: item.durationHours,
+            distance: null
+          };
+
+          // Calculate distance if user location provided
+          if (userLat !== null && userLon !== null) {
+            event.distance = calculateDistance(userLat, userLon, item.eventLat, item.eventLon);
+          }
+
+          activeEvents.push(event);
+        }
       } catch (e) {
         Logger.log(`ERROR: Failed to parse date for event ${item.eventCode}: ${e.message}`);
         continue;
       }
-
-      const event = {
-        eventCode: item.eventCode,
-        eventName: item.eventName,
-        locationName: item.locationName,
-        eventLat: item.eventLat,
-        eventLon: item.eventLon,
-        startTime: eventStartTime,
-        endTime: eventEndTime,
-        durationHours: item.durationHours,
-        distance: null
-      };
-
-      // Calculate distance if user location provided
-      if (userLat !== null && userLon !== null) {
-        event.distance = calculateDistance(userLat, userLon, item.eventLat, item.eventLon);
-      }
-
-      activeEvents.push(event);
     }
 
     // Sort by distance if user location was provided
@@ -894,5 +877,46 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
       valid: false,
       message: 'Error validating submission. Please try again.'
     };
+  }
+}
+/**
+ * Helper function to parse event start time from various formats.
+ * Handles Date objects, ISO strings, and space-separated strings.
+ * @param {string|Date} startTime - The start time to parse
+ * @return {Date|null} The parsed Date object or null if invalid
+ */
+function parseEventDate(startTime) {
+  if (!startTime) return null;
+
+  try {
+    if (startTime instanceof Date) {
+      return startTime;
+    }
+
+    if (typeof startTime === 'string') {
+      const str = startTime.trim();
+      // Handle UTC ISO format (from JSON.stringify): "2025-11-06T01:25:00.000Z"
+      if (str.endsWith('Z') || str.includes('+') || /\-\d{2}:\d{2}$/.test(str)) {
+        const utcDate = new Date(str);
+        const centralStr = Utilities.formatDate(utcDate, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+        return Utilities.parseDate(centralStr, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+      }
+      // Handle local ISO format without timezone: "2025-11-06T18:30"
+      else if (str.includes('T')) {
+        const normalized = str.substring(0, 16).replace('T', ' ');
+        return Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+      }
+      // Handle space-separated format: "2025-11-06 18:30"
+      else {
+        return Utilities.parseDate(str, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+      }
+    }
+
+    // Try standard constructor as fallback
+    const d = new Date(startTime);
+    return isNaN(d.getTime()) ? null : d;
+  } catch (e) {
+    Logger.log('Error parsing event date: ' + e.message);
+    return null;
   }
 }
