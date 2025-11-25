@@ -53,7 +53,7 @@
   <script>
     // Defer initialization until all scripts (including JavaScript.html) have loaded
     // This prevents "getCachedProfileData is not defined" errors on first load
-    window.addEventListener('load', function() {
+    function initAllBadgesPage() {
       // Check client-side cache first to avoid unnecessary API call
       const cachedProfile = getCachedProfileData();
       if (cachedProfile) {
@@ -66,7 +66,14 @@
           populateAllBadges(data);
         }).getProfileData();
       }
-    });
+    }
+
+    // Check if page already loaded (fast load scenario), otherwise wait for load event
+    if (document.readyState === 'complete') {
+      initAllBadgesPage();
+    } else {
+      window.addEventListener('load', initAllBadgesPage);
+    }
 
     function populateAllBadges(data) {
       const grid = document.getElementById('badges-grid');

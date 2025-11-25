@@ -1007,7 +1007,7 @@
         
         // Defer initialization until all scripts have loaded to prevent race conditions
         // This prevents "clearProfileCache is not defined" errors on first load
-        window.addEventListener('load', function() {
+        function initProfilePage() {
           // Load dynamic profile data (always fetch fresh on page load for accurate badge/point data)
           // Clear cache on profile page load to ensure fresh data after admin approvals
           clearProfileCache();
@@ -1026,7 +1026,14 @@
               showToast('Failed to load profile data. Please refresh the page.', 'error', 5000);
             }
           );
-        });
+        }
+
+        // Check if page already loaded (fast load scenario), otherwise wait for load event
+        if (document.readyState === 'complete') {
+          initProfilePage();
+        } else {
+          window.addEventListener('load', initProfilePage);
+        }
       }
 
       if (pageKey === 'welcome') {
@@ -1054,7 +1061,7 @@
       if (pageKey === 'history') {
         // Defer initialization until all scripts have loaded to prevent race conditions
         // This prevents "getCachedProfileData is not defined" errors on first load
-        window.addEventListener('load', function() {
+        function initHistoryPage() {
           // Load dynamic history data (use cache if available to reduce API calls)
           const cachedProfile = getCachedProfileData();
           if (cachedProfile) {
@@ -1077,7 +1084,14 @@
               }
             ); // Re-using getProfileData
           }
-        });
+        }
+
+        // Check if page already loaded (fast load scenario), otherwise wait for load event
+        if (document.readyState === 'complete') {
+          initHistoryPage();
+        } else {
+          window.addEventListener('load', initHistoryPage);
+        }
       }
       
       if (pageKey === 'all-badges') {
