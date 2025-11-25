@@ -275,7 +275,7 @@ function getActiveEvents(userLat = null, userLon = null) {
           let eventEndTime;
 
           try {
-             if (startTime instanceof Date) {
+            if (startTime instanceof Date) {
               eventStartTime = startTime;
               // If it's a date object, format it for cache storage (consistent string format)
               startTime = Utilities.formatDate(startTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
