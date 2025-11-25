@@ -4,6 +4,10 @@
 // Extracted from Code.js - Lines 1519-1769
 // Functions for managing the points configuration system
 
+/**
+ * Initializes the Config_Points sheet with default values if it's empty.
+ * Adds default rows for Base_Points_With_Theme, Theme_Bonus, etc.
+ */
 function initializeConfigPoints() {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -36,7 +40,8 @@ function initializeConfigPoints() {
 /**
  * Gets the current points configuration from the Config_Points sheet.
  * Results are cached for 1 hour.
- * @return {Object} Object with keys like 'Base_Points_With_Theme', etc.
+ *
+ * @return {Object} Object with keys like 'Base_Points_With_Theme', 'Theme_Bonus', etc.
  */
 function getPointsConfig() {
   try {
@@ -147,7 +152,9 @@ function openPointsConfigDialog() {
 /**
  * Updates the points configuration in the Config_Points sheet.
  * Called from the dialog UI.
- * @param {Object} config - Object with point settings
+ *
+ * @param {Object} config - Object with point settings.
+ * @return {Object} Status object with success/error message.
  */
 function updatePointsConfig(config) {
   try {
@@ -213,7 +220,8 @@ function updatePointsConfig(config) {
 
 /**
  * Resets points configuration to default values.
- * @return {Object} Status object with success/error
+ *
+ * @return {Object} Status object with success/error message.
  */
 function resetPointsToDefaults() {
   try {

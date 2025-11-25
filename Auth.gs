@@ -12,6 +12,13 @@
  * - Profile photo and avatar generation
  */
 
+/**
+ * Retrieves the email address of the active user.
+ * Validates the email format.
+ *
+ * @return {string} The email address of the active user.
+ * @throws {Error} If the email cannot be determined or is invalid.
+ */
 function getUserEmail() {
   let email = Session.getActiveUser().getEmail();
   if (!email || email.trim() === '') {
@@ -29,7 +36,8 @@ function getUserEmail() {
 /**
  * Gets the current user's display name from the Student_Profiles sheet.
  * Uses cached data if available to avoid redundant Sheets API calls.
- * @return {string} User's display name, or empty string if not found
+ *
+ * @return {string} User's display name, or empty string if not found.
  */
 function getUserDisplayName() {
   const email = getUserEmail();
@@ -54,7 +62,8 @@ function getUserDisplayName() {
 /**
  * Checks if the current user has admin access.
  * Reads from Config_Admins sheet (same source as backend admin checks).
- * @return {boolean} True if user is an admin, false otherwise
+ *
+ * @return {boolean} True if user is an admin, false otherwise.
  */
 function getUserIsAdmin() {
   const email = getUserEmail();
@@ -65,7 +74,8 @@ function getUserIsAdmin() {
 /**
  * Checks if the current user is new (not in Student_Profiles sheet).
  * Used to determine if user should see welcome screen.
- * @return {boolean} True if user is new, false if returning user
+ *
+ * @return {boolean} True if user is new, false if returning user.
  */
 function isNewUser() {
   const email = Session.getActiveUser().getEmail();
@@ -90,6 +100,13 @@ function isNewUser() {
   }
 }
 
+/**
+ * Extracts initials from a display name.
+ * Used for generating default avatars.
+ *
+ * @param {string} displayName - The user's display name.
+ * @return {string} The initials (up to 2 characters).
+ */
 function extractInitials(displayName) {
   if (!displayName || displayName.trim() === '') {
     return '?';
@@ -111,9 +128,10 @@ function extractInitials(displayName) {
 /**
  * Gets user's profile photo from Google Drive or generates avatar with initials.
  * Results are cached for 1 hour to reduce Drive API calls.
- * @param {string} email - User email
- * @param {string} displayName - User's display name for generating initials
- * @return {string} URL to user's profile photo or avatar with initials
+ *
+ * @param {string} email - User email.
+ * @param {string} displayName - User's display name for generating initials.
+ * @return {string} URL to user's profile photo or avatar with initials.
  */
 function getUserProfilePhoto(email, displayName) {
   // Check user-level cache first (1 hour TTL)
@@ -159,6 +177,12 @@ function getUserProfilePhoto(email, displayName) {
   return photoUrl;
 }
 
+/**
+ * Retrieves user settings from the Student_Profiles sheet.
+ * Returns default settings if none are found.
+ *
+ * @return {Object} An object containing user settings (darkMode, notifications, etc.).
+ */
 function getUserSettings() {
   const email = Session.getActiveUser().getEmail();
 
@@ -206,8 +230,9 @@ function getUserSettings() {
 /**
  * Saves the current user's settings to the Student_Profiles sheet.
  * Settings are stored as JSON in column I (index 8).
+ *
  * @param {Object} settings - Settings object with darkMode, notifications, etc.
- * @return {Object} Confirmation with status
+ * @return {Object} Confirmation with status.
  */
 function saveUserSettings(settings) {
   const email = Session.getActiveUser().getEmail();
@@ -249,6 +274,12 @@ function saveUserSettings(settings) {
   }
 }
 
+/**
+ * Aggregates all profile data for the current user, including points, rank, badges, and history.
+ * Also builds the leaderboard and handles new user creation if necessary.
+ *
+ * @return {Object} An object containing comprehensive profile data for the frontend.
+ */
 function getProfileData() {
   const email = Session.getActiveUser().getEmail();
 

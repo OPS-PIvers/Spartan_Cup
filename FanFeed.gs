@@ -6,7 +6,8 @@
 
 /**
  * Fetches approved photos for the fan feed (recent 50 photos, sorted by date).
- * @return {Array} Array of approved submission photos with metadata
+ *
+ * @return {Object} Status object with items array, daysShown, and timestamp.
  */
 function getFanFeed() {
   try {
@@ -108,7 +109,8 @@ function getFanFeed() {
 /**
  * Cached wrapper for getFanFeed().
  * Caches results for 5 minutes to reduce Sheet reads and improve performance.
- * @return {object} Cached fan feed data with timestamp
+ *
+ * @return {Object} Cached fan feed data with timestamp.
  */
 function getFanFeedCached() {
   const cache = CacheService.getUserCache();
@@ -141,7 +143,8 @@ function getFanFeedCached() {
 
 /**
  * Clears the fan feed cache (useful for manual refresh or admin actions).
- * @return {object} Status object
+ *
+ * @return {Object} Status object with success/error message.
  */
 function clearFanFeedCache() {
   try {
@@ -155,8 +158,9 @@ function clearFanFeedCache() {
 
 /**
  * Calculates streak bonuses based on consecutive event attendance.
- * @param {string} email - Student email
- * @return {number} Streak bonus points
+ *
+ * @param {string} email - Student email.
+ * @return {number} Streak bonus points.
  */
 function calculateStreakBonus(email) {
   try {
@@ -217,8 +221,12 @@ function calculateStreakBonus(email) {
  * Placeholder for future complex bonus calculations.
  * Currently implemented: Streak bonuses via calculateStreakBonus()
  * Future: Category-specific bonuses, achievement multipliers, etc.
+ *
+ * @param {string} email - Student email.
+ * @return {number} Bonus points (currently returns 0 as placeholder).
  */
-function calculateComplexBonuses() {
+function calculateComplexBonuses(email) {
   // Implemented: Streak bonuses via calculateStreakBonus()
   // Future: Category-specific bonuses, achievement multipliers, etc.
+  return 0;
 }

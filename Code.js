@@ -35,8 +35,8 @@
  * - Auto-event detection based on geolocation
  * - New user welcome flow
  *
- * @param {Object} e - Event object from Apps Script containing URL parameters
- * @return {HtmlOutput} The rendered HTML template with injected variables
+ * @param {Object} e - Event object from Apps Script containing URL parameters.
+ * @return {HtmlOutput} The rendered HTML template with injected variables.
  */
 function doGet(e) {
   let page = e.parameter.page || 'profile'; // Default to profile page
@@ -111,8 +111,8 @@ function doGet(e) {
  * Loads and returns the raw HTML content from a template file.
  * Used with HtmlService template system to include separate HTML components.
  *
- * @param {string} filename - Name of the HTML file to include (without .html extension)
- * @return {string} The raw HTML content from the specified file
+ * @param {string} filename - Name of the HTML file to include (without .html extension).
+ * @return {string} The raw HTML content from the specified file.
  */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
@@ -123,8 +123,8 @@ function include(filename) {
  * Returns the HTML content for a specific admin dashboard tab on-demand,
  * reducing initial page load size by ~70%.
  *
- * @param {string} tabName - The tab name to load ('events', 'season', 'badges', 'prizes', 'points')
- * @return {Object} Response object with status and HTML content
+ * @param {string} tabName - The tab name to load ('events', 'season', 'badges', 'prizes', 'points').
+ * @return {Object} Response object with status and HTML content.
  */
 function getAdminTabHTML(tabName) {
   const tabFiles = {

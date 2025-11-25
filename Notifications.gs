@@ -14,9 +14,10 @@
 /**
  * Stores an in-app notification in UserProperties for later retrieval.
  * Reserved for future notification center feature.
- * @param {string} studentEmail - Student email
- * @param {string} type - Notification type (e.g., 'approved', 'badge', 'event')
- * @param {string} message - Notification message
+ *
+ * @param {string} studentEmail - Student email.
+ * @param {string} type - Notification type (e.g., 'approved', 'badge', 'event').
+ * @param {string} message - Notification message.
  */
 function sendNotification(studentEmail, type, message) {
   try {

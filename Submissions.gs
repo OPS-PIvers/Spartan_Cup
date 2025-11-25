@@ -16,6 +16,10 @@
 /**
  * Utility function to find a pending submission.
  * Uses cached pending submissions data to reduce API calls.
+ *
+ * @param {string} email - User email.
+ * @param {string} eventId - Event ID.
+ * @return {Object|null} Object with row number and photoId, or null if not found.
  */
 function findPendingSubmission(email, eventId) {
   const data = getPendingSubmissionsData();
@@ -30,6 +34,10 @@ function findPendingSubmission(email, eventId) {
 /**
  * Utility function to find a verified submission.
  * Uses cached verified submissions data to reduce API calls.
+ *
+ * @param {string} email - User email.
+ * @param {string} eventId - Event ID.
+ * @return {Object|null} Object with row number, or null if not found.
  */
 function findVerifiedSubmission(email, eventId) {
   const data = getVerifiedSubmissionsData();
@@ -44,10 +52,12 @@ function findVerifiedSubmission(email, eventId) {
 /**
  * Utility function to save the uploaded photo to Google Drive with optimizations.
  * Handles base64-encoded image data from client with compression already applied.
- * @param {string} photoBlob - Base64-encoded photo data (data:image/jpeg;base64,...)
- * @param {string} eventId - The event ID for file organization
- * @param {string} email - User email for file naming
- * @return {Object} {id, url} - File ID and shareable URL
+ *
+ * @param {string} photoBlob - Base64-encoded photo data (data:image/jpeg;base64,...).
+ * @param {string} eventId - The event ID for file organization.
+ * @param {string} email - User email for file naming.
+ * @return {Object} {id, url} - File ID and shareable URL.
+ * @throws {Error} If photo is too large or saving fails.
  */
 function savePhotoToDrive(photoBlob, eventId, email) {
   try {
@@ -102,9 +112,10 @@ function savePhotoToDrive(photoBlob, eventId, email) {
 /**
  * Internal helper to resolve event code with a location-based fallback.
  * This reduces code duplication between submitEvent and resubmitEvent.
+ *
  * @param {string} eventCode - The event code from the form.
- * @param {object} location - The location object from the form.
- * @returns {object} { status: 'success', eventCode: '...' } or { status: 'error', message: '...' }
+ * @param {Object} location - The location object from the form.
+ * @return {Object} { status: 'success', eventCode: '...' } or { status: 'error', message: '...' }.
  */
 function _getEventCodeWithFallback(eventCode, location) {
   // If eventCode is provided, use it
@@ -133,6 +144,10 @@ function _getEventCodeWithFallback(eventCode, location) {
 /**
  * STEP 1: Called when a user first hits "Submit".
  * Takes eventCode (not eventId in URL) and validates everything at once.
+ *
+ * @param {Object} formObject - Form data including eventCode, location, theme, notes.
+ * @param {string} photoBlob - Base64 encoded photo.
+ * @return {Object} Status object.
  */
 function submitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
@@ -184,6 +199,10 @@ function submitEvent(formObject, photoBlob) {
 
 /**
  * STEP 2: Called only if the user confirms an overwrite.
+ *
+ * @param {Object} formObject - Form data including eventCode, location, theme, notes.
+ * @param {string} photoBlob - Base64 encoded photo.
+ * @return {Object} Status object.
  */
 function resubmitEvent(formObject, photoBlob) {
   const email = Session.getActiveUser().getEmail();
@@ -238,15 +257,12 @@ function resubmitEvent(formObject, photoBlob) {
 // --- 4. ADMIN FUNCTIONS -------------------------------------------------
 
 /**
- * Fetches all pending submissions for admin review.
- * Only accessible to users in the Config_Admins sheet.
- * @return {Array} Array of pending submissions with student and event details
- */
-/**
  * Gets paginated admin queue of pending submissions.
- * @param {number} page - Page number (1-indexed)
- * @param {number} itemsPerPage - Items per page (default: 20)
- * @return {Object} Paginated queue with metadata
+ * Only accessible to users in the Config_Admins sheet.
+ *
+ * @param {number} [page=1] - Page number (1-indexed).
+ * @param {number} [itemsPerPage=20] - Items per page (default: 20).
+ * @return {Object} Paginated queue with metadata.
  */
 function getAdminQueue(page = 1, itemsPerPage = 20) {
   const email = Session.getActiveUser().getEmail();

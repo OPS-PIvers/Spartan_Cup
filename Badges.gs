@@ -4,6 +4,11 @@
 // Extracted from Code.js - Lines 4896-6498
 // Functions for badge management, calculation, and administration
 
+/**
+ * Retrieves badge data for the current user, including all available badges and those earned.
+ *
+ * @return {Object} An object containing status, all badges, and earned badge IDs.
+ */
 function getBadgeData() {
   const email = Session.getActiveUser().getEmail();
 
@@ -53,7 +58,9 @@ function getBadgeData() {
 /**
  * Calculates badges earned based on student points and saves to Student_Profiles.
  * Called after a submission is approved.
- * @param {string} email - Student email
+ *
+ * @param {string} email - Student email.
+ * @param {boolean} [skipSeasonEndBadges=false] - If true, skips calculation of season-end badges.
  */
 function calculateBadges(email, skipSeasonEndBadges = false) {
   try {
@@ -578,6 +585,8 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
 
     // Update Student_Profiles with new badges and updated points
     // Batch update badges (column 5) and season/all-time points (columns 3-4)
+    // Get sheet reference for write operation (was previously undefined in original code)
+    const studentSheet = ss.getSheetByName('Student_Profiles');
     studentSheet.getRange(studentRow, 3, 1, 3).setValues([
       [studentProfile.seasonPoints, studentProfile.allTimePoints, JSON.stringify(studentProfile.earnedBadges)]
     ]);
@@ -812,13 +821,10 @@ function processSeasonEndBadges() {
 // ==============================================================================
 
 /**
- * Gets all badges from Config_Badges sheet for admin management.
- * @return {Object} Response with badges array
- */
-/**
  * Gets all badges from Config_Badges sheet (for public display).
  * Returns array of badge objects.
- * @return {Array} Array of badge objects
+ *
+ * @return {Array<Object>} Array of badge objects with id, name, category, etc.
  */
 function getAllBadges() {
   try {
@@ -845,6 +851,12 @@ function getAllBadges() {
   }
 }
 
+/**
+ * Gets all badges from Config_Badges sheet for admin management.
+ * Returns an object with status and badges array.
+ *
+ * @return {Object} Status object containing badges array.
+ */
 function getAllBadgesForAdmin() {
   try {
     // Use cached badge data (reduces Sheets API calls)
@@ -878,8 +890,9 @@ function getAllBadgesForAdmin() {
 
 /**
  * Converts badge name to snake_case for Firebase URLs.
- * @param {string} badgeName - Badge name (e.g., "First Timer")
- * @return {string} snake_case version (e.g., "first_timer")
+ *
+ * @param {string} badgeName - Badge name (e.g., "First Timer").
+ * @return {string} snake_case version (e.g., "first_timer").
  */
 function badgeNameToSnakeCase(badgeName) {
   return badgeName
@@ -891,10 +904,11 @@ function badgeNameToSnakeCase(badgeName) {
 
 /**
  * Uploads badge image to Google Drive and returns both Drive URL and Firebase URL.
- * @param {string} badgeName - Badge name for filename generation
- * @param {string} base64Image - Base64 encoded image data
- * @param {string} mimeType - Image MIME type (e.g., 'image/svg+xml', 'image/png')
- * @return {Object} Response with Drive URL and Firebase URL
+ *
+ * @param {string} badgeName - Badge name for filename generation.
+ * @param {string} base64Image - Base64 encoded image data.
+ * @param {string} mimeType - Image MIME type (e.g., 'image/svg+xml', 'image/png').
+ * @return {Object} Response with Drive URL and Firebase URL.
  */
 function uploadBadgeImage(badgeName, base64Image, mimeType) {
   try {
@@ -959,11 +973,10 @@ function uploadBadgeImage(badgeName, base64Image, mimeType) {
 
 /**
  * Helper function to handle Google Drive backup upload for badge images.
- * @param {string} badgeName - Badge name for filename generation
- * @param {string} imageBase64 - Base64 encoded image data
- * @param {string} imageMimeType - Image MIME type
- * @param {string} existingImageUrl - Existing image URL (optional)
- * @return {string} Image URL to use (Drive URL if image uploaded, Firebase URL if provided, existing if updating without new image)
+ *
+ * @param {string} firebaseImageUrl - New image URL provided from Firebase.
+ * @param {string} existingImageUrl - Existing image URL (optional).
+ * @return {string} Image URL to use (Drive URL if image uploaded, Firebase URL if provided, existing if updating without new image).
  */
 function _handleImageUrl(firebaseImageUrl, existingImageUrl) {
   // Frontend uploads to Firebase Storage and sends the download URL
@@ -988,8 +1001,9 @@ function _handleImageUrl(firebaseImageUrl, existingImageUrl) {
 
 /**
  * Creates a new badge in Config_Badges sheet.
- * @param {Object} badgeData - Badge details
- * @return {Object} Response with status
+ *
+ * @param {Object} badgeData - Badge details.
+ * @return {Object} Response with status.
  */
 function createBadge(badgeData) {
   try {
@@ -1068,9 +1082,10 @@ function createBadge(badgeData) {
 
 /**
  * Updates an existing badge in Config_Badges sheet.
- * @param {string} badgeId - Badge ID to update
- * @param {Object} badgeData - Updated badge details
- * @return {Object} Response with status
+ *
+ * @param {string} badgeId - Badge ID to update.
+ * @param {Object} badgeData - Updated badge details.
+ * @return {Object} Response with status.
  */
 function updateBadge(badgeId, badgeData) {
   try {
@@ -1171,8 +1186,9 @@ function updateBadge(badgeId, badgeData) {
 
 /**
  * Deletes a badge from Config_Badges sheet.
- * @param {string} badgeId - Badge ID to delete
- * @return {Object} Response with status
+ *
+ * @param {string} badgeId - Badge ID to delete.
+ * @return {Object} Response with status.
  */
 function deleteBadge(badgeId) {
   try {
@@ -1227,8 +1243,9 @@ function deleteBadge(badgeId) {
 
 /**
  * Downloads a badge image from Google Drive for deployment to Firebase.
- * @param {string} badgeId - Badge ID
- * @return {Object} Response with file data
+ *
+ * @param {string} badgeId - Badge ID.
+ * @return {Object} Response with file data (downloadUrl, filename) or error message.
  */
 function downloadBadgeForDeploy(badgeId) {
   try {

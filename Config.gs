@@ -44,11 +44,12 @@ const CACHE_TTL = {
 };
 
 /**
- * Safely parses JSON with error handling
- * @param {string} jsonString - The JSON string to parse
- * @param {*} defaultValue - The default value to return if parsing fails
- * @param {string} context - Context for logging (optional)
- * @return {*} Parsed JSON or default value
+ * Safely parses JSON with error handling.
+ *
+ * @param {string} jsonString - The JSON string to parse.
+ * @param {*} defaultValue - The default value to return if parsing fails.
+ * @param {string} context - Context for logging (optional).
+ * @return {*} Parsed JSON or default value.
  */
 function safeJSONParse(jsonString, defaultValue, context) {
   try {
@@ -62,7 +63,8 @@ function safeJSONParse(jsonString, defaultValue, context) {
 /**
  * Reads admin emails from the Config_Admins sheet.
  * Results are cached for 6 hours to reduce Sheets API calls.
- * @return {string[]} Array of admin email addresses
+ *
+ * @return {string[]} Array of admin email addresses.
  */
 function getAdminEmails() {
   try {
@@ -100,7 +102,8 @@ function getAdminEmails() {
 /**
  * Gets all student profile data from cache or Sheets.
  * Caches for 10 minutes to reduce redundant API calls within same session.
- * @return {Array} 2D array of student profile data
+ *
+ * @return {Array} 2D array of student profile data.
  */
 function getStudentProfilesData() {
   const cache = CacheService.getScriptCache();
@@ -128,7 +131,8 @@ function getStudentProfilesData() {
 /**
  * Gets badge definitions as a map, cached for 24 hours.
  * Badge data is static, so longer cache is appropriate.
- * @return {Object} Map of badge ID to badge object
+ *
+ * @return {Object} Map of badge ID to badge object.
  */
 function getBadgeMapCache() {
   const cache = CacheService.getScriptCache();
@@ -171,7 +175,8 @@ function getBadgeMapCache() {
 /**
  * Gets event details as a map, cached for 1 hour.
  * Events change less frequently than student data, 1-hour cache is appropriate.
- * @return {Object} Map of event ID to event object
+ *
+ * @return {Object} Map of event ID to event object.
  */
 function getEventMapCache() {
   const cache = CacheService.getScriptCache();
@@ -223,11 +228,12 @@ function getEventMapCache() {
 /**
  * Generic helper function to get cached sheet data.
  * Eliminates code duplication across all sheet caching functions.
- * @param {string} sheetName - Name of the sheet to read
- * @param {string} cacheKey - Cache key for storing the data
- * @param {number} ttl - Time to live in seconds
- * @param {string} description - Description for error logging
- * @return {Array} 2D array of sheet data
+ *
+ * @param {string} sheetName - Name of the sheet to read.
+ * @param {string} cacheKey - Cache key for storing the data.
+ * @param {number} ttl - Time to live in seconds.
+ * @param {string} description - Description for error logging.
+ * @return {Array} 2D array of sheet data.
  */
 function getCachedSheetData(sheetName, cacheKey, ttl, description) {
   const cache = CacheService.getScriptCache();
@@ -259,7 +265,8 @@ function getCachedSheetData(sheetName, cacheKey, ttl, description) {
 /**
  * Gets verified submissions data with caching.
  * Cached for 10 minutes since it changes when admins approve submissions.
- * @return {Array} 2D array of verified submission data
+ *
+ * @return {Array} 2D array of verified submission data.
  */
 function getVerifiedSubmissionsData() {
   return getCachedSheetData(
@@ -273,7 +280,8 @@ function getVerifiedSubmissionsData() {
 /**
  * Gets pending submissions data with caching.
  * Cached for 5 minutes since it changes frequently as users submit.
- * @return {Array} 2D array of pending submission data
+ *
+ * @return {Array} 2D array of pending submission data.
  */
 function getPendingSubmissionsData() {
   return getCachedSheetData(
@@ -287,7 +295,8 @@ function getPendingSubmissionsData() {
 /**
  * Gets Activities_Data with caching.
  * Cached for 24 hours since activities rarely change (only when admins add new sports/activities).
- * @return {Array} 2D array of activities data
+ *
+ * @return {Array} 2D array of activities data.
  */
 function getActivitiesData() {
   return getCachedSheetData(
@@ -301,7 +310,8 @@ function getActivitiesData() {
 /**
  * Gets Events data with caching.
  * Cached for 1 hour since events are relatively static but may be added/modified.
- * @return {Array} 2D array of events data
+ *
+ * @return {Array} 2D array of events data.
  */
 function getEventsData() {
   return getCachedSheetData(
@@ -312,6 +322,12 @@ function getEventsData() {
   );
 }
 
+/**
+ * Clears all script and user caches.
+ * Used for development, troubleshooting, or after significant configuration changes.
+ *
+ * @return {string} Status message indicating success or error.
+ */
 function clearAllCaches() {
   try {
     // Clear script-level caches (shared across all users)
@@ -370,7 +386,8 @@ function clearAllCaches() {
 /**
  * Fetches stock denial reasons from the Config_Denial_Reasons sheet.
  * These are displayed in the admin denial modal for consistency.
- * @return {string[]} Array of denial reason strings
+ *
+ * @return {string[]} Array of denial reason strings.
  */
 function getDenialReasons() {
   try {

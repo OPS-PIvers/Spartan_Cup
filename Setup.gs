@@ -21,6 +21,9 @@
  * - Auth.gs: getUserIsAdmin()
  */
 
+/**
+ * Creates admin menu on spreadsheet open.
+ */
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('🏆 Spartan Cup Admin')
@@ -38,6 +41,9 @@ function onOpen() {
     .addToUi();
 }
 
+/**
+ * Sets dropdown validation for Config_Badges sheet (Category and Trigger_Type columns).
+ */
 function setDataValidation() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Config_Badges');
   if (!sheet) {
@@ -297,6 +303,9 @@ function setupSpreadsheet() {
   // Is_Active status is updated by the updateActiveEventStatus() trigger
 }
 
+/**
+ * Sets up data validation dropdowns (placeholder).
+ */
 function setupBadgeDropdowns() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const badgesSheet = ss.getSheetByName('Config_Badges');
@@ -538,6 +547,11 @@ function populateSampleBadges() {
   }
 }
 
+/**
+ * Creates all HTML template files.
+ * Note: In Apps Script, this usually involves creating files in the script editor.
+ * Since we are editing locally, this function might be less relevant but kept for structure.
+ */
 function createHtmlFiles() {
   const files = {
     'Index.html': `<!DOCTYPE html>
