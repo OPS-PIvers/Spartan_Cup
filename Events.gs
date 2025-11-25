@@ -141,7 +141,7 @@ function generateEventId(activityCode) {
     const nextNumber = String(maxNumber + 1).padStart(3, '0');
     return prefix + nextNumber;
   } catch (e) {
-    // Logger.log('Error generating event ID: ' + e.message);
+    Logger.log('Error generating event ID: ' + e.message);
     return activityCode + '-001'; // Default fallback
   }
 }
@@ -197,7 +197,7 @@ function getEventDetails(eventId) {
       message: 'Event not found with ID: ' + eventId
     };
   } catch (e) {
-    // Logger.log('Error in getEventDetails: ' + e.message);
+    Logger.log('Error in getEventDetails: ' + e.message);
     return {
       status: 'error',
       message: 'Error fetching event details: ' + e.message
@@ -248,14 +248,17 @@ function getActiveEvents(userLat = null, userLon = null) {
       const COL_IS_ACTIVE = 12;
 
       // Transform and cache the event data
+      // NOTE: We check date/time dynamically now to avoid latency issues with the Is_Active column update trigger.
+      // The trigger still runs to update the sheet for admin visibility, but we don't rely on it for check-ins.
+      const now = new Date();
+
       eventData = [];
       for (let i = 1; i < eventsData.length; i++) {
-        const isActive = eventsData[i][COL_IS_ACTIVE];
         const activityCode = String(eventsData[i][COL_ACTIVITY_CODE]).trim();
 
-        // Only include active events from the active season
+        // Only include events from the active season
         const activity = activitiesMap[activityCode];
-        if (isActive === true && activity && activity.season === activeSeason) {
+        if (activity && activity.season === activeSeason) {
           // Normalize startTime to prevent UTC conversion when caching
           let startTime = eventsData[i][COL_START_TIME];
           if (startTime instanceof Date) {
@@ -266,21 +269,58 @@ function getActiveEvents(userLat = null, userLon = null) {
             startTime = startTime;
           }
 
-          eventData.push({
-            eventCode: eventsData[i][COL_EVENT_ID],
-            eventName: eventsData[i][COL_EVENT_NAME] || activity.activityName,
-            locationName: eventsData[i][COL_LOCATION_NAME],
-            eventLat: eventsData[i][COL_EVENT_LAT],
-            eventLon: eventsData[i][COL_EVENT_LON],
-            startTime: startTime,
-            durationHours: eventsData[i][COL_DURATION_HOURS],
-            season: activity.season
-          });
+          // Check if event is currently active (time-based)
+          // This duplicates the logic from updateActiveEventStatus but runs on-demand
+          let eventStartTime;
+          let eventEndTime;
+
+          try {
+             if (startTime instanceof Date) {
+              eventStartTime = startTime;
+              // If it's a date object, format it for cache storage (consistent string format)
+              startTime = Utilities.formatDate(startTime, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+            } else if (typeof startTime === 'string') {
+              // Handle various string formats
+              const str = startTime;
+              if (str.includes('T')) {
+                const normalized = str.substring(0, 16).replace('T', ' ');
+                eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+              } else {
+                eventStartTime = Utilities.parseDate(str, 'America/Chicago', 'yyyy-MM-dd HH:mm');
+              }
+            } else {
+              // Invalid date format
+              continue;
+            }
+
+            const duration = eventsData[i][COL_DURATION_HOURS] || 2;
+            eventEndTime = new Date(eventStartTime.getTime() + duration * 60 * 60 * 1000);
+
+            // Is it active right now?
+            const now = new Date();
+            const isActive = (now >= eventStartTime && now <= eventEndTime);
+
+            if (isActive) {
+               eventData.push({
+                eventCode: eventsData[i][COL_EVENT_ID],
+                eventName: eventsData[i][COL_EVENT_NAME] || activity.activityName,
+                locationName: eventsData[i][COL_LOCATION_NAME],
+                eventLat: eventsData[i][COL_EVENT_LAT],
+                eventLon: eventsData[i][COL_EVENT_LON],
+                startTime: startTime, // Stored as string or Date object
+                durationHours: eventsData[i][COL_DURATION_HOURS],
+                season: activity.season
+              });
+            }
+
+          } catch (e) {
+             Logger.log('Error parsing date for event check: ' + e.message);
+          }
         }
       }
 
-      // Cache for 10 minutes (600 seconds) - shorter since Is_Active is updated by trigger
-      cache.put(cacheKey, JSON.stringify(eventData), 600);
+      // Cache for 2 minutes (120 seconds) - strict cache since we want near-real-time activation
+      cache.put(cacheKey, JSON.stringify(eventData), 120);
     } else {
       eventData = safeJSONParse(eventData, null, 'event data cache');
     }
@@ -290,7 +330,7 @@ function getActiveEvents(userLat = null, userLon = null) {
     for (let i = 0; i < eventData.length; i++) {
       const item = eventData[i];
 
-      // Parse start time for calculating end time
+      // Parse start time again from the cached object to build the runtime object
       let eventStartTime;
       let eventEndTime;
 
@@ -378,7 +418,7 @@ function getEventsByDistance(userLat, userLon) {
       distance: Math.round(evt.distance)
     }));
   } catch (e) {
-    // Logger.log('Error in getEventsByDistance: ' + e.message);
+    Logger.log('Error in getEventsByDistance: ' + e.message);
     return [];
   }
 }
@@ -438,7 +478,7 @@ function getClosestEvent(userLat, userLon) {
       distance: Math.round(closestEvent.distance)
     };
   } catch (e) {
-    // Logger.log('Error in getClosestEvent: ' + e.message);
+    Logger.log('Error in getClosestEvent: ' + e.message);
     return {
       status: 'error',
       message: 'Error finding nearby events. Please try again.'
@@ -466,7 +506,7 @@ function findEventIdByCode(eventId) {
 
     return null;
   } catch (e) {
-    // Logger.log('Error in findEventIdByCode: ' + e.message);
+    Logger.log('Error in findEventIdByCode: ' + e.message);
     return null;
   }
 }
@@ -608,7 +648,7 @@ function getEventsList(category) {
 
     return { status: 'success', events };
   } catch (e) {
-    // Logger.log('Error in getEventsList: ' + e.message);
+    Logger.log('Error in getEventsList: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -687,7 +727,7 @@ function addEvent(eventData) {
 
     return { status: 'success', message: 'Event added successfully' };
   } catch (e) {
-    // Logger.log('Error in addEvent: ' + e.message);
+    Logger.log('Error in addEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -765,7 +805,7 @@ function updateEvent(eventId, eventData) {
 
     return { status: 'error', message: 'Event ID not found' };
   } catch (e) {
-    // Logger.log('Error in updateEvent: ' + e.message);
+    Logger.log('Error in updateEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
@@ -804,7 +844,7 @@ function deleteEvent(eventId) {
 
     return { status: 'error', message: 'Event ID not found' };
   } catch (e) {
-    // Logger.log('Error in deleteEvent: ' + e.message);
+    Logger.log('Error in deleteEvent: ' + e.message);
     return { status: 'error', message: e.message };
   }
 }
