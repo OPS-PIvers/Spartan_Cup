@@ -19,13 +19,14 @@
  */
 
 /**
- * Sends approval email to student with points breakdown
- * @param {string} studentEmail - Student email address
- * @param {string} eventName - Name of the event
- * @param {number} basePoints - Base points awarded
- * @param {number} themePoints - Theme bonus points
- * @param {number} spotlightMultiplier - Spotlight multiplier applied
- * @return {boolean} Success status
+ * Sends approval email to student with points breakdown.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @param {string} eventName - Name of the event.
+ * @param {number} basePoints - Base points awarded.
+ * @param {number} themePoints - Theme bonus points.
+ * @param {number} spotlightMultiplier - Spotlight multiplier applied.
+ * @return {boolean} Success status.
  */
 function sendApprovalEmail(studentEmail, eventName, basePoints, themePoints, spotlightMultiplier) {
   try {
@@ -102,13 +103,14 @@ function sendApprovalEmail(studentEmail, eventName, basePoints, themePoints, spo
 }
 
 /**
- * Sends denial email to student with reason
- * NOTE: Denial emails are ALWAYS sent regardless of preferences
- * @param {string} studentEmail - Student email address
- * @param {string} eventName - Name of the event
- * @param {string} denialReason - Reason for denial
- * @param {boolean} isResubmittable - Whether student can resubmit
- * @return {boolean} Success status
+ * Sends denial email to student with reason.
+ * NOTE: Denial emails are ALWAYS sent regardless of preferences.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @param {string} eventName - Name of the event.
+ * @param {string} denialReason - Reason for denial.
+ * @param {boolean} isResubmittable - Whether student can resubmit.
+ * @return {boolean} Success status.
  */
 function sendDenialEmail(studentEmail, eventName, denialReason, isResubmittable) {
   try {
@@ -167,12 +169,13 @@ function sendDenialEmail(studentEmail, eventName, denialReason, isResubmittable)
 }
 
 /**
- * Sends badge award notification to student
- * @param {string} studentEmail - Student email address
- * @param {string} badgeName - Name of the badge
- * @param {string} badgeDescription - Description of badge
- * @param {string} badgeImageUrl - URL to badge image
- * @return {boolean} Success status
+ * Sends badge award notification to student.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @param {string} badgeName - Name of the badge.
+ * @param {string} badgeDescription - Description of badge.
+ * @param {string} badgeImageUrl - URL to badge image.
+ * @return {boolean} Success status.
  */
 function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeImageUrl) {
   try {
@@ -231,10 +234,11 @@ function sendBadgeAwardEmail(studentEmail, badgeName, badgeDescription, badgeIma
 }
 
 /**
- * Sends event reminder email with upcoming events
- * @param {string} studentEmail - Student email address
- * @param {Array} upcomingEvents - Array of event objects with eventName, date, time, location
- * @return {boolean} Success status
+ * Sends event reminder email with upcoming events.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @param {Array<Object>} upcomingEvents - Array of event objects with eventName, date, time, location.
+ * @return {boolean} Success status.
  */
 function sendEventReminderEmail(studentEmail, upcomingEvents) {
   try {
@@ -305,11 +309,12 @@ function sendEventReminderEmail(studentEmail, upcomingEvents) {
 }
 
 /**
- * Core function to send email via Gmail API using service account
- * @param {string} to - Recipient email address
- * @param {string} subject - Email subject
- * @param {string} htmlBody - HTML email body
- * @return {boolean} Success status
+ * Core function to send email via Gmail API using service account.
+ *
+ * @param {string} to - Recipient email address.
+ * @param {string} subject - Email subject.
+ * @param {string} htmlBody - HTML email body.
+ * @return {boolean} Success status.
  * @private
  */
 function sendEmailViaGmail(to, subject, htmlBody) {
@@ -368,9 +373,10 @@ function sendEmailViaGmail(to, subject, htmlBody) {
 }
 
 /**
- * Obtains an access token for Gmail API using service account JWT
- * @param {Object} serviceAccount - Service account object from JSON
- * @return {string|null} Access token or null if failed
+ * Obtains an access token for Gmail API using service account JWT.
+ *
+ * @param {Object} serviceAccount - Service account object from JSON.
+ * @return {string|null} Access token or null if failed.
  * @private
  */
 function getGmailAccessToken(serviceAccount) {
@@ -437,12 +443,13 @@ function getGmailAccessToken(serviceAccount) {
 }
 
 /**
- * Builds an RFC 2822 formatted email message
- * @param {string} from - From address with display name
- * @param {string} to - To address
- * @param {string} subject - Email subject
- * @param {string} htmlBody - HTML email body
- * @return {string} RFC 2822 formatted email
+ * Builds an RFC 2822 formatted email message.
+ *
+ * @param {string} from - From address with display name.
+ * @param {string} to - To address.
+ * @param {string} subject - Email subject.
+ * @param {string} htmlBody - HTML email body.
+ * @return {string} RFC 2822 formatted email.
  * @private
  */
 function buildEmailMessage(from, to, subject, htmlBody) {
@@ -458,9 +465,10 @@ function buildEmailMessage(from, to, subject, htmlBody) {
 }
 
 /**
- * Gets notification preferences for a student
- * @param {string} studentEmail - Student email address
- * @return {Object|null} Preferences object or null
+ * Gets notification preferences for a student.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @return {Object|null} Preferences object or null.
  * @private
  */
 function getNotificationPreferences(studentEmail) {
@@ -482,9 +490,10 @@ function getNotificationPreferences(studentEmail) {
 }
 
 /**
- * Gets student display name by email
- * @param {string} studentEmail - Student email address
- * @return {string} Student display name or email if not found
+ * Gets student display name by email.
+ *
+ * @param {string} studentEmail - Student email address.
+ * @return {string} Student display name or email if not found.
  * @private
  */
 function getStudentNameByEmail(studentEmail) {
@@ -503,9 +512,10 @@ function getStudentNameByEmail(studentEmail) {
 }
 
 /**
- * Escapes HTML special characters for safe display in emails
- * @param {string} text - Text to escape
- * @return {string} Escaped text
+ * Escapes HTML special characters for safe display in emails.
+ *
+ * @param {string} text - Text to escape.
+ * @return {string} Escaped text.
  * @private
  */
 function escapeHtml(text) {

@@ -70,6 +70,12 @@ function toSnakeCase(str) {
 
 /**
  * Calculates distance between two coordinates using Haversine formula (in meters).
+ *
+ * @param {number} lat1 - Latitude of first point.
+ * @param {number} lon1 - Longitude of first point.
+ * @param {number} lat2 - Latitude of second point.
+ * @param {number} lon2 - Longitude of second point.
+ * @return {number} Distance in meters.
  */
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // Earth's radius in meters
@@ -82,6 +88,12 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+/**
+ * Serves Drive images as base64 data URLs.
+ *
+ * @param {string} fileId - The Google Drive file ID.
+ * @return {Object} Status object with dataUrl or error message.
+ */
 function serveImage(fileId) {
   try {
     if (!fileId) {
@@ -111,6 +123,8 @@ function getDriveImageUrl(fileId) {
 
 /**
  * Returns the web app's URL.
+ *
+ * @return {string} The web app URL.
  */
 function getWebAppUrl() {
   return ScriptApp.getService().getUrl();

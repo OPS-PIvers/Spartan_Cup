@@ -60,10 +60,21 @@ A gamified attendance and participation system for student events at Orono High 
 
 ## Architecture
 
-### Server-Side (Code.js)
-- Router function `doGet(e)` serves the SPA based on `?page=` URL parameter
-- Handles user authentication, sheet operations, and file storage
-- Accepts location parameters from Firebase wrapper
+### Server-Side (Code.js & .gs files)
+- **Code.js**: Main web app router, handles page routing and template variable injection.
+- **Admin.gs**: Admin dashboard functions for approving/denying submissions.
+- **Auth.gs**: Authentication and authorization functions.
+- **Submissions.gs**: Submission handling and validation logic.
+- **Events.gs**: Event management and lookup functions.
+- **Activities.gs**: Activity and schedule management.
+- **Points.gs**: Points calculation and tracking.
+- **Badges.gs**: Badge system and award logic.
+- **EmailNotifications.gs**: Email notification functions (Gmail API).
+- **Notifications.gs**: In-app notification functions (reserved for future use).
+- **FanFeed.gs**: Social feed and engagement features.
+- **Prizes.gs**: Prize management functions.
+- **Utils.gs**: Utility and helper functions.
+- **Config.gs**: Configuration and constants.
 
 ### Client-Side (JavaScript.html)
 - Single-page app router for navigation
@@ -77,6 +88,13 @@ A gamified attendance and participation system for student events at Orono High 
 - Hosted at `https://the-spartan-cup.web.app`
 - Captures geolocation permission BEFORE iframe load (fixes iOS Safari)
 - Redirects to GAS app with location parameters
+
+## Documentation
+
+The codebase is thoroughly documented with JSDoc comments for all public functions, methods, and classes. You can find detailed documentation within each source file.
+
+- **Backend:** See `.gs` files for server-side logic documentation.
+- **Frontend:** See `JavaScript.html` for client-side logic documentation.
 
 ## Important Notes
 

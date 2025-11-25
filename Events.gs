@@ -119,6 +119,13 @@ function updateActiveEventStatus() {
   }
 }
 
+/**
+ * Generates a new sequential Event ID based on the activity code.
+ * Finds the highest existing ID number for the code and increments it.
+ *
+ * @param {string} activityCode - The activity code (e.g., 'GBB').
+ * @return {string} The new Event ID (e.g., 'GBB-002').
+ */
 function generateEventId(activityCode) {
   try {
     // Use cached events data (reduces Sheets API calls)
@@ -149,7 +156,8 @@ function generateEventId(activityCode) {
 /**
  * Fetches event details from the Events sheet by event ID.
  * Joins with Activities_Data to get full event information.
- * @param {string} eventId - The event ID to look up
+ *
+ * @param {string} eventId - The event ID to look up.
  * @return {Object} Event details including name, date, location, theme, etc.
  */
 function getEventDetails(eventId) {
@@ -207,9 +215,10 @@ function getEventDetails(eventId) {
 
 /**
  * Gets all currently active events (where current time is within Start_Time + Duration_Hours).
- * @param {number} userLat - Optional: user's latitude for distance calculation
- * @param {number} userLon - Optional: user's longitude for distance calculation
- * @return {Array} Array of events, optionally sorted by distance from user
+ *
+ * @param {number} [userLat=null] - Optional: user's latitude for distance calculation.
+ * @param {number} [userLon=null] - Optional: user's longitude for distance calculation.
+ * @return {Array} Array of events, optionally sorted by distance from user.
  */
 function getActiveEvents(userLat = null, userLon = null) {
   try {
@@ -362,9 +371,10 @@ function getActiveEvents(userLat = null, userLon = null) {
 /**
  * Gets active events sorted by distance from user.
  * Called from frontend with user's geolocation.
- * @param {number} userLat - User's latitude
- * @param {number} userLon - User's longitude
- * @return {Array} Array of active events sorted by distance
+ *
+ * @param {number} userLat - User's latitude.
+ * @param {number} userLon - User's longitude.
+ * @return {Array} Array of active events sorted by distance.
  */
 function getEventsByDistance(userLat, userLon) {
   try {
@@ -387,9 +397,10 @@ function getEventsByDistance(userLat, userLon) {
  * Gets the closest event that the user is within the geofence of.
  * Auto-selects the event that user is closest to the center of.
  * Used for location-based direct check-in flow.
- * @param {number} userLat - User's latitude
- * @param {number} userLon - User's longitude
- * @return {Object} {status, eventCode, eventName, distance} or {status: 'error', message}
+ *
+ * @param {number} userLat - User's latitude.
+ * @param {number} userLon - User's longitude.
+ * @return {Object} {status, eventCode, eventName, distance} or {status: 'error', message}.
  */
 function getClosestEvent(userLat, userLon) {
   try {
@@ -449,8 +460,9 @@ function getClosestEvent(userLat, userLon) {
 /**
  * Finds the Event_ID from Events sheet that matches the given event code/ID.
  * Event_ID is now the primary key (no separate Event_Code needed).
- * @param {string} eventId - The event ID to look up (e.g., "GBB-01")
- * @return {string} Event_ID or null if not found
+ *
+ * @param {string} eventId - The event ID to look up (e.g., "GBB-01").
+ * @return {string|null} Event_ID or null if not found.
  */
 function findEventIdByCode(eventId) {
   try {
@@ -472,9 +484,10 @@ function findEventIdByCode(eventId) {
 }
 
 /**
- * Gets all events from Events sheet for admin management
- * @param {string} category - Optional: filter events by activity/sport category
- * @return {Object} {status, events: [{eventId, name, sportArt, date, location, lat, lon, startTime, duration, isHomeGame, isSpotlight, theme}, ...]}
+ * Gets all events from Events sheet for admin management.
+ *
+ * @param {string} [category] - Optional: filter events by activity/sport category.
+ * @return {Object} {status, events: [{eventId, name, sportArt, date, location, lat, lon, startTime, duration, isHomeGame, isSpotlight, theme}, ...]}.
  */
 function getEventsList(category) {
   try {
@@ -614,9 +627,10 @@ function getEventsList(category) {
 }
 
 /**
- * Adds a new event to Events sheet
- * @param {Object} eventData - {eventId, eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}
- * @return {Object} {status, message}
+ * Adds a new event to Events sheet.
+ *
+ * @param {Object} eventData - {eventId, eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}.
+ * @return {Object} {status, message}.
  */
 function addEvent(eventData) {
   try {
@@ -693,10 +707,11 @@ function addEvent(eventData) {
 }
 
 /**
- * Updates an existing event in Events sheet
- * @param {string} eventId - Event ID to update
- * @param {Object} eventData - {eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}
- * @return {Object} {status, message}
+ * Updates an existing event in Events sheet.
+ *
+ * @param {string} eventId - Event ID to update.
+ * @param {Object} eventData - {eventName, sportArt, date, location, lat, lon, startTime, isHomeGame, isSpotlightGame, theme}.
+ * @return {Object} {status, message}.
  */
 function updateEvent(eventId, eventData) {
   try {
@@ -771,9 +786,10 @@ function updateEvent(eventId, eventData) {
 }
 
 /**
- * Deletes an event from Events sheet
- * @param {string} eventId - Event ID to delete
- * @return {Object} {status, message}
+ * Deletes an event from Events sheet.
+ *
+ * @param {string} eventId - Event ID to delete.
+ * @return {Object} {status, message}.
  */
 function deleteEvent(eventId) {
   try {
@@ -812,10 +828,11 @@ function deleteEvent(eventId) {
 /**
  * Unified validation function for event submissions.
  * Validates code, location, and time all at once.
- * @param {string} eventCode - The event code submitted
- * @param {Object} userLocation - { lat, lon, acc } from geolocation
- * @param {number} timestamp - Submission timestamp (usually Date.now())
- * @return {Object} { valid: boolean, eventCode: string, eventId: string, message: string }
+ *
+ * @param {string} eventCode - The event code submitted.
+ * @param {Object} userLocation - { lat, lon, acc } from geolocation.
+ * @param {number} timestamp - Submission timestamp (usually Date.now()).
+ * @return {Object} { valid: boolean, eventCode: string, eventId: string, message: string }.
  */
 function validateEventSubmission(eventCode, userLocation, timestamp) {
   try {

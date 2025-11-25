@@ -15,10 +15,12 @@
 /**
  * Approves a pending submission and moves it to Submissions_Verified.
  * Also updates student's points in Student_Profiles.
- * @param {string} submissionId - The submission ID to approve
- * @param {number} basePoints - Base points to award
- * @param {number} themeBonus - Bonus points if theme was dressed
- * @param {number} spotlightMultiplier - Spotlight event multiplier
+ *
+ * @param {string} submissionId - The submission ID to approve.
+ * @param {number} basePoints - Base points to award.
+ * @param {number} themeBonus - Bonus points if theme was dressed.
+ * @param {number} spotlightMultiplier - Spotlight event multiplier.
+ * @return {Object} Status object with success/error message.
  */
 function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultiplier) {
   const email = Session.getActiveUser().getEmail();
@@ -149,9 +151,11 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 /**
  * Denies a pending submission and archives to Submissions_Denied.
  * Sends denial notification email to student with reason.
- * @param {string} submissionId - The submission ID to deny
- * @param {string} reason - Reason for denial (stock reason or custom)
+ *
+ * @param {string} submissionId - The submission ID to deny.
+ * @param {string} reason - Reason for denial (stock reason or custom).
  * @param {boolean} isResubmittable - If true, allows student to resubmit (returns to Pending). If false, archives permanently.
+ * @return {Object} Status object with success/error message.
  */
 function denySubmission(submissionId, reason, isResubmittable) {
   const email = Session.getActiveUser().getEmail();

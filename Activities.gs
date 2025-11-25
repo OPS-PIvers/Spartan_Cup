@@ -10,6 +10,12 @@
  * - Fetching activities for the current season
  */
 
+/**
+ * Retrieves the currently active season from cache or configuration sheet.
+ * Defaults to 'Winter' if not set or on error.
+ *
+ * @return {string} The name of the currently active season (e.g., 'Winter').
+ */
 function getActiveSeason() {
   try {
     const cache = CacheService.getScriptCache();
@@ -43,8 +49,9 @@ function getActiveSeason() {
 /**
  * Sets the active season in Config_Active_Season.
  * Clears cache to ensure updated value is used immediately.
- * @param {string} season - The season to activate
- * @return {Object} Status object with success/error message
+ *
+ * @param {string} season - The season to activate.
+ * @return {Object} Status object with success/error message.
  */
 function setActiveSeason(season) {
   try {
@@ -72,7 +79,8 @@ function setActiveSeason(season) {
 
 /**
  * Gets all unique seasons from Activities_Data.
- * @return {string[]} Array of available seasons
+ *
+ * @return {string[]} Array of available season names sorted alphabetically.
  */
 function getAvailableSeasons() {
   try {
@@ -96,8 +104,9 @@ function getAvailableSeasons() {
 /**
  * Gets all activities with a flag indicating if they belong to a specific season.
  * Used by admin interface to manage season-to-activity assignments.
- * @param {string} season - The season to check against
- * @return {Array} Array of activities with isInSeason flag
+ *
+ * @param {string} season - The season to check against.
+ * @return {Array<Object>} Array of activity objects with isInSeason flag.
  */
 function getActivitiesWithSeasonStatus(season) {
   try {
@@ -134,9 +143,10 @@ function getActivitiesWithSeasonStatus(season) {
  * Updates season assignments for activities.
  * Takes a season and array of activity codes, assigns all those activities to the season.
  * Activities not in the array keep their existing season assignment (no removal).
- * @param {string} season - The season name to assign
- * @param {Array} activityCodes - Array of activity codes to assign to this season
- * @return {Object} Status object with success/error message
+ *
+ * @param {string} season - The season name to assign.
+ * @param {Array<string>} activityCodes - Array of activity codes to assign to this season.
+ * @return {Object} Status object with success/error message.
  */
 function updateActivitySeasonAssignments(season, activityCodes) {
   try {
@@ -180,13 +190,14 @@ function updateActivitySeasonAssignments(season, activityCodes) {
 
 /**
  * Creates a new activity in Activities_Data.
- * @param {string} activityCode - Unique activity code (e.g., BBB)
- * @param {string} activityName - Display name (e.g., Boys Basketball)
- * @param {string} locationName - Location name (e.g., Orono High School Gym)
- * @param {number} eventLat - Latitude coordinate
- * @param {number} eventLon - Longitude coordinate
- * @param {string} season - Season name (e.g., Winter)
- * @return {Object} Status object with activityCode
+ *
+ * @param {string} activityCode - Unique activity code (e.g., BBB).
+ * @param {string} activityName - Display name (e.g., Boys Basketball).
+ * @param {string} locationName - Location name (e.g., Orono High School Gym).
+ * @param {number|string} eventLat - Latitude coordinate.
+ * @param {number|string} eventLon - Longitude coordinate.
+ * @param {string} season - Season name (e.g., Winter).
+ * @return {Object} Status object with activityCode or error message.
  */
 function createNewActivity(activityCode, activityName, locationName, eventLat, eventLon, season) {
   try {
@@ -239,6 +250,12 @@ function createNewActivity(activityCode, activityName, locationName, eventLat, e
   }
 }
 
+/**
+ * Retrieves details for a specific activity by its code.
+ *
+ * @param {string} activityCode - The unique code for the activity (e.g., 'BBB').
+ * @return {Object} An object containing activity details or an error status.
+ */
 function getActivityDetails(activityCode) {
   try {
     // Use cached activities data (reduces Sheets API calls - called frequently!)
@@ -264,6 +281,11 @@ function getActivityDetails(activityCode) {
   }
 }
 
+/**
+ * Retrieves a list of all activities assigned to the currently active season.
+ *
+ * @return {Object} An object containing a status and an array of activity objects (code, name).
+ */
 function getActivitiesForSeason() {
   try {
     // Use cached activities data (reduces Sheets API calls)

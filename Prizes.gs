@@ -6,7 +6,8 @@
 
 /**
  * Gets all season prizes from Active_Season_Prizes sheet.
- * @return {Object} Response with prizes array
+ *
+ * @return {Object} Response with status and prizes array.
  */
 function getAllSeasonPrizes() {
   try {
@@ -49,9 +50,10 @@ function getAllSeasonPrizes() {
 
 /**
  * Creates a new prize in Active_Season_Prizes sheet.
- * @param {string} rank - Prize rank/placement (e.g., "1st Place", "Most Spirited")
- * @param {string} description - Prize description
- * @return {Object} Response with status
+ *
+ * @param {string} rank - Prize rank/placement (e.g., "1st Place", "Most Spirited").
+ * @param {string} description - Prize description.
+ * @return {Object} Response with status and message.
  */
 function createPrize(rank, description) {
   try {
@@ -91,10 +93,11 @@ function createPrize(rank, description) {
 
 /**
  * Updates an existing prize in Active_Season_Prizes sheet.
- * @param {number} rowIndex - Row index (1-based) to update
- * @param {string} rank - Updated rank/placement
- * @param {string} description - Updated prize description
- * @return {Object} Response with status
+ *
+ * @param {number} rowIndex - Row index (1-based) to update.
+ * @param {string} rank - Updated rank/placement.
+ * @param {string} description - Updated prize description.
+ * @return {Object} Response with status and message.
  */
 function updatePrize(rowIndex, rank, description) {
   try {
@@ -140,8 +143,9 @@ function updatePrize(rowIndex, rank, description) {
 
 /**
  * Deletes a prize from Active_Season_Prizes sheet.
- * @param {number} rowIndex - Row index (1-based) to delete
- * @return {Object} Response with status
+ *
+ * @param {number} rowIndex - Row index (1-based) to delete.
+ * @return {Object} Response with status and message.
  */
 function deletePrize(rowIndex) {
   try {
