@@ -301,7 +301,7 @@ function getActiveEvents(userLat = null, userLon = null) {
             const isActive = (now >= eventStartTime && now <= eventEndTime);
 
             if (isActive) {
-               eventData.push({
+              eventData.push({
                 eventCode: eventsData[i][COL_EVENT_ID],
                 eventName: eventsData[i][COL_EVENT_NAME] || activity.activityName,
                 locationName: eventsData[i][COL_LOCATION_NAME],
