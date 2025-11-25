@@ -307,7 +307,7 @@ function getActiveEvents(userLat = null, userLon = null) {
                 locationName: eventsData[i][COL_LOCATION_NAME],
                 eventLat: eventsData[i][COL_EVENT_LAT],
                 eventLon: eventsData[i][COL_EVENT_LON],
-                startTime: startTime, // Stored as string or Date object
+                startTime: startTime, // Stored as string
                 durationHours: eventsData[i][COL_DURATION_HOURS],
                 season: activity.season
               });
