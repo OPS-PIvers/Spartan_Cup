@@ -314,7 +314,7 @@ function getActiveEvents(userLat = null, userLon = null) {
             }
 
           } catch (e) {
-             Logger.log('Error parsing date for event check: ' + e.message);
+            Logger.log('Error parsing date for event check: ' + e.message);
           }
         }
       }
