@@ -509,7 +509,7 @@ function getStudentNameByEmail(studentEmail) {
  * @private
  */
 function escapeHtml(text) {
-  if (!text) return '';
+  if (text === null || text === undefined || text === '') return '';
   return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
