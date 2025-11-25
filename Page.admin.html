@@ -445,11 +445,20 @@
     let lastTapTime = 0;
     let isProcessing = false;  // Prevent multiple simultaneous swipes
 
-    // Initialize immediately since this script runs after DOM is already ready
-    // (the page is server-side rendered and included in Index.html)
-    // Initialize the Review tab as active (lazy loading handled by switchTab)
-    switchTab('review');
-    setupGestureHandlers();
+    // Defer initialization until all scripts (including JavaScript.html) have loaded
+    // This prevents "getCachedAdminQueue is not defined" errors on first load
+    function initAdminPage() {
+      // Initialize the Review tab as active (lazy loading handled by switchTab)
+      switchTab('review');
+      setupGestureHandlers();
+    }
+
+    // Check if page already loaded (fast load scenario), otherwise wait for load event
+    if (document.readyState === 'complete') {
+      initAdminPage();
+    } else {
+      window.addEventListener('load', initAdminPage);
+    }
 
     function setupGestureHandlers() {
       const card = document.getElementById('swipe-card');

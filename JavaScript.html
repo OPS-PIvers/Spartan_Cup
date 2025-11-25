@@ -1005,24 +1005,35 @@
           }
         });
         
-        // Load dynamic profile data (always fetch fresh on page load for accurate badge/point data)
-        // Clear cache on profile page load to ensure fresh data after admin approvals
-        clearProfileCache();
-        console.log('[Profile Cache] Cleared cache on profile page load');
+        // Defer initialization until all scripts have loaded to prevent race conditions
+        // This prevents "clearProfileCache is not defined" errors on first load
+        function initProfilePage() {
+          // Load dynamic profile data (always fetch fresh on page load for accurate badge/point data)
+          // Clear cache on profile page load to ensure fresh data after admin approvals
+          clearProfileCache();
+          console.log('[Profile Cache] Cleared cache on profile page load');
 
-        // Always fetch fresh profile data when viewing the profile page
-        callWithRetry('getProfileData', [],
-          function(data) {
-            // Success handler
-            cacheProfileData(data); // Cache the response
-            populateProfile(data);
-          },
-          function(error) {
-            // Failure handler - show error state instead of hanging
-            console.error('[Profile] Failed to load profile data:', error);
-            showToast('Failed to load profile data. Please refresh the page.', 'error', 5000);
-          }
-        );
+          // Always fetch fresh profile data when viewing the profile page
+          callWithRetry('getProfileData', [],
+            function(data) {
+              // Success handler
+              cacheProfileData(data); // Cache the response
+              populateProfile(data);
+            },
+            function(error) {
+              // Failure handler - show error state instead of hanging
+              console.error('[Profile] Failed to load profile data:', error);
+              showToast('Failed to load profile data. Please refresh the page.', 'error', 5000);
+            }
+          );
+        }
+
+        // Check if page already loaded (fast load scenario), otherwise wait for load event
+        if (document.readyState === 'complete') {
+          initProfilePage();
+        } else {
+          window.addEventListener('load', initProfilePage);
+        }
       }
 
       if (pageKey === 'welcome') {
@@ -1048,27 +1059,38 @@
       }
 
       if (pageKey === 'history') {
-        // Load dynamic history data (use cache if available to reduce API calls)
-        const cachedProfile = getCachedProfileData();
-        if (cachedProfile) {
-          // Use cached data - no backend call needed
-          console.log('[Profile Cache] Using cached profile data for history');
-          populateHistory(cachedProfile);
+        // Defer initialization until all scripts have loaded to prevent race conditions
+        // This prevents "getCachedProfileData is not defined" errors on first load
+        function initHistoryPage() {
+          // Load dynamic history data (use cache if available to reduce API calls)
+          const cachedProfile = getCachedProfileData();
+          if (cachedProfile) {
+            // Use cached data - no backend call needed
+            console.log('[Profile Cache] Using cached profile data for history');
+            populateHistory(cachedProfile);
+          } else {
+            // Cache miss - fetch from backend
+            console.log('[Profile Cache] Cache miss, fetching from backend for history');
+            callWithRetry('getProfileData', [],
+              function(data) {
+                // Success handler
+                cacheProfileData(data); // Cache the response
+                populateHistory(data);
+              },
+              function(error) {
+                // Failure handler - show error state instead of hanging
+                console.error('[History] Failed to load history data:', error);
+                showToast('Failed to load event history. Please refresh the page.', 'error', 5000);
+              }
+            ); // Re-using getProfileData
+          }
+        }
+
+        // Check if page already loaded (fast load scenario), otherwise wait for load event
+        if (document.readyState === 'complete') {
+          initHistoryPage();
         } else {
-          // Cache miss - fetch from backend
-          console.log('[Profile Cache] Cache miss, fetching from backend for history');
-          callWithRetry('getProfileData', [],
-            function(data) {
-              // Success handler
-              cacheProfileData(data); // Cache the response
-              populateHistory(data);
-            },
-            function(error) {
-              // Failure handler - show error state instead of hanging
-              console.error('[History] Failed to load history data:', error);
-              showToast('Failed to load event history. Please refresh the page.', 'error', 5000);
-            }
-          ); // Re-using getProfileData
+          window.addEventListener('load', initHistoryPage);
         }
       }
       

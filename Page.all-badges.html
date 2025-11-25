@@ -10,7 +10,37 @@
     </div>
 
     <div id="badges-grid" class="grid grid-cols-2 @sm:grid-cols-3 gap-4">
-      <p class="col-span-full text-center text-gray-500 py-8">Loading badges...</p>
+      <!-- Skeleton loaders for badges -->
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
+      <div class="skeleton-badge-card flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-gray-800/50 shadow-sm">
+        <div class="skeleton w-20 h-20 rounded-full"></div>
+        <div class="skeleton h-4 w-24 rounded"></div>
+        <div class="skeleton h-3 w-32 rounded"></div>
+      </div>
     </div>
 
     <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl">
@@ -21,20 +51,28 @@
   </div>
 
   <script>
-    // Execute immediately since this script runs after DOM is already ready
-    // (the page is server-side rendered and included in Index.html)
+    // Defer initialization until all scripts (including JavaScript.html) have loaded
+    // This prevents "getCachedProfileData is not defined" errors on first load
+    function initAllBadgesPage() {
+      // Check client-side cache first to avoid unnecessary API call
+      const cachedProfile = getCachedProfileData();
+      if (cachedProfile) {
+        // Use cached data - no backend call needed!
+        populateAllBadges(cachedProfile);
+      } else {
+        // Cache miss - fetch from backend
+        google.script.run.withSuccessHandler((data) => {
+          cacheProfileData(data); // Cache the response
+          populateAllBadges(data);
+        }).getProfileData();
+      }
+    }
 
-    // Check client-side cache first to avoid unnecessary API call
-    const cachedProfile = getCachedProfileData();
-    if (cachedProfile) {
-      // Use cached data - no backend call needed!
-      populateAllBadges(cachedProfile);
+    // Check if page already loaded (fast load scenario), otherwise wait for load event
+    if (document.readyState === 'complete') {
+      initAllBadgesPage();
     } else {
-      // Cache miss - fetch from backend
-      google.script.run.withSuccessHandler((data) => {
-        cacheProfileData(data); // Cache the response
-        populateAllBadges(data);
-      }).getProfileData();
+      window.addEventListener('load', initAllBadgesPage);
     }
 
     function populateAllBadges(data) {
