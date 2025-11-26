@@ -45,8 +45,8 @@ function escapeJavaScriptString(str) {
  * @return {string} Escaped text
  */
 function escapeHtml(text) {
-  if (!text) return '';
-  return text
+  if (text === null || text === undefined || text === '') return '';
+  return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
