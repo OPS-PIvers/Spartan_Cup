@@ -88,8 +88,9 @@ function updateActiveEventStatus() {
         const eventEndTime = new Date(eventStartTime.getTime() + durationHours * 60 * 60 * 1000);
         Logger.log(`    Event window: ${Utilities.formatDate(eventStartTime, 'America/Chicago', 'HH:mm')} - ${Utilities.formatDate(eventEndTime, 'America/Chicago', 'HH:mm')}`);
 
-        // Determine if event is active
-        const isActive = (now >= eventStartTime && now <= eventEndTime);
+        // Determine if event is active (allow check-in 15 minutes before event start)
+        const earlyStartTime = new Date(eventStartTime.getTime() - 15 * 60 * 1000);
+        const isActive = (now >= earlyStartTime && now <= eventEndTime);
         Logger.log(`    now >= start? ${now >= eventStartTime}, now <= end? ${now <= eventEndTime}, isActive = ${isActive}`);
 
         // Update the Is_Active column (only if value changed to reduce API calls)
@@ -298,8 +299,9 @@ function getActiveEvents(userLat = null, userLon = null) {
 
         eventEndTime = new Date(eventStartTime.getTime() + item.durationHours * 60 * 60 * 1000);
 
-        // Determine if event is active dynamically (now vs window)
-        const isActive = (now >= eventStartTime && now <= eventEndTime);
+        // Determine if event is active dynamically (allow check-in 15 minutes before event start)
+        const earlyStartTime = new Date(eventStartTime.getTime() - 15 * 60 * 1000);
+        const isActive = (now >= earlyStartTime && now <= eventEndTime);
 
         if (isActive) {
           Logger.log(`Active event found: ${item.eventName} (${item.eventCode})`);
@@ -655,7 +657,7 @@ function addEvent(eventData) {
       activityDetails.eventLat,                     // F: Event_Lat
       activityDetails.eventLon,                     // G: Event_Lon
       startTime,                                    // H: Start_Time
-      2,                                            // I: Duration_Hours (hardcoded to 2)
+      2.5,                                          // I: Duration_Hours (default 2.5 hours)
       true,                                         // J: Is_Home_Game (hardcoded to true)
       eventData.isSpotlightGame || false,           // K: Is_Spotlight_Game
       eventData.theme || '',                        // L: Theme
@@ -729,7 +731,7 @@ function updateEvent(eventId, eventData) {
           activityDetails.eventLat,                     // F: Event_Lat
           activityDetails.eventLon,                     // G: Event_Lon
           startTime,                                    // H: Start_Time
-          2,                                            // I: Duration_Hours (hardcoded to 2)
+          2.5,                                          // I: Duration_Hours (default 2.5 hours)
           true,                                         // J: Is_Home_Game (hardcoded to true)
           eventData.isSpotlightGame || false,           // K: Is_Spotlight_Game
           eventData.theme || '',                        // L: Theme
@@ -853,9 +855,10 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
       };
     }
 
-    // Validate time is within window
+    // Validate time is within window (allow 15 minutes before event start)
     const submissionTime = new Date(timestamp);
-    if (submissionTime < matchingEvent.startTime || submissionTime > matchingEvent.endTime) {
+    const earlyStartTime = new Date(matchingEvent.startTime.getTime() - 15 * 60 * 1000);
+    if (submissionTime < earlyStartTime || submissionTime > matchingEvent.endTime) {
       return {
         valid: false,
         message: 'Submission is outside the event time window.'
