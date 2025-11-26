@@ -132,7 +132,8 @@ function getAdminTabHTML(tabName) {
     'season': 'Page.admin.season',
     'badges': 'Page.admin.badges',
     'prizes': 'Page.admin.prizes',
-    'points': 'Page.admin.points'
+    'points': 'Page.admin.points',
+    'manual': 'Page.admin.manual'
   };
 
   if (!tabFiles[tabName]) {

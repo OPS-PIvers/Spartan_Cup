@@ -896,3 +896,57 @@ function validateEventSubmission(eventCode, userLocation, timestamp) {
     };
   }
 }
+
+/**
+ * Gets recent events within a specified time window for admin manual submissions.
+ * Only accessible to admin users.
+ * @param {number} daysBack - Number of days to look back (default: 7)
+ * @return {Object} Response with status and array of recent events
+ */
+function getRecentEvents(daysBack = 7) {
+  const email = Session.getActiveUser().getEmail();
+
+  // Validate admin status
+  if (!getAdminEmails().includes(email.toLowerCase())) {
+    return { status: "error", message: "Access denied. You are not an admin." };
+  }
+
+  try {
+    // Get all events from cached data
+    const eventsData = getEventsData();
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+
+    // Filter to recent events (within specified days back to now)
+    const recentEvents = [];
+    for (let i = 1; i < eventsData.length; i++) {
+      // Skip empty rows
+      if (!eventsData[i][0]) continue;
+
+      const eventDate = new Date(eventsData[i][7]); // Start_Time column (H)
+      if (eventDate >= cutoffDate && eventDate <= now) {
+        recentEvents.push({
+          eventId: eventsData[i][0],       // Event_ID (A)
+          eventName: eventsData[i][2],     // Event_Name (C)
+          date: eventDate.toLocaleDateString(),
+          locationName: eventsData[i][4] || 'Unknown Location'  // Location_Name (E)
+        });
+      }
+    }
+
+    // Sort by date (most recent first)
+    recentEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return {
+      status: "success",
+      events: recentEvents
+    };
+
+  } catch (e) {
+    Logger.log('ERROR in getRecentEvents: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: "error",
+      message: "Error fetching recent events: " + e.message
+    };
+  }
+}

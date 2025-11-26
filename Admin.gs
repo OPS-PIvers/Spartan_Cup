@@ -268,3 +268,167 @@ function denySubmission(submissionId, reason, isResubmittable) {
     };
   }
 }
+
+/**
+ * Creates a manual submission on behalf of a student who experienced technical issues.
+ * Bypasses location validation by using event coordinates directly.
+ * @param {string} studentEmail - Student's email address
+ * @param {string} eventId - Event ID from Events sheet
+ * @param {string} photoBlob - Base64-encoded photo data or null
+ * @param {boolean} theme - Whether student dressed for theme
+ * @param {string} notes - Admin notes about the submission
+ * @return {Object} Response with status and message
+ */
+function submitManualEvent(studentEmail, eventId, photoBlob, theme, notes) {
+  const adminEmail = Session.getActiveUser().getEmail();
+
+  // 1. Validate admin status
+  if (!getAdminEmails().includes(adminEmail.toLowerCase())) {
+    return { status: "error", message: "Access denied. You are not an admin." };
+  }
+
+  try {
+    // 2. Validate required fields
+    if (!studentEmail || !studentEmail.trim()) {
+      return { status: "error", message: "Student email is required." };
+    }
+    if (!eventId || !eventId.trim()) {
+      return { status: "error", message: "Event is required." };
+    }
+
+    // Basic email validation
+    if (!studentEmail.includes('@') || !studentEmail.includes('.')) {
+      return { status: "error", message: "Invalid email format." };
+    }
+
+    studentEmail = studentEmail.trim().toLowerCase();
+
+    // 3. Validate event exists and get coordinates
+    const eventDetails = getEventDetails(eventId);
+    if (!eventDetails || !eventDetails.eventId) {
+      return { status: "error", message: "Event not found. Please select a valid event." };
+    }
+
+    // 4. Check for duplicate verified submission
+    if (findVerifiedSubmission(studentEmail, eventId)) {
+      return { status: "error", message: "This student already has a verified submission for this event." };
+    }
+
+    // 5. Check for duplicate pending submission - delete if exists (allow overwrite)
+    const existingPending = findPendingSubmission(studentEmail, eventId);
+    if (existingPending) {
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const pendingSheet = ss.getSheetByName('Submissions_Pending');
+
+      // Delete old photo if it exists
+      try {
+        if (existingPending.photoId && existingPending.photoId !== 'MANUAL_SUBMISSION') {
+          DriveApp.getFileById(existingPending.photoId).setTrashed(true);
+        }
+      } catch (e) {
+        Logger.log('Could not delete old photo: ' + existingPending.photoId);
+      }
+
+      // Clear the row (don't delete to avoid row number issues)
+      const numColumns = pendingSheet.getLastColumn();
+      pendingSheet.getRange(existingPending.row, 1, 1, numColumns).clearContent();
+    }
+
+    // 6. Ensure student exists in Student_Profiles
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    if (!studentSheet) {
+      return { status: "error", message: "CRITICAL: Student_Profiles sheet not found." };
+    }
+
+    const studentData = getStudentProfilesData();
+    let studentExists = false;
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][0] && studentData[i][0].toLowerCase() === studentEmail) {
+        studentExists = true;
+        break;
+      }
+    }
+
+    // Create student profile if doesn't exist
+    if (!studentExists) {
+      Logger.log('Creating new student profile for: ' + studentEmail);
+      studentSheet.appendRow([
+        studentEmail,
+        "", // Display_Name (empty - student can set later)
+        0,  // Total_Points_Season
+        0,  // Total_Points_AllTime
+        "[]", // Badges_Earned (empty array)
+        "{}", // Loyalty_Stats_JSON (empty object)
+        "[]", // Variety_Stats_Set (empty array)
+        false, // Disqualified
+        "{}" // Student_Settings (empty object)
+      ]);
+
+      // Clear student profiles cache after creation
+      const cache = CacheService.getScriptCache();
+      cache.remove('student_profiles_data');
+    }
+
+    // 7. Handle photo upload
+    let photoUrl, photoId;
+    if (photoBlob && photoBlob.trim() !== '') {
+      try {
+        const file = savePhotoToDrive(photoBlob, eventId, studentEmail);
+        photoUrl = file.url;
+        photoId = file.id;
+      } catch (e) {
+        Logger.log('Error saving photo: ' + e.message + ' - Using placeholders');
+        photoUrl = 'NO_PHOTO';
+        photoId = 'MANUAL_SUBMISSION';
+      }
+    } else {
+      // No photo provided - use placeholders
+      photoUrl = 'NO_PHOTO';
+      photoId = 'MANUAL_SUBMISSION';
+    }
+
+    // 8. Build location JSON from event coordinates
+    const locationData = {
+      lat: eventDetails.eventLat,
+      lon: eventDetails.eventLon,
+      acc: 0,
+      source: "manual"
+    };
+
+    // 9. Insert into Submissions_Pending
+    const pendingSheet = ss.getSheetByName('Submissions_Pending');
+    if (!pendingSheet) {
+      return { status: "error", message: "CRITICAL: Submissions_Pending sheet not found." };
+    }
+
+    pendingSheet.appendRow([
+      Utilities.getUuid(),           // Submission_ID
+      new Date(),                    // Timestamp
+      studentEmail,                  // Email
+      eventId,                       // Event_ID
+      photoUrl,                      // Photo_URL
+      photoId,                       // Photo_ID
+      JSON.stringify(locationData),  // Location_Data_JSON
+      theme || false,                // Dressed_For_Theme
+      notes || ''                    // Notes
+    ]);
+
+    // 10. Clear caches
+    const cache = CacheService.getScriptCache();
+    cache.remove('pending_submissions_data');
+
+    // 11. Return success response
+    return {
+      status: "success",
+      message: "Manual submission created successfully. It will appear in the Review queue."
+    };
+
+  } catch (e) {
+    Logger.log('ERROR in submitManualEvent: ' + e.message + ' | Stack: ' + e.stack);
+    return {
+      status: "error",
+      message: "Error creating manual submission: " + e.message
+    };
+  }
+}

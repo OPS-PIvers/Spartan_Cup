@@ -1,0 +1,314 @@
+<!-- ===================================================================== -->
+<!-- TAB 7: MANUAL SUBMISSION -->
+<!-- ===================================================================== -->
+<div id="tab-manual-content" class="flex-1 flex flex-col overflow-y-auto">
+  <!-- Form Section -->
+  <div class="bg-white dark:bg-gray-800/50 p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-primary mb-4 flex-shrink-0">
+    <h2 class="text-xl font-bold text-primary dark:text-blue-300 mb-2">Manual Submission</h2>
+    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+      Submit attendance on behalf of students who experienced technical issues.
+      The submission will be added to the pending queue for review and approval.
+    </p>
+
+    <form id="manual-submit-form" class="space-y-3">
+      <!-- Student Email Input -->
+      <div>
+        <label for="manual-student-email" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          Student Email <span class="text-red-500">*</span>
+        </label>
+        <input
+          type="email"
+          id="manual-student-email"
+          required
+          placeholder="student@oronoschools.org"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white focus:border-primary focus:outline-none">
+      </div>
+
+      <!-- Event Selection Dropdown -->
+      <div>
+        <label for="manual-event-select" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          Event <span class="text-red-500">*</span>
+        </label>
+        <select
+          id="manual-event-select"
+          required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white focus:border-primary focus:outline-none">
+          <option value="">Select Event</option>
+        </select>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shows events from the last 7 days</p>
+      </div>
+
+      <!-- Optional Photo Upload -->
+      <div>
+        <label for="manual-photo-input" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          Photo (Optional)
+        </label>
+        <input
+          type="file"
+          id="manual-photo-input"
+          accept="image/*"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white focus:border-primary focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-opacity-90">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">If student doesn't have a photo, you can skip this</p>
+
+        <!-- Photo Preview -->
+        <div id="manual-photo-preview-container" class="hidden mt-3">
+          <img id="manual-photo-preview" src="" alt="Photo preview" class="max-w-xs rounded-lg shadow-md">
+          <button
+            type="button"
+            id="manual-remove-photo-btn"
+            class="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline">
+            Remove Photo
+          </button>
+        </div>
+      </div>
+
+      <!-- Theme Checkbox -->
+      <div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="manual-theme-check" class="w-4 h-4 rounded text-primary">
+          <span class="text-sm text-[#111318] dark:text-white">Student dressed for theme (+25 points if approved)</span>
+        </label>
+      </div>
+
+      <!-- Notes Textarea -->
+      <div>
+        <label for="manual-notes" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          Notes (Optional)
+        </label>
+        <textarea
+          id="manual-notes"
+          rows="3"
+          maxlength="500"
+          placeholder="Notes (e.g., technical issue encountered, proof of attendance)"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-[#111318] dark:text-white focus:border-primary focus:outline-none resize-none"></textarea>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max 500 characters</p>
+      </div>
+
+      <!-- Submit/Clear Buttons -->
+      <div class="flex gap-2 pt-2">
+        <button
+          type="submit"
+          class="flex-1 px-4 py-2 rounded-lg bg-primary text-white font-semibold hover:bg-opacity-90 transition-all active:scale-95">
+          Submit for Review
+        </button>
+        <button
+          type="button"
+          id="manual-clear-btn"
+          class="flex-1 px-4 py-2 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-opacity-90 transition-all">
+          Clear Form
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // =====================================================================
+  // MANUAL SUBMISSION TAB
+  // =====================================================================
+  (function() {
+    'use strict';
+
+    let compressedPhotoBlob = null;
+
+    // Load recent events on tab load
+    loadRecentEvents();
+
+    // Form submit handler
+    document.getElementById('manual-submit-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleManualSubmit();
+    });
+
+    // Clear button handler
+    document.getElementById('manual-clear-btn').addEventListener('click', () => {
+      clearManualForm();
+    });
+
+    // Photo input change handler
+    document.getElementById('manual-photo-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        handlePhotoSelection(file);
+      }
+    });
+
+    // Remove photo button handler
+    document.getElementById('manual-remove-photo-btn').addEventListener('click', () => {
+      clearPhotoSelection();
+    });
+
+    /**
+     * Load recent events from backend
+     */
+    function loadRecentEvents() {
+      const select = document.getElementById('manual-event-select');
+      select.innerHTML = '<option value="">Loading events...</option>';
+
+      apiCall({
+        method: 'getRecentEvents',
+        args: [7], // Last 7 days
+        onSuccess: (response) => {
+          populateEventDropdown(response.events);
+        },
+        onError: (errorMsg) => {
+          select.innerHTML = '<option value="">Error loading events</option>';
+          showToast('Failed to load events: ' + errorMsg, 'error', 5000);
+        },
+        showErrorToast: false
+      });
+    }
+
+    /**
+     * Populate event dropdown with recent events
+     */
+    function populateEventDropdown(events) {
+      const select = document.getElementById('manual-event-select');
+      select.innerHTML = '<option value="">Select Event</option>';
+
+      if (!events || events.length === 0) {
+        select.innerHTML = '<option value="">No recent events (last 7 days)</option>';
+        return;
+      }
+
+      events.forEach(event => {
+        const option = document.createElement('option');
+        option.value = event.eventId;
+        option.textContent = `${event.eventName} - ${event.date} @ ${event.locationName}`;
+        select.appendChild(option);
+      });
+    }
+
+    /**
+     * Handle photo file selection
+     */
+    function handlePhotoSelection(file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image file', 'error');
+        return;
+      }
+
+      // Validate file size (max 10MB for mobile performance)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        showToast('Photo is too large. Please select a photo under 10MB', 'error');
+        clearPhotoSelection();
+        return;
+      }
+
+      // Show preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('manual-photo-preview').src = e.target.result;
+        document.getElementById('manual-photo-preview-container').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+
+      // Compress photo
+      compressImageForManual(file, (compressed) => {
+        compressedPhotoBlob = compressed;
+      });
+    }
+
+    /**
+     * Clear photo selection
+     */
+    function clearPhotoSelection() {
+      document.getElementById('manual-photo-input').value = '';
+      document.getElementById('manual-photo-preview-container').classList.add('hidden');
+      document.getElementById('manual-photo-preview').src = '';
+      compressedPhotoBlob = null;
+    }
+
+    /**
+     * Compress image for submission (reused pattern from JavaScript.html)
+     */
+    function compressImageForManual(file, callback) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Target dimensions (max 800x600)
+          const maxWidth = 800;
+          const maxHeight = 600;
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions maintaining aspect ratio
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to JPEG with quality setting
+          const quality = 0.7; // 70% quality for good balance
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /**
+     * Handle form submission
+     */
+    function handleManualSubmit() {
+      // Get form values
+      const studentEmail = document.getElementById('manual-student-email').value.trim();
+      const eventId = document.getElementById('manual-event-select').value;
+      const theme = document.getElementById('manual-theme-check').checked;
+      const notes = document.getElementById('manual-notes').value.trim();
+
+      // Validate required fields
+      if (!studentEmail || !eventId) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+      }
+
+      // Show loading toast
+      showToast('Submitting manual entry...', 'info', 2000);
+
+      // Call backend
+      google.script.run
+        .withSuccessHandler((response) => {
+          if (response.status === 'success') {
+            showToast(response.message, 'success', 4000);
+            clearManualForm();
+            // Clear admin queue cache to show new submission
+            clearAdminQueueCache();
+          } else {
+            showToast('Error: ' + response.message, 'error', 5000);
+          }
+        })
+        .withFailureHandler((error) => {
+          showToast('Network error: ' + error, 'error', 5000);
+        })
+        .submitManualEvent(studentEmail, eventId, compressedPhotoBlob, theme, notes);
+    }
+
+    /**
+     * Clear the form
+     */
+    function clearManualForm() {
+      document.getElementById('manual-submit-form').reset();
+      clearPhotoSelection();
+    }
+
+  })();
+</script>

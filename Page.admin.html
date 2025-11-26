@@ -17,6 +17,7 @@
       <option value="badges">Configure Badges</option>
       <option value="prizes">Manage Prizes</option>
       <option value="points">Configure Points</option>
+      <option value="manual">Manual Submit</option>
     </select>
   </div>
 
@@ -45,6 +46,10 @@
     <button id="tab-points-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
       <span class="material-symbols-outlined text-xl">stars</span>
       <span>Points</span>
+    </button>
+    <button id="tab-manual-btn" class="admin-tab-btn px-4 py-3 rounded-lg font-semibold text-sm text-left transition-all flex items-center gap-2">
+      <span class="material-symbols-outlined text-xl">person_add</span>
+      <span>Manual Submit</span>
     </button>
   </div>
 
@@ -171,6 +176,11 @@
   <!-- ===================================================================== -->
   <div id="tab-points" class="flex-1 flex flex-col hidden overflow-y-auto"></div>
 
+  <!-- ===================================================================== -->
+  <!-- TAB 7: MANUAL SUBMISSION (Dynamically Loaded) -->
+  <!-- ===================================================================== -->
+  <div id="tab-manual" class="flex-1 flex flex-col hidden overflow-y-auto"></div>
+
   <style>
     @keyframes slide-right {
       to {
@@ -240,12 +250,14 @@
     const badgesTab = document.getElementById('tab-badges');
     const prizesTab = document.getElementById('tab-prizes');
     const pointsTab = document.getElementById('tab-points');
+    const manualTab = document.getElementById('tab-manual');
     const reviewBtn = document.getElementById('tab-review-btn');
     const eventsBtn = document.getElementById('tab-events-btn');
     const seasonBtn = document.getElementById('tab-season-btn');
     const badgesBtn = document.getElementById('tab-badges-btn');
     const prizesBtn = document.getElementById('tab-prizes-btn');
     const pointsBtn = document.getElementById('tab-points-btn');
+    const manualBtn = document.getElementById('tab-manual-btn');
 
     // Centralized tab switching function
     function switchTab(tabName) {
@@ -256,9 +268,10 @@
       badgesTab.classList.add('hidden');
       prizesTab.classList.add('hidden');
       pointsTab.classList.add('hidden');
+      manualTab.classList.add('hidden');
 
       // Reset all button styles - remove active classes and add inactive classes
-      const allButtons = [reviewBtn, eventsBtn, seasonBtn, badgesBtn, prizesBtn, pointsBtn];
+      const allButtons = [reviewBtn, eventsBtn, seasonBtn, badgesBtn, prizesBtn, pointsBtn, manualBtn];
       allButtons.forEach(btn => {
         // Remove active state classes
         btn.classList.remove('active-tab', 'bg-primary', 'text-white');
@@ -303,6 +316,11 @@
           tab: pointsTab,
           btn: pointsBtn,
           onShow: () => loadTabDynamically('points')
+        },
+        'manual': {
+          tab: manualTab,
+          btn: manualBtn,
+          onShow: () => loadTabDynamically('manual')
         }
       };
 
@@ -349,6 +367,10 @@
 
     pointsBtn.addEventListener('click', () => {
       switchTab('points');
+    });
+
+    manualBtn.addEventListener('click', () => {
+      switchTab('manual');
     });
 
     // Mobile dropdown event listener
@@ -511,7 +533,10 @@
     function preloadNextImages() {
       for (let i = currentIndex + 1; i < Math.min(currentIndex + PRELOAD_AHEAD, currentQueue.length); i++) {
         const submission = currentQueue[i];
-        if (submission.photoId && !imageCache[submission.photoId]) {
+        // Skip manual submissions without photos
+        if (submission.photoId &&
+            submission.photoId !== 'MANUAL_SUBMISSION' &&
+            !imageCache[submission.photoId]) {
           // Capture photoId in closure to avoid reference issues
           const photoId = submission.photoId;
           google.script.run.withSuccessHandler((response) => {
@@ -705,7 +730,11 @@
       document.getElementById('empty-state').classList.add('hidden');
 
       // Load image from cache (pre-loaded) or fetch if needed
-      if (submission.photoId) {
+      // Handle manual submissions without photos
+      if (submission.photoUrl === 'NO_PHOTO' || submission.photoId === 'MANUAL_SUBMISSION') {
+        // Manual submission without photo - show placeholder
+        document.getElementById('card-photo').src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect width="400" height="300" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="18" fill="%239ca3af"%3ENo Photo Submitted%3C/text%3E%3C/svg%3E';
+      } else if (submission.photoId) {
         if (imageCache[submission.photoId]) {
           // Use cached image (instant)
           document.getElementById('card-photo').src = imageCache[submission.photoId];
