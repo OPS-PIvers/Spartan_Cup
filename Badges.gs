@@ -58,6 +58,7 @@ function getBadgeData() {
 function calculateBadges(email, skipSeasonEndBadges = false) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const studentSheet = ss.getSheetByName('Student_Profiles');
 
     // Use cached student data to find student profile (reduces Sheets API calls)
     const studentData = getStudentProfilesData();
@@ -582,6 +583,9 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
       [studentProfile.seasonPoints, studentProfile.allTimePoints, JSON.stringify(studentProfile.earnedBadges)]
     ]);
 
+    // Invalidate cache so subsequent calls see the updated data
+    CacheService.getScriptCache().remove('student_profiles_data');
+
   } catch (e) {
     Logger.log('ERROR in calculateBadges for ' + email + ': ' + e.message + ' | Stack: ' + e.stack);
   }
@@ -594,11 +598,13 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
  */
 function awardRetroactiveBadges() {
   try {
+    // Clear cache to ensure fresh data at start
+    CacheService.getScriptCache().remove('student_profiles_data');
+
     // Use cached student data (reduces Sheets API calls)
     const studentData = getStudentProfilesData();
 
     let studentsProcessed = 0;
-    let badgesAwarded = 0;
 
     // Loop through all students (skip header row)
     for (let i = 1; i < studentData.length; i++) {
@@ -606,28 +612,19 @@ function awardRetroactiveBadges() {
 
       if (!email) continue; // Skip empty rows
 
-      // Get current badge count for this student
-      const currentBadges = studentData[i][4] ? safeJSONParse(studentData[i][4], [], 'badge array') : [];
-      const beforeCount = currentBadges.length;
-
       // Calculate badges (this will add any newly qualified badges)
+      // Note: calculateBadges now invalidates cache, so each iteration sees fresh data
       calculateBadges(email);
 
-      // Check how many badges were added (re-fetch from cache which was just invalidated by calculateBadges)
-      const updatedData = getStudentProfilesData();
-      const afterBadges = updatedData[i][4] ? safeJSONParse(updatedData[i][4], [], 'badge array') : [];
-      const afterCount = afterBadges.length;
-
       studentsProcessed++;
-      badgesAwarded += (afterCount - beforeCount);
     }
 
     // Show completion message
     SpreadsheetApp.getUi().alert(
       '✅ Retroactive Badge Award Complete!\n\n' +
-      'Students Processed: ' + studentsProcessed + '\n' +
-      'Total Badges Awarded: ' + badgesAwarded + '\n\n' +
-      'All existing users have now received badges they qualified for based on their current points and submission history.'
+      'Students Processed: ' + studentsProcessed + '\n\n' +
+      'All existing users have now received badges they qualified for based on their current points and submission history.\n\n' +
+      'Check Student_Profiles sheet (column E) to verify badges were awarded correctly.'
     );
 
   } catch (e) {
