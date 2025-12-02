@@ -723,7 +723,42 @@
      * @param {boolean} forceRefresh - Skip cache and request fresh location
      */
     function requestLocation(onSuccess, onError, forceRefresh = false) {
-      // PRIORITY 1: Check if location was passed from Firebase wrapper (NEW)
+      // PRIORITY 1: Check localStorage for location from Firebase wrapper (NEW - iOS Safari fix)
+      // This fixes iOS Safari by avoiding URL parameter redirects that break google.script.run
+      if (!forceRefresh) {
+        try {
+          const wrapperData = localStorage.getItem('spartan_cup_wrapper_location');
+          if (wrapperData) {
+            const parsed = JSON.parse(wrapperData);
+            const age = Date.now() - parsed.timestamp;
+            const MAX_AGE = 5 * 60 * 1000; // 5 minutes
+
+            if (age < MAX_AGE) {
+              console.log('[Location] Using location from Firebase wrapper localStorage (age: ' + Math.round(age/1000) + 's)');
+              const wrapperLocation = {
+                lat: parseFloat(parsed.lat),
+                lon: parseFloat(parsed.lon),
+                acc: parseFloat(parsed.acc)
+              };
+
+              if (isValidLocation(wrapperLocation)) {
+                onSuccess(wrapperLocation);
+                return;
+              } else {
+                console.warn('[Location] Invalid wrapper location, clearing localStorage');
+                localStorage.removeItem('spartan_cup_wrapper_location');
+              }
+            } else {
+              console.log('[Location] Wrapper location expired (age: ' + Math.round(age/1000) + 's), clearing');
+              localStorage.removeItem('spartan_cup_wrapper_location');
+            }
+          }
+        } catch (e) {
+          console.error('[Location] Error reading wrapper location from localStorage:', e);
+        }
+      }
+
+      // PRIORITY 2: Check if location was passed from URL params (DEPRECATED - backwards compatibility)
       // This allows iOS Safari to work by capturing location BEFORE entering the GAS iframe
       if (!forceRefresh && APP_DATA.userLat !== null && APP_DATA.userLon !== null) {
         // console.log('[Location] Using location from Firebase wrapper');
@@ -741,7 +776,7 @@
         }
       }
 
-      // PRIORITY 2: Try to use cached location (unless forced refresh)
+      // PRIORITY 3: Try to use cached location (unless forced refresh)
       if (!forceRefresh) {
         const cached = getCachedLocation();
         if (cached) {
@@ -756,7 +791,7 @@
         return;
       }
 
-      // PRIORITY 3: Request fresh location from browser
+      // PRIORITY 4: Request fresh location from browser
       // console.log('[Location] Requesting fresh location from browser');
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -1046,7 +1081,7 @@
       if (pageKey === 'event-select') {
         // Clear location cache to ensure fresh location is requested
         // This prevents using stale cached location when user has moved
-        sessionStorage.removeItem(LOCATION_CACHE_KEY);
+        sessionStorage.removeItem(CACHE_CONFIG.LOCATION.key);
 
         // Don't auto-load events; wait for user to click the button
         const loadButton = document.getElementById('load-events-button');
@@ -1108,7 +1143,7 @@
 
       if (pageKey === 'submit') {
         // Clear location cache to ensure fresh location for geofence validation
-        sessionStorage.removeItem(LOCATION_CACHE_KEY);
+        sessionStorage.removeItem(CACHE_CONFIG.LOCATION.key);
 
         // Photo preview on file selection
         const photoInput = document.getElementById('photo-input');
@@ -1813,6 +1848,11 @@
         // Clear caches so user sees updated data immediately
         clearProfileCache(); // Points and history updated
         clearFanFeedCache(); // New badge award appears in fan feed
+
+        // Clear wrapper location from localStorage after successful submission
+        // This ensures fresh location is obtained for next submission (prevents stale location reuse)
+        localStorage.removeItem('spartan_cup_wrapper_location');
+        console.log('[Location] Cleared wrapper location after successful submission');
 
         // Haptic feedback for success
         hapticFeedback('success');

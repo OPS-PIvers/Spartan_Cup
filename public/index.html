@@ -164,19 +164,29 @@
 
       document.getElementById('status').textContent = '✓ Location obtained! Loading app...';
 
+      // FIX: Store location in localStorage instead of URL params
+      // This prevents breaking google.script.run context on iOS Safari
+      const locationData = {
+        lat: lat,
+        lon: lon,
+        acc: acc,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('spartan_cup_wrapper_location', JSON.stringify(locationData));
+
+      console.log('[Wrapper] Location stored in localStorage:', locationData);
+
       // Check for target page parameter (e.g., ?target=submit)
       const urlParams = new URLSearchParams(window.location.search);
       const targetPage = urlParams.get('target') || 'profile'; // Default to profile
 
-      // Build URL with location parameters and target page
+      // Redirect WITHOUT location params (preserves google.script.run context)
       const separator = GAS_APP_URL.includes('?') ? '&' : '?';
-      const targetUrl = `${GAS_APP_URL}${separator}lat=${lat}&lon=${lon}&acc=${acc}&page=${targetPage}`;
+      const targetUrl = `${GAS_APP_URL}${separator}page=${targetPage}`;
 
-      console.log('[Wrapper] Location obtained, redirecting:', {
-        latitude: lat,
-        longitude: lon,
-        accuracy: acc,
-        targetPage: targetPage
+      console.log('[Wrapper] Redirecting to GAS (without location params):', {
+        targetPage: targetPage,
+        url: targetUrl
       });
 
       // Small delay so user sees success message
