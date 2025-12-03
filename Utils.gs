@@ -56,12 +56,13 @@ function escapeHtml(text) {
 
 /**
  * Converts a string to snake_case format by replacing spaces with underscores.
- * @param {string} str - The string to convert
+ * Handles numeric inputs by converting them to string (e.g., 0 -> "0").
+ * @param {string|number} str - The string or number to convert
  * @return {string} The snake_case formatted string
  */
 function toSnakeCase(str) {
-  if (!str) return '';
-  return str
+  if (str === null || str === undefined) return '';
+  return String(str)
     .toLowerCase()
     .replace(/\s+/g, '_')
     .replace(/[^a-z0-9_]/g, '') // After lowercasing, remove all non-lowercase-alphanumeric characters except underscore
