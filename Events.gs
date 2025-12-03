@@ -49,63 +49,72 @@ function updateActiveEventStatus() {
     let updatesCount = 0;
 
     // Process each event (skip header row)
+    const activeStatusUpdates = [];
+    let hasChanges = false;
+
     for (let i = 1; i < data.length; i++) {
       const eventId = data[i][COL_EVENT_ID];
       const startTimeRaw = data[i][COL_START_TIME];
       const durationHours = data[i][COL_DURATION_HOURS];
+      const currentIsActive = data[i][COL_IS_ACTIVE];
+
+      let isActive = currentIsActive; // Default to existing value
 
       // Validate data
       if (!eventId || !startTimeRaw || !durationHours) {
         Logger.log(`  Skipping row ${i + 1}: Missing required data`);
+        activeStatusUpdates.push([isActive]);
         continue;
       }
 
       try {
         Logger.log(`  Processing event ${eventId}:`);
-        Logger.log(`    startTimeRaw: "${startTimeRaw}" (type: ${typeof startTimeRaw})`);
 
         // Parse start time
         let eventStartTime;
         if (startTimeRaw instanceof Date && !isNaN(startTimeRaw.getTime())) {
           eventStartTime = startTimeRaw;
-          Logger.log(`    Parsed as Date object: ${eventStartTime}`);
         } else if (typeof startTimeRaw === 'string') {
           // Handle string formats
           if (startTimeRaw.includes('T')) {
             const normalized = startTimeRaw.substring(0, 16).replace('T', ' ');
             eventStartTime = Utilities.parseDate(normalized, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-            Logger.log(`    Parsed ISO format: ${eventStartTime}`);
           } else {
             eventStartTime = Utilities.parseDate(startTimeRaw, 'America/Chicago', 'yyyy-MM-dd HH:mm');
-            Logger.log(`    Parsed space format: ${eventStartTime}`);
           }
         } else {
           Logger.log(`  Skipping event ${eventId}: Invalid start time format`);
+          activeStatusUpdates.push([isActive]);
           continue;
         }
 
         // Calculate end time
         const eventEndTime = new Date(eventStartTime.getTime() + durationHours * 60 * 60 * 1000);
-        Logger.log(`    Event window: ${Utilities.formatDate(eventStartTime, 'America/Chicago', 'HH:mm')} - ${Utilities.formatDate(eventEndTime, 'America/Chicago', 'HH:mm')}`);
 
         // Determine if event is active (allow check-in 15 minutes before event start)
         const earlyStartTime = new Date(eventStartTime.getTime() - 15 * 60 * 1000);
-        const isActive = (now >= earlyStartTime && now <= eventEndTime);
-        Logger.log(`    now >= start? ${now >= eventStartTime}, now <= end? ${now <= eventEndTime}, isActive = ${isActive}`);
+        isActive = (now >= earlyStartTime && now <= eventEndTime);
 
-        // Update the Is_Active column (only if value changed to reduce API calls)
-        const currentIsActive = data[i][COL_IS_ACTIVE];
-        Logger.log(`    currentIsActive: ${currentIsActive}, calculated: ${isActive}`);
         if (currentIsActive !== isActive) {
-          eventsSheet.getRange(i + 1, COL_IS_ACTIVE + 1).setValue(isActive);
           updatesCount++;
-          Logger.log(`    ✓ Updated ${eventId}: Is_Active = ${isActive}`);
-        } else {
-          Logger.log(`    (no update needed - already ${currentIsActive})`);
+          hasChanges = true;
+          Logger.log(`    ✓ Status changing for ${eventId}: ${currentIsActive} -> ${isActive}`);
         }
+
+        activeStatusUpdates.push([isActive]);
       } catch (e) {
         Logger.log(`  Error processing event ${eventId}: ${e.message}`);
+        activeStatusUpdates.push([currentIsActive]);
       }
+    }
+
+    // Perform batch update if changes detected
+    if (hasChanges && activeStatusUpdates.length > 0) {
+      // Write the entire column at once (starting from row 2)
+      eventsSheet.getRange(2, COL_IS_ACTIVE + 1, activeStatusUpdates.length, 1).setValues(activeStatusUpdates);
+      Logger.log(`Batch updated ${activeStatusUpdates.length} rows.`);
+    } else {
+      Logger.log('No changes detected, skipping batch update.');
     }
 
     // Clear the events caches to force reload
