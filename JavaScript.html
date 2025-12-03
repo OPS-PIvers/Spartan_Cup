@@ -1734,7 +1734,7 @@
 
         const parsed = JSON.parse(wrapperData);
 
-        // Validate parsed data is an object with a valid timestamp property
+        // Validate parsed data has a valid timestamp property
         if (typeof parsed !== 'object' || parsed === null || !Number.isFinite(parsed.timestamp)) {
           console.warn('[Location] Invalid wrapper location data (missing or invalid timestamp)');
           localStorage.removeItem('spartan_cup_wrapper_location'); // Clear invalid data
