@@ -56,7 +56,13 @@ const CACHE_TTL = {
  */
 function safeJSONParse(jsonString, defaultValue, context) {
   try {
-    return JSON.parse(jsonString);
+    const result = JSON.parse(jsonString);
+    // Fix: If parsed result is null but we provided a non-null default value, return default
+    // This handles the case where JSON is "null" string but we expect an array/object
+    if (result === null && defaultValue !== undefined && defaultValue !== null) {
+      return defaultValue;
+    }
+    return result;
   } catch (e) {
     Logger.log('JSON parse error' + (context ? ' in ' + context : '') + ': ' + e.message);
     return defaultValue;
