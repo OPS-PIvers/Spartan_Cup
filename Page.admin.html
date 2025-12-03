@@ -479,6 +479,9 @@
       // Initialize the Review tab as active (lazy loading handled by switchTab)
       switchTab('review');
       setupGestureHandlers();
+
+      // Setup modal button listeners (must be done after DOM is loaded)
+      setupModalListeners();
     }
 
     // Load points configuration from backend
@@ -991,18 +994,30 @@
       denyCurrentSubmission(true, reason, isResubmittable);
     }
 
-    // Setup modal button listeners
-    document.getElementById('deny-resubmit-btn').addEventListener('click', () => {
-      proceedWithDenial(true);  // isResubmittable = true
-    });
+    // Setup modal button listeners (called from initAdminPage after DOM is loaded)
+    function setupModalListeners() {
+      const resubmitBtn = document.getElementById('deny-resubmit-btn');
+      const rejectBtn = document.getElementById('deny-reject-btn');
+      const cancelBtn = document.getElementById('deny-cancel-btn');
 
-    document.getElementById('deny-reject-btn').addEventListener('click', () => {
-      proceedWithDenial(false);  // isResubmittable = false
-    });
+      if (resubmitBtn) {
+        resubmitBtn.addEventListener('click', () => {
+          proceedWithDenial(true);  // isResubmittable = true
+        });
+      }
 
-    document.getElementById('deny-cancel-btn').addEventListener('click', () => {
-      closeDenialReasonModal();
-    });
+      if (rejectBtn) {
+        rejectBtn.addEventListener('click', () => {
+          proceedWithDenial(false);  // isResubmittable = false
+        });
+      }
+
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          closeDenialReasonModal();
+        });
+      }
+    }
 
     function showEmptyState() {
       document.getElementById('swipe-card').classList.add('hidden');
