@@ -1313,10 +1313,9 @@
         }
 
         // Test location permission status and update UI dynamically
+        // Note: checkLocationExpiry() is called inside updateLocationStatus() success callback
+        // to avoid race condition where async location check overwrites expiry notification
         updateLocationStatus();
-
-        // Check for location expiry and show proactive notification
-        checkLocationExpiry();
       }
 
       // Onboarding - Shows on first visit per session
@@ -1734,6 +1733,14 @@
         if (!wrapperData) return; // No wrapper location, skip check
 
         const parsed = JSON.parse(wrapperData);
+
+        // Validate parsed data has a valid timestamp property
+        if (typeof parsed !== 'object' || parsed === null || !Number.isFinite(parsed.timestamp)) {
+          console.warn('[Location] Invalid wrapper location data (missing or invalid timestamp)');
+          localStorage.removeItem('spartan_cup_wrapper_location'); // Clear invalid data
+          return;
+        }
+
         const age = Date.now() - parsed.timestamp;
         const MAX_AGE = 15 * 60 * 1000; // 15 minutes
         const timeRemaining = MAX_AGE - age;
@@ -1743,6 +1750,8 @@
           const statusDiv = document.getElementById('location-notice');
           if (statusDiv) {
             const isExpired = timeRemaining <= 0;
+            const minutesRemaining = Math.ceil(timeRemaining / 60000);
+
             statusDiv.className = `mb-4 p-3 rounded-lg ${
               isExpired
                 ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800'
@@ -1756,7 +1765,7 @@
               <p class="text-xs ${isExpired ? 'text-red-800 dark:text-red-200' : 'text-yellow-800 dark:text-yellow-200'} mt-1">
                 ${isExpired
                   ? 'Your location data has expired. Please refresh to continue.'
-                  : `Location expires in ${Math.ceil(timeRemaining / 60000)} minute${Math.ceil(timeRemaining / 60000) === 1 ? '' : 's'}. Refresh for best accuracy.`
+                  : `Location expires in ${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}. Refresh for best accuracy.`
                 }
               </p>
               <button onclick="refreshLocation()" class="mt-2 w-full text-sm ${
@@ -1779,6 +1788,14 @@
      */
     function refreshLocation() {
       console.log('[Location] User requested location refresh');
+
+      // Validate Firebase wrapper URL is configured
+      if (!APP_DATA.firebaseWrapperUrl) {
+        console.error('[Location] Firebase wrapper URL not configured');
+        showToast('Location refresh is unavailable. Please contact support.', 'error', 5000);
+        return;
+      }
+
       const link = document.createElement('a');
       link.href = APP_DATA.firebaseWrapperUrl;
       link.target = '_top';
@@ -1812,6 +1829,10 @@
               Accuracy: ${Math.round(location.acc)}m
             </p>
           `;
+
+          // After confirming location works, check for expiry and show proactive notification if needed
+          // This runs after async location check completes to avoid race condition
+          checkLocationExpiry();
         },
         (errorType) => {
           // Failed - show appropriate error message
