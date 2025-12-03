@@ -108,6 +108,35 @@
     };
 
     /**
+     * Check app version and clear caches if version has changed (cache busting on deployments)
+     * Runs automatically on page load to ensure users get fresh data after updates
+     */
+    (function checkAppVersion() {
+      try {
+        const VERSION_KEY = 'spartan_cup_app_version';
+        const storedVersion = localStorage.getItem(VERSION_KEY);
+        const currentVersion = APP_DATA.appVersion;
+
+        if (storedVersion !== currentVersion) {
+          console.log(`🔄 [Version] App updated: ${storedVersion || 'unknown'} → ${currentVersion}`);
+          console.log('🗑️ [Version] Clearing all caches due to version change...');
+
+          // Clear all client-side caches
+          CacheManager.clearAll();
+
+          // Update stored version
+          localStorage.setItem(VERSION_KEY, currentVersion);
+
+          console.log('✅ [Version] Cache busting complete. Fresh data will be loaded.');
+        } else {
+          console.log(`✓ [Version] App version ${currentVersion} (up to date)`);
+        }
+      } catch (e) {
+        console.error('[Version] Error checking app version:', e);
+      }
+    })();
+
+    /**
      * Get cached location if it exists and hasn't expired
      * @return {Object|null} Location object {lat, lon, acc} or null
      */

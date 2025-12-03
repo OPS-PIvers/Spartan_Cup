@@ -74,7 +74,7 @@
       <div class="space-y-3 text-sm">
         <div class="flex justify-between">
           <span class="text-gray-600 dark:text-gray-400">App Version</span>
-          <span class="text-[#111318] dark:text-white font-semibold">1.0.0</span>
+          <span id="app-version" class="text-[#111318] dark:text-white font-semibold">loading...</span>
         </div>
         <div class="flex justify-between">
           <span class="text-gray-600 dark:text-gray-400">School</span>
@@ -99,6 +99,7 @@
       // Load user data
       document.getElementById('settings-email').textContent = APP_DATA.userEmail;
       document.getElementById('settings-name').textContent = APP_DATA.userName;
+      document.getElementById('app-version').textContent = APP_DATA.appVersion;
 
       // Load settings from server (passed via APP_DATA)
       currentSettings = APP_DATA.userSettings || {

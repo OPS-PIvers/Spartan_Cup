@@ -30,6 +30,10 @@ const CAMPUS_GEOFENCE = [
 
 const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
 
+// App version for cache busting on deployments
+// Increment this version number after significant changes to force client cache refresh
+const APP_VERSION = '1.0.1';
+
 // Cache TTL (Time To Live) values in seconds
 const CACHE_TTL = {
   ADMIN_EMAILS: 21600,      // 6 hours

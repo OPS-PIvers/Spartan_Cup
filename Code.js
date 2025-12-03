@@ -65,6 +65,7 @@ function doGet(e) {
   template.userSettings = JSON.stringify(getUserSettings()); // Pass settings as JSON string
   template.firebaseWrapperUrl = escapeJavaScriptString('https://the-spartan-cup.web.app/?target=submit');
   template.badgeBaseUrl = escapeJavaScriptString(BADGE_BASE_URL);
+  template.appVersion = escapeJavaScriptString(APP_VERSION); // For cache busting on deployments
 
   // NEW: Accept location from Firebase wrapper via URL parameters
   // These are passed from the wrapper: ?lat=X&lon=Y&acc=Z
