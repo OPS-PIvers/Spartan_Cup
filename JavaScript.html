@@ -731,7 +731,7 @@
           if (wrapperData) {
             const parsed = JSON.parse(wrapperData);
             const age = Date.now() - parsed.timestamp;
-            const MAX_AGE = 5 * 60 * 1000; // 5 minutes
+            const MAX_AGE = 15 * 60 * 1000; // 15 minutes (extended for user convenience)
 
             if (age < MAX_AGE) {
               console.log('[Location] Using location from Firebase wrapper localStorage (age: ' + Math.round(age/1000) + 's)');
@@ -742,6 +742,16 @@
               };
 
               if (isValidLocation(wrapperLocation)) {
+                // Also cache in sessionStorage for faster subsequent access
+                // Convert to geolocation Position format for cacheLocation()
+                const positionObject = {
+                  coords: {
+                    latitude: wrapperLocation.lat,
+                    longitude: wrapperLocation.lon,
+                    accuracy: wrapperLocation.acc
+                  }
+                };
+                cacheLocation(positionObject);
                 onSuccess(wrapperLocation);
                 return;
               } else {
@@ -1079,9 +1089,8 @@
       }
 
       if (pageKey === 'event-select') {
-        // Clear location cache to ensure fresh location is requested
-        // This prevents using stale cached location when user has moved
-        sessionStorage.removeItem(CACHE_CONFIG.LOCATION.key);
+        // DON'T clear location cache - let requestLocation() and loadEventsByDistance() handle it
+        // The forceRefresh parameter in loadEventsByDistance() ensures fresh location when needed
 
         // Don't auto-load events; wait for user to click the button
         const loadButton = document.getElementById('load-events-button');
@@ -1142,8 +1151,9 @@
       }
 
       if (pageKey === 'submit') {
-        // Clear location cache to ensure fresh location for geofence validation
-        sessionStorage.removeItem(CACHE_CONFIG.LOCATION.key);
+        // DON'T clear location cache here - let requestLocation() handle cache logic
+        // The wrapper location in localStorage and sessionStorage cache should persist
+        // Only force fresh location during actual submission (forceRefresh=true in handleFormSubmit)
 
         // Photo preview on file selection
         const photoInput = document.getElementById('photo-input');
@@ -1193,9 +1203,10 @@
 
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
-        // AUTO-EVENT DETECTION: Check if server auto-selected an event based on location
+        // AUTO-EVENT DETECTION: Multi-tier fallback system for maximum reliability
         if (APP_DATA.autoEventCode && APP_DATA.autoEventName) {
-          // Server successfully auto-detected closest event
+          // TIER 1: Server successfully auto-detected closest event (has URL params)
+          console.log('[Submit] Using server-detected event:', APP_DATA.autoEventCode);
           document.getElementById('event-code-input').value = APP_DATA.autoEventCode;
           // Load full event details via backend
           google.script.run
@@ -1206,16 +1217,47 @@
             })
             .getEventDetails(APP_DATA.autoEventCode);
         } else if (APP_DATA.autoEventError) {
-          // Server tried to auto-detect but failed (no events nearby, location denied, etc.)
-          document.getElementById('event-name').value = APP_DATA.autoEventError;
-          // Error already displayed in event-name field
+          // TIER 2: Server tried but failed - try CLIENT-SIDE auto-detection using localStorage
+          console.log('[Submit] Server auto-detect failed, trying client-side fallback');
+          document.getElementById('event-name').value = 'Detecting nearest event...';
+
+          // Try to get location from wrapper localStorage
+          requestLocation(
+            (location) => {
+              // Success - we have location, call server to find closest event
+              console.log('[Submit] Got location for client-side detection:', location);
+              google.script.run
+                .withSuccessHandler((response) => {
+                  if (response.status === 'success') {
+                    console.log('[Submit] Client-side detected event:', response.eventCode);
+                    document.getElementById('event-code-input').value = response.eventCode;
+                    document.getElementById('event-name').value = response.sportArt + ' ' + response.eventName;
+                  } else {
+                    console.error('[Submit] Client-side detection failed:', response.message);
+                    document.getElementById('event-name').value = response.message || 'No nearby events found';
+                  }
+                })
+                .withFailureHandler((error) => {
+                  console.error('[Submit] Client-side detection error:', error);
+                  document.getElementById('event-name').value = 'Error detecting event. Try manual entry.';
+                })
+                .getClosestEvent(location.lat, location.lon);
+            },
+            (errorMessage) => {
+              // Failed to get location - show original server error
+              console.error('[Submit] Client-side location failed:', errorMessage);
+              document.getElementById('event-name').value = APP_DATA.autoEventError;
+            },
+            false // Don't force refresh, use cache if available
+          );
         } else {
-          // Fallback: Try to get event code from URL parameter (manual selection)
+          // TIER 3: No auto-detection attempted - check for manual event code in URL
           const urlParams = new URLSearchParams(window.location.search);
           const eventCode = urlParams.get('eventCode');
 
           if (eventCode) {
             // User came from event selection, populate the event code
+            console.log('[Submit] Using manual event code from URL:', eventCode);
             document.getElementById('event-code-input').value = eventCode;
             // Load the event details via backend
             google.script.run
@@ -1226,7 +1268,7 @@
               })
               .getEventDetails(eventCode);
           } else {
-            // No event selected; show a message to the user
+            // TIER 4: Last resort - no event at all, show helpful message
             document.getElementById('event-name').value = "No event selected. Please check in from the profile page.";
           }
         }
