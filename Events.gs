@@ -100,15 +100,16 @@ function updateActiveEventStatus() {
           hasChanges = true;
           Logger.log(`    ✓ Status changing for ${eventId}: ${currentIsActive} -> ${isActive}`);
         }
+
+        activeStatusUpdates.push([isActive]);
       } catch (e) {
         Logger.log(`  Error processing event ${eventId}: ${e.message}`);
+        activeStatusUpdates.push([currentIsActive]);
       }
-
-      activeStatusUpdates.push([isActive]);
     }
 
     // Perform batch update if changes detected
-    if (hasChanges) {
+    if (hasChanges && activeStatusUpdates.length > 0) {
       // Write the entire column at once (starting from row 2)
       eventsSheet.getRange(2, COL_IS_ACTIVE + 1, activeStatusUpdates.length, 1).setValues(activeStatusUpdates);
       Logger.log(`Batch updated ${activeStatusUpdates.length} rows.`);
