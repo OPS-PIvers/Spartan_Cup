@@ -76,13 +76,19 @@
 
       /**
        * Clear all Spartan Cup caches (useful for logout or major updates)
+       * Clears both sessionStorage and localStorage wrapper location
        */
       clearAll: function() {
         try {
-          const keys = Object.keys(sessionStorage);
-          const spartanKeys = keys.filter(k => k.startsWith('spartan_cup_'));
-          spartanKeys.forEach(k => sessionStorage.removeItem(k));
-          console.log(`🗑️ [Cache] Cleared all ${spartanKeys.length} Spartan Cup caches`);
+          // Clear all sessionStorage caches
+          const sessionKeys = Object.keys(sessionStorage);
+          const spartanSessionKeys = sessionKeys.filter(k => k.startsWith('spartan_cup_'));
+          spartanSessionKeys.forEach(k => sessionStorage.removeItem(k));
+
+          // Clear localStorage wrapper location (iOS Safari fix cache)
+          localStorage.removeItem('spartan_cup_wrapper_location');
+
+          console.log(`🗑️ [Cache] Cleared ${spartanSessionKeys.length} session caches + wrapper location`);
         } catch (e) {
           console.error('[Cache] Error clearing all caches:', e);
         }
@@ -1279,6 +1285,9 @@
 
         // Test location permission status and update UI dynamically
         updateLocationStatus();
+
+        // Check for location expiry and show proactive notification
+        checkLocationExpiry();
       }
 
       // Onboarding - Shows on first visit per session
@@ -1683,6 +1692,70 @@
       // Combine Sport (Column B) + Event Name (Column C)
       const displayName = eventData.sportArt + ' ' + eventData.eventName;
       document.getElementById('event-name').value = displayName;
+    }
+
+    /**
+     * Check if wrapper location is expired or expiring soon and show notification
+     * Proactively informs user before submission fails due to stale location
+     * Called on submit page load
+     */
+    function checkLocationExpiry() {
+      try {
+        const wrapperData = localStorage.getItem('spartan_cup_wrapper_location');
+        if (!wrapperData) return; // No wrapper location, skip check
+
+        const parsed = JSON.parse(wrapperData);
+        const age = Date.now() - parsed.timestamp;
+        const MAX_AGE = 15 * 60 * 1000; // 15 minutes
+        const timeRemaining = MAX_AGE - age;
+
+        // If expired or expiring within 2 minutes
+        if (timeRemaining <= 2 * 60 * 1000) {
+          const statusDiv = document.getElementById('location-notice');
+          if (statusDiv) {
+            const isExpired = timeRemaining <= 0;
+            statusDiv.className = `mb-4 p-3 rounded-lg ${
+              isExpired
+                ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800'
+                : 'bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800'
+            }`;
+
+            statusDiv.innerHTML = `
+              <p class="text-sm ${isExpired ? 'text-red-900 dark:text-red-100' : 'text-yellow-900 dark:text-yellow-100'}">
+                <span class="font-semibold">📍 ${isExpired ? 'Location Expired' : 'Location Expiring Soon'}</span>
+              </p>
+              <p class="text-xs ${isExpired ? 'text-red-800 dark:text-red-200' : 'text-yellow-800 dark:text-yellow-200'} mt-1">
+                ${isExpired
+                  ? 'Your location data has expired. Please refresh to continue.'
+                  : `Location expires in ${Math.ceil(timeRemaining / 60000)} minute${Math.ceil(timeRemaining / 60000) === 1 ? '' : 's'}. Refresh for best accuracy.`
+                }
+              </p>
+              <button onclick="refreshLocation()" class="mt-2 w-full text-sm ${
+                isExpired ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-600 hover:bg-yellow-700'
+              } text-white px-4 py-2 rounded font-semibold transition-colors">
+                🔄 Refresh Location
+              </button>
+            `;
+          }
+        }
+      } catch (e) {
+        console.error('[Location] Error checking expiry:', e);
+      }
+    }
+
+    /**
+     * Redirect user to Firebase wrapper to refresh location data
+     * Used when location has expired or is about to expire
+     * This is a global function so onclick handlers can call it
+     */
+    function refreshLocation() {
+      console.log('[Location] User requested location refresh');
+      const link = document.createElement('a');
+      link.href = APP_DATA.firebaseWrapperUrl;
+      link.target = '_top';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     /**
