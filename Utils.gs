@@ -56,7 +56,8 @@ function escapeHtml(text) {
 
 /**
  * Converts a string to snake_case format by replacing spaces with underscores.
- * @param {string} str - The string to convert
+ * Handles numeric inputs by converting them to string (e.g., 0 -> "0").
+ * @param {string|number} str - The string or number to convert
  * @return {string} The snake_case formatted string
  */
 function toSnakeCase(str) {
