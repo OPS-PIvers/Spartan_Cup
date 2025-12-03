@@ -11,12 +11,6 @@
       <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
       <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
     </ul>
-
-    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2 mt-6">🏅 Sport Superfan Awards</h2>
-    <p class="text-[#111318] dark:text-white">The top fan for each individual sport or art wins a booster-sponsored prize!</p>
-    <div id="sport-categories-container" class="flex flex-wrap gap-2 text-sm">
-      <p class="text-gray-500 dark:text-gray-400">Loading categories...</p>
-    </div>
   </div>
 
   <h2 class="text-2xl font-bold text-primary dark:text-blue-300 px-4 mt-6 mb-4">Upcoming Events</h2>
@@ -37,22 +31,24 @@
       return p.innerHTML;
     }
 
-    // Execute immediately since this script runs after DOM is already ready
-    // (the page is server-side rendered and included in Index.html)
-    loadPrizes();
+    // Defer initialization until all scripts (including JavaScript.html) have loaded
+    // This prevents "getCachedEventsList is not defined" errors on first load
+    window.addEventListener('load', function() {
+      loadPrizes();
 
-    // Check client-side cache first for events list
-    const cachedEvents = getCachedEventsList();
-    if (cachedEvents) {
-      // Use cached data - no backend call needed!
-      populateEvents(cachedEvents);
-    } else {
-      // Cache miss - fetch from backend
-      google.script.run.withSuccessHandler((response) => {
-        cacheEventsList(response); // Cache the response
-        populateEvents(response);
-      }).getEventsList();
-    }
+      // Check client-side cache first for events list
+      const cachedEvents = getCachedEventsList();
+      if (cachedEvents) {
+        // Use cached data - no backend call needed!
+        populateEvents(cachedEvents);
+      } else {
+        // Cache miss - fetch from backend
+        google.script.run.withSuccessHandler((response) => {
+          cacheEventsList(response); // Cache the response
+          populateEvents(response);
+        }).getEventsList();
+      }
+    });
 
     function loadPrizes() {
       const prizesList = document.querySelector('ul.list-disc');
@@ -91,28 +87,6 @@
 
       const events = response.events || [];
       const container = document.getElementById('events-container');
-      const categories = new Set();
-
-      // Collect unique sport/art categories
-      events.forEach(event => {
-        if (event.sportArt) {
-          categories.add(event.sportArt);
-        }
-      });
-
-      // Populate sport categories
-      const categoriesContainer = document.getElementById('sport-categories-container');
-      if (categories.size === 0) {
-        categoriesContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No categories</p>';
-      } else {
-        categoriesContainer.innerHTML = '';
-        categories.forEach(category => {
-          const tag = document.createElement('span');
-          tag.className = 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-blue-300 font-semibold px-3 py-1 rounded-full text-sm';
-          tag.innerText = category;
-          categoriesContainer.appendChild(tag);
-        });
-      }
 
       // Populate events list
       if (events.length === 0) {

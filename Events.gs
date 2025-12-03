@@ -497,60 +497,60 @@ function getEventsList(category) {
     // Columns: Event_ID, Activity_Code, Event_Name, Date, Location_Name, Event_Lat, Event_Lon, Start_Time, Duration_Hours, Is_Home_Game, Is_Spotlight_Game, Theme
     for (let i = 1; i < data.length; i++) {
       if (data[i][0]) { // If Event_ID exists
-        // Format the date properly - data[i][3] may be a Date object from Sheets
+        // Format the date properly - data[i][3] may be a Date object from Sheets OR an ISO string from cache
         let eventDate = '';
         let eventDateObj = null;
         if (data[i][3]) {
+          // Handle both Date objects and ISO strings from cache
           if (data[i][3] instanceof Date) {
-            eventDateObj = new Date(data[i][3]);
-            // Format as "M/D/YYYY" to match user-friendly date display
-            eventDate = Utilities.formatDate(data[i][3], Session.getScriptTimeZone(), 'M/d/yyyy');
+            eventDateObj = data[i][3];
           } else {
-            eventDate = String(data[i][3] || '').trim();
-            // Try to parse string date
-            eventDateObj = new Date(eventDate);
+            // String format - could be ISO string from cache or already formatted
+            const dateStr = String(data[i][3]).trim();
+            eventDateObj = new Date(dateStr);
+          }
+
+          // Always format date to ensure consistency (handles both fresh and cached data)
+          if (eventDateObj && !isNaN(eventDateObj.getTime())) {
+            eventDate = Utilities.formatDate(eventDateObj, 'America/Chicago', 'M/d/yyyy');
           }
         }
         let eventStartTime = data[i][7];
 
-        // Handle different startTime formats
+        // Handle different startTime formats (Date objects OR ISO strings from cache)
         let dateTimeCombined = '';
         let formattedStartTime = '';
         let hours = 0, minutes = 0;
         if (eventStartTime) {
+          let startTimeObj = null;
+
           if (eventStartTime instanceof Date) {
-            // Date object from Sheets - format for display and for datetime-local input
-            dateTimeCombined = Utilities.formatDate(eventStartTime, 'America/Chicago', "yyyy-MM-dd'T'HH:mm");
-            // Format for display: "2:30 PM" style
-            formattedStartTime = Utilities.formatDate(eventStartTime, Session.getScriptTimeZone(), 'h:mm a');
-            hours = eventStartTime.getHours();
-            minutes = eventStartTime.getMinutes();
+            // Date object from Sheets
+            startTimeObj = eventStartTime;
           } else {
-            // String format - parse and format
+            // String format - could be ISO, space-separated, or time-only
             const str = String(eventStartTime).trim();
-            if (str.includes('T')) {
-              // Already has 'T': "2025-11-06T18:30" or "2025-11-06T18:30:00"
-              dateTimeCombined = str.substring(0, 16); // Take just YYYY-MM-DDTHH:mm
-              formattedStartTime = str.substring(11, 16); // Extract HH:mm
-              const timeParts = str.substring(11, 16).split(':');
-              hours = parseInt(timeParts[0]) || 0;
-              minutes = parseInt(timeParts[1]) || 0;
-            } else if (str.includes(' ')) {
-              // Space-separated: "2025-11-06 18:30" → "2025-11-06T18:30"
-              dateTimeCombined = str.substring(0, 16).replace(' ', 'T');
-              formattedStartTime = str.substring(11, 16); // Extract HH:mm
-              const timeParts = str.substring(11, 16).split(':');
-              hours = parseInt(timeParts[0]) || 0;
-              minutes = parseInt(timeParts[1]) || 0;
-            } else if (str.match(/^\d{1,2}:\d{2}/)) {
-              // Just a time like "18:30" - try to use it
-              formattedStartTime = str;
-              dateTimeCombined = eventDate ? `${eventDate}T${str}` : '';
-              const timeParts = str.split(':');
-              hours = parseInt(timeParts[0]) || 0;
-              minutes = parseInt(timeParts[1]) || 0;
+            startTimeObj = new Date(str);
+
+            // If parsing failed and it's a time-only string like "18:30"
+            if (isNaN(startTimeObj.getTime()) && str.match(/^\d{1,2}:\d{2}/)) {
+              if (eventDateObj) {
+                // Combine with event date
+                startTimeObj = new Date(eventDateObj);
+                const [h, m] = str.split(':');
+                startTimeObj.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+              }
             }
           }
+
+          // Format using Utilities.formatDate for consistent timezone handling
+          if (startTimeObj && !isNaN(startTimeObj.getTime())) {
+            dateTimeCombined = Utilities.formatDate(startTimeObj, 'America/Chicago', "yyyy-MM-dd'T'HH:mm");
+            formattedStartTime = Utilities.formatDate(startTimeObj, 'America/Chicago', 'h:mm a');
+            hours = startTimeObj.getHours();
+            minutes = startTimeObj.getMinutes();
+          }
+
           eventStartTime = String(eventStartTime).trim();
         }
 
