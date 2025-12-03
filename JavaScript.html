@@ -1203,23 +1203,27 @@
 
         document.getElementById('submission-form').addEventListener('submit', handleFormSubmit);
 
+        // Cache DOM element lookups for better performance (avoids repeated getElementById calls)
+        const eventNameInput = document.getElementById('event-name');
+        const eventCodeInput = document.getElementById('event-code-input');
+
         // AUTO-EVENT DETECTION: Multi-tier fallback system for maximum reliability
         if (APP_DATA.autoEventCode && APP_DATA.autoEventName) {
           // TIER 1: Server successfully auto-detected closest event (has URL params)
           console.log('[Submit] Using server-detected event:', APP_DATA.autoEventCode);
-          document.getElementById('event-code-input').value = APP_DATA.autoEventCode;
+          eventCodeInput.value = APP_DATA.autoEventCode;
           // Load full event details via backend
           google.script.run
             .withSuccessHandler(populateEventDetails)
             .withFailureHandler((error) => {
               console.error('[Submit] Failed to load auto-detected event details:', error);
-              document.getElementById('event-name').value = 'Error loading event details';
+              eventNameInput.value = 'Error loading event details';
             })
             .getEventDetails(APP_DATA.autoEventCode);
         } else if (APP_DATA.autoEventError) {
           // TIER 2: Server tried but failed - try CLIENT-SIDE auto-detection using localStorage
           console.log('[Submit] Server auto-detect failed, trying client-side fallback');
-          document.getElementById('event-name').value = 'Detecting nearest event...';
+          eventNameInput.value = 'Detecting nearest event...';
 
           // Try to get location from wrapper localStorage
           requestLocation(
@@ -1230,23 +1234,23 @@
                 .withSuccessHandler((response) => {
                   if (response.status === 'success') {
                     console.log('[Submit] Client-side detected event:', response.eventCode);
-                    document.getElementById('event-code-input').value = response.eventCode;
-                    document.getElementById('event-name').value = response.sportArt + ' ' + response.eventName;
+                    eventCodeInput.value = response.eventCode;
+                    eventNameInput.value = `${response.sportArt} ${response.eventName}`;
                   } else {
                     console.error('[Submit] Client-side detection failed:', response.message);
-                    document.getElementById('event-name').value = response.message || 'No nearby events found';
+                    eventNameInput.value = response.message || 'No nearby events found';
                   }
                 })
                 .withFailureHandler((error) => {
                   console.error('[Submit] Client-side detection error:', error);
-                  document.getElementById('event-name').value = 'Error detecting event. Try manual entry.';
+                  eventNameInput.value = 'Error detecting event. Try manual entry.';
                 })
                 .getClosestEvent(location.lat, location.lon);
             },
             (errorMessage) => {
               // Failed to get location - show original server error
               console.error('[Submit] Client-side location failed:', errorMessage);
-              document.getElementById('event-name').value = APP_DATA.autoEventError;
+              eventNameInput.value = APP_DATA.autoEventError;
             },
             false // Don't force refresh, use cache if available
           );
@@ -1258,18 +1262,18 @@
           if (eventCode) {
             // User came from event selection, populate the event code
             console.log('[Submit] Using manual event code from URL:', eventCode);
-            document.getElementById('event-code-input').value = eventCode;
+            eventCodeInput.value = eventCode;
             // Load the event details via backend
             google.script.run
               .withSuccessHandler(populateEventDetails)
               .withFailureHandler((error) => {
                 console.error('[Submit] Failed to load selected event details:', error);
-                document.getElementById('event-name').value = 'Error loading event details';
+                eventNameInput.value = 'Error loading event details';
               })
               .getEventDetails(eventCode);
           } else {
             // TIER 4: Last resort - no event at all, show helpful message
-            document.getElementById('event-name').value = "No event selected. Please check in from the profile page.";
+            eventNameInput.value = "No event selected. Please check in from the profile page.";
           }
         }
 
