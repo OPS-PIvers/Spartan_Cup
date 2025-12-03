@@ -60,8 +60,8 @@ function escapeHtml(text) {
  * @return {string} The snake_case formatted string
  */
 function toSnakeCase(str) {
-  if (!str) return '';
-  return str
+  if (str === null || str === undefined) return '';
+  return String(str)
     .toLowerCase()
     .replace(/\s+/g, '_')
     .replace(/[^a-z0-9_]/g, '') // After lowercasing, remove all non-lowercase-alphanumeric characters except underscore
