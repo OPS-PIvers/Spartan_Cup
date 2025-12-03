@@ -113,11 +113,13 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
     cache.remove('pending_submissions_data');
     cache.remove('verified_submissions_data');
 
+    // CRITICAL: Clear student profiles cache BEFORE calling calculateBadges
+    // This ensures calculateBadges reads the UPDATED points from the sheet
+    // Otherwise it uses stale cached data and OVERWRITES the points we just added
+    cache.remove('student_profiles_data');
+
     // Calculate badges for the student (skip season-end badges during approval - only calculate at season-end)
     calculateBadges(submissionInfo[2], true);
-
-    // Clear student profiles cache since calculateBadges() may have modified badges and points
-    cache.remove('student_profiles_data');
 
     // Get event details from cache for notification
     const eventMap = getEventMapCache();

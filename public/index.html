@@ -115,7 +115,7 @@
     <img src="spartan_cup_FINALtransparent.png" alt="Spartan Cup Logo" class="logo">
     <h1>Spartan Cup</h1>
     <div id="initial-prompt">
-      <p style="margin-bottom: 20px; font-size: 0.95rem;">Tap the button below to share your location and enter the app.</p>
+      <p style="margin-bottom: 20px; font-size: 0.95rem;">Location is needed to check in at events.</p>
       <button id="location-button" onclick="requestLocationPermission()">Share My Location</button>
     </div>
     <div id="spinner" style="display: none;"></div>
@@ -203,23 +203,26 @@
         case error.PERMISSION_DENIED:
           errorMessage = 'Location Permission Denied';
           instructions = `
-            Please enable location permissions:
-            <strong>iOS Safari:</strong> Settings → Safari → Location Services → While Using → Allow
-            <strong>Android Chrome:</strong> Tap the lock icon in address bar → Permissions → Location → Allow
-            <strong>Desktop:</strong> Click the location icon in the address bar and select "Allow"
+            To enable location for check-ins:
+            <strong>iOS Safari:</strong>
+            • Settings → Safari → Location → Allow (or While Using)
+            • OR Settings → Privacy → Location Services → Safari Websites → Allow
+            • Then tap "Retry Location"
+
+            <strong>Android/Desktop:</strong> Tap the lock icon in address bar → Location → Allow
           `;
           break;
         case error.POSITION_UNAVAILABLE:
           errorMessage = 'Location Unavailable';
-          instructions = 'Your device cannot determine your location. Please check that Location Services are enabled in your device settings.';
+          instructions = 'Your device cannot determine your location. Check that Location Services are enabled in Settings → Privacy → Location Services.';
           break;
         case error.TIMEOUT:
           errorMessage = 'Location Request Timeout';
-          instructions = 'The request took too long. Please try again, preferably near a window or outdoors.';
+          instructions = 'The request took too long. Try again near a window or outdoors for better GPS signal.';
           break;
         default:
-          errorMessage = 'Unknown Error';
-          instructions = 'An unknown error occurred. Please try again.';
+          errorMessage = 'Location Error';
+          instructions = 'An error occurred while getting your location.';
       }
 
       console.error('[Wrapper] Location error:', {
@@ -238,11 +241,35 @@
         <div class="error">
           <h2>⚠️ ${title}</h2>
           <p class="instructions">${message}</p>
-          ${showRetry ? '<button onclick="location.reload()">Retry</button>' : ''}
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            ${showRetry ? '<button onclick="location.reload()">Retry Location</button>' : ''}
+            <button onclick="skipLocation()" style="background: rgba(255,255,255,0.2); color: white;">Skip & Continue</button>
+          </div>
         </div>
       `;
 
       document.getElementById('error-container').innerHTML = errorHtml;
+    }
+
+    function skipLocation() {
+      console.log('[Wrapper] User chose to skip location');
+      document.getElementById('error-container').innerHTML = '';
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('status').textContent = 'Loading app without location...';
+
+      // Get target page from URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetPage = urlParams.get('target') || 'profile';
+
+      // Redirect WITHOUT location data
+      const separator = GAS_APP_URL.includes('?') ? '&' : '?';
+      const targetUrl = `${GAS_APP_URL}${separator}page=${targetPage}`;
+
+      console.log('[Wrapper] Redirecting without location:', targetUrl);
+
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 500);
     }
   </script>
 </body>

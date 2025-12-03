@@ -276,19 +276,20 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
         continue;
       }
 
-      const eventInfo = eventMap[pendingData[i][3]] || { eventName: 'Unknown', sportArt: 'Other', date: 'N/A' };
+      const eventInfo = eventMap[pendingData[i][3]] || { name: 'Unknown', sportArt: 'Other', date: 'N/A', isSpotlightGame: false };
       fullQueue.push({
         submissionId: pendingData[i][0],
         email: pendingData[i][2],
         eventId: pendingData[i][3],
-        eventName: eventInfo.eventName,
+        eventName: eventInfo.name,
         sportArt: eventInfo.sportArt,
         eventDate: (eventInfo.date instanceof Date) ? eventInfo.date.toLocaleDateString() : eventInfo.date,
         photoUrl: pendingData[i][4],
         photoId: pendingData[i][5],
         dressedForTheme: pendingData[i][7] || false,
         notes: pendingData[i][8] || '',
-        timestamp: new Date(pendingData[i][1]).toISOString()
+        timestamp: new Date(pendingData[i][1]).toISOString(),
+        isSpotlightGame: eventInfo.isSpotlightGame || false
       });
     }
     // Logger.log('Full queue built: ' + fullQueue.length + ' items');

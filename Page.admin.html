@@ -80,6 +80,9 @@
           <div id="bonus-badge" class="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
             ✓ +25 bonus
           </div>
+          <div id="spotlight-badge" class="absolute top-3 left-3 bg-secondary text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
+            ⭐ SPOTLIGHT
+          </div>
           <!-- Mobile hint: Always visible with subtle styling -->
           <div class="md:hidden absolute bottom-2 left-2 right-2 text-center">
             <span class="text-white text-xs font-semibold bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Double-tap image for theme bonus</span>
@@ -453,6 +456,7 @@
     let hasThemeBonus = false;
     const THEME_BONUS_POINTS = 25;
     const BASE_POINTS = 50;
+    let SPOTLIGHT_MULTIPLIER = 1.5;  // Default, will be loaded from config
     let queueLoaded = false;  // Track if queue has been loaded to prevent redundant calls
 
     // Image cache for preloading
@@ -470,9 +474,23 @@
     // Defer initialization until all scripts (including JavaScript.html) have loaded
     // This prevents "getCachedAdminQueue is not defined" errors on first load
     function initAdminPage() {
+      // Load points config to get current spotlight multiplier
+      loadPointsConfig();
       // Initialize the Review tab as active (lazy loading handled by switchTab)
       switchTab('review');
       setupGestureHandlers();
+    }
+
+    // Load points configuration from backend
+    function loadPointsConfig() {
+      google.script.run.withSuccessHandler((config) => {
+        if (config && config.Spotlight_Game_Multiplier) {
+          SPOTLIGHT_MULTIPLIER = config.Spotlight_Game_Multiplier;
+        }
+      }).withFailureHandler((error) => {
+        console.error('Failed to load points config:', error);
+        // Keep default value of 1.5
+      }).getPointsConfig();
     }
 
     // Check if page already loaded (fast load scenario), otherwise wait for load event
@@ -666,19 +684,34 @@
       const badge = document.getElementById('bonus-badge');
       const breakdown = document.getElementById('points-breakdown');
 
+      const submission = currentQueue[currentIndex];
+      const spotlightMultiplier = submission && submission.isSpotlightGame ? SPOTLIGHT_MULTIPLIER : 1;
+      const baseAfterMultiplier = Math.round(BASE_POINTS * spotlightMultiplier);
+
       if (hasThemeBonus) {
         badge.classList.remove('hidden');
-        breakdown.textContent = `Base: ${BASE_POINTS} + Bonus: ${THEME_BONUS_POINTS}`;
+        if (spotlightMultiplier > 1) {
+          breakdown.textContent = `(${BASE_POINTS} × ${spotlightMultiplier}) + ${THEME_BONUS_POINTS}`;
+        } else {
+          breakdown.textContent = `Base: ${BASE_POINTS} + Bonus: ${THEME_BONUS_POINTS}`;
+        }
       } else {
         badge.classList.add('hidden');
-        breakdown.textContent = '';
+        if (spotlightMultiplier > 1) {
+          breakdown.textContent = `${BASE_POINTS} × ${spotlightMultiplier}`;
+        } else {
+          breakdown.textContent = '';
+        }
       }
 
       updatePointsDisplay();
     }
 
     function updatePointsDisplay() {
-      const total = BASE_POINTS + (hasThemeBonus ? THEME_BONUS_POINTS : 0);
+      const submission = currentQueue[currentIndex];
+      const spotlightMultiplier = submission && submission.isSpotlightGame ? SPOTLIGHT_MULTIPLIER : 1;
+      const baseAfterMultiplier = Math.round(BASE_POINTS * spotlightMultiplier);
+      const total = baseAfterMultiplier + (hasThemeBonus ? THEME_BONUS_POINTS : 0);
       document.getElementById('card-points-display').textContent = total;
     }
 
@@ -765,6 +798,14 @@
       document.getElementById('card-notes').textContent = submission.notes || '(none)';
       document.getElementById('bonus-badge').classList.add('hidden');
       document.getElementById('points-breakdown').textContent = '';
+
+      // Show spotlight badge if this is a spotlight event
+      if (submission.isSpotlightGame) {
+        document.getElementById('spotlight-badge').classList.remove('hidden');
+      } else {
+        document.getElementById('spotlight-badge').classList.add('hidden');
+      }
+
       updatePointsDisplay();
 
       // Preload next images in background
@@ -783,6 +824,7 @@
       }
 
       const themeBonusPoints = hasThemeBonus ? THEME_BONUS_POINTS : 0;
+      const spotlightMultiplier = submission.isSpotlightGame ? SPOTLIGHT_MULTIPLIER : 1;
 
       if (optimistic) {
         // OPTIMISTIC MODE: Show next card immediately, process backend asynchronously
@@ -803,7 +845,7 @@
           }
         }).withFailureHandler((error) => {
           showToast('❌ Network error: ' + error, 'error', 4000);
-        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
+        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, spotlightMultiplier);
       } else {
         // FALLBACK MODE: Wait for backend (used for manual button clicks)
         google.script.run.withSuccessHandler((response) => {
@@ -826,7 +868,7 @@
           // Reset card for retry
           document.getElementById('swipe-card').style.transform = '';
           document.getElementById('swipe-card').classList.remove('animate-slide-right');
-        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, 0);
+        }).approveSubmission(submission.submissionId, BASE_POINTS, themeBonusPoints, spotlightMultiplier);
       }
     }
 

@@ -32,7 +32,7 @@ const BADGE_BASE_URL = 'https://the-spartan-cup.web.app/badges/';
 
 // App version for cache busting on deployments
 // Increment this version number after significant changes to force client cache refresh
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.7';
 
 // Cache TTL (Time To Live) values in seconds
 const CACHE_TTL = {
@@ -220,7 +220,8 @@ function getEventMapCache() {
       name: eventData[i][2],        // Changed from eventName to name
       date: eventData[i][3],
       sportArt: activityName,       // Changed from Activity_Code to Activity_Name
-      theme: eventData[i][11]
+      theme: eventData[i][11],
+      isSpotlightGame: eventData[i][10] || false  // Column K: Is_Spotlight_Game
     };
   }
 

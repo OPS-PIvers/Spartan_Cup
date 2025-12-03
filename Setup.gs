@@ -30,6 +30,7 @@ function onOpen() {
     .addItem('3. Generate Sample Submissions (For Testing)', 'generateSampleSubmissions')
     .addItem('4. Install Active Events Trigger (Run Once)', 'installActiveEventsTrigger')
     .addItem('5. Clear Cache (Development)', 'clearAllCaches')
+    .addItem('5b. Recalculate All Student Points', 'recalculateAllStudentPoints')
     .addSeparator()
     .addItem('6. Populate Sample Badges', 'populateSampleBadges')
     .addItem('Set Data Validation', 'setDataValidation')
