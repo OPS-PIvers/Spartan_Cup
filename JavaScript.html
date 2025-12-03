@@ -443,8 +443,8 @@
       const pullText = document.getElementById('pull-text');
       if (!indicator || !pullText) return;
 
-      // Only enable on profile, history, and admin pages
-      const enabledPages = ['profile', 'history', 'admin'];
+      // Only enable on pages that have data to refresh (exclude settings, rulebook, welcome)
+      const enabledPages = ['profile', 'history', 'admin', 'fanfeed', 'prizes', 'submit', 'event-select'];
       if (!enabledPages.includes(APP_DATA.page)) {
         return;
       }
@@ -632,6 +632,54 @@
               }, 100);
               resolve();
             }
+            break;
+
+          case 'fanfeed':
+            // Refresh fan feed data
+            clearFanFeedCache();
+            if (typeof loadFanFeed === 'function') {
+              loadFanFeed();
+              resolve();
+            } else {
+              // Fallback: reload page
+              setTimeout(() => {
+                window.top.location.reload();
+              }, 100);
+              resolve();
+            }
+            break;
+
+          case 'submit':
+            // Redirect to Firebase wrapper to capture FRESH location
+            // This ensures truly updated coordinates, not stale URL params from initial visit
+            try {
+              // Clear all location caches first
+              CacheManager.clear(CACHE_CONFIG.LOCATION.key, CACHE_CONFIG.LOCATION.label);
+              localStorage.removeItem('spartan_cup_wrapper_location');
+              console.log('[Refresh] Redirecting to Firebase wrapper for fresh location capture');
+
+              // Redirect to wrapper - it will capture location and redirect back to submit page
+              setTimeout(() => {
+                window.top.location.href = APP_DATA.firebaseWrapperUrl;
+              }, 100);
+              resolve();
+            } catch (e) {
+              console.error('[Refresh] Error redirecting to wrapper:', e);
+              // Fallback: just reload if wrapper redirect fails
+              setTimeout(() => {
+                window.top.location.reload();
+              }, 100);
+              resolve();
+            }
+            break;
+
+          case 'prizes':
+          case 'event-select':
+            // Simple page reload for pages without complex state
+            setTimeout(() => {
+              window.top.location.reload();
+            }, 100);
+            resolve();
             break;
 
           default:

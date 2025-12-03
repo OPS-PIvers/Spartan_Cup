@@ -1,0 +1,48 @@
+# Test files (run locally in GAS editor, not deployed)
+*Test.gs
+*test.gs
+*Test.js
+*test.js
+
+# Firebase Hosting files (deployed via firebase deploy, not clasp)
+public/**
+docs/templates/**
+
+# Documentation
+README.md
+CLAUDE.md
+SPREADSHEET_SCHEMA.md
+docs/**/*.md
+
+# Configuration and credentials
+.env
+credentials.json
+service_account.json
+*_service_account.json
+firebase.json
+.firebaserc
+storage.rules
+cors.json
+
+# Asset files
+assets/**
+
+# Python scripts
+scripts/**
+*.py
+
+# Hidden directories
+.claude/**
+.firebase/**
+.git/**
+.gitignore
+.gemini/**
+
+# Logs and temporary files
+*.log
+*.backup
+
+# Node modules (if ever added)
+node_modules/**
+package.json
+package-lock.json
