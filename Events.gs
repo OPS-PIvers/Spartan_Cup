@@ -108,7 +108,7 @@ function updateActiveEventStatus() {
     }
 
     // Perform batch update if changes detected
-    if (hasChanges && activeStatusUpdates.length > 0) {
+    if (hasChanges) {
       // Write the entire column at once (starting from row 2)
       eventsSheet.getRange(2, COL_IS_ACTIVE + 1, activeStatusUpdates.length, 1).setValues(activeStatusUpdates);
       Logger.log(`Batch updated ${activeStatusUpdates.length} rows.`);
