@@ -284,7 +284,7 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
       if (locationJson && locationJson.trim() !== '' && locationJson !== '{}') {
         try {
           const loc = JSON.parse(locationJson);
-          if (loc && loc.lat && loc.lon) {
+          if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
             hasLocationData = true;
           }
         } catch (e) {
