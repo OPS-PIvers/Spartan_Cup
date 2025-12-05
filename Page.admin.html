@@ -84,7 +84,7 @@
             ⭐ SPOTLIGHT
           </div>
           <!-- Location verification badge: displays either "VERIFIED LOCATION" or "LOCATION MISSING" dynamically -->
-          <div id="location-badge" class="absolute bottom-3 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
+          <div id="location-badge" class="absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
             📍 Location verification badge
           </div>
           <!-- Mobile hint: Always visible with subtle styling -->
@@ -822,13 +822,23 @@
         // Verified Location: Green outline + Green badge
         card.classList.add('border-4', 'border-green-500');
         locationBadge.textContent = '📍 VERIFIED LOCATION';
-        locationBadge.className = 'absolute bottom-3 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        locationBadge.setAttribute('aria-label', 'Verified Location');
+        // Set base classes
+        locationBadge.className = 'absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        // Remove any previous color class, then add green
+        locationBadge.classList.remove('bg-yellow-500');
+        locationBadge.classList.add('bg-green-500');
         locationBadge.classList.remove('hidden');
       } else {
         // Missing Location: Yellow outline + Yellow badge
         card.classList.add('border-4', 'border-yellow-400');
         locationBadge.textContent = '⚠ LOCATION MISSING';
-        locationBadge.className = 'absolute bottom-3 left-3 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        locationBadge.setAttribute('aria-label', 'Location Missing');
+        // Set base classes
+        locationBadge.className = 'absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        // Remove any previous color class, then add yellow
+        locationBadge.classList.remove('bg-green-500');
+        locationBadge.classList.add('bg-yellow-500');
         locationBadge.classList.remove('hidden');
       }
 
