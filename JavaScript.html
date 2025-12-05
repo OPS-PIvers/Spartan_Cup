@@ -799,6 +799,136 @@
     }
 
     /**
+     * Calculate distance between two coordinates using Haversine formula (client-side)
+     * Copy of Utils.gs calculateDistance() for client-side geofence validation
+     * @param {number} lat1 - First latitude
+     * @param {number} lon1 - First longitude
+     * @param {number} lat2 - Second latitude
+     * @param {number} lon2 - Second longitude
+     * @return {number} Distance in meters
+     */
+    function calculateDistanceClient(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    /**
+     * Validate location for submission and return detailed validation result
+     * Checks: location exists, not expired, within geofence, reasonable accuracy
+     * @param {Object} location - Location object {lat, lon, acc}
+     * @return {Object} { valid: boolean, issues: Array, severity: string }
+     */
+    function validateLocationForSubmission(location) {
+      const issues = [];
+      let severity = 'none'; // none, warning, error
+
+      // Issue 1: No location at all
+      if (!location || location.lat === null || location.lon === null) {
+        issues.push({
+          type: 'no_location',
+          message: 'Location data is missing.',
+          suggestion: 'Enable location permissions and refresh.'
+        });
+        severity = 'error';
+        return { valid: false, issues, severity };
+      }
+
+      // Issue 2: Check if wrapper location is expired (>15 min old)
+      try {
+        const wrapperData = localStorage.getItem('spartan_cup_wrapper_location');
+        if (wrapperData) {
+          const parsed = JSON.parse(wrapperData);
+          const age = Date.now() - parsed.timestamp;
+          const MAX_AGE = 15 * 60 * 1000; // 15 minutes
+
+          if (age >= MAX_AGE) {
+            const minutesOld = Math.round(age / 60000);
+            issues.push({
+              type: 'expired_location',
+              message: `Your cached location is ${minutesOld} minutes old.`,
+              suggestion: 'Refresh to get your current location.'
+            });
+            severity = 'warning';
+          }
+        }
+      } catch (e) {
+        console.error('[Validation] Error checking location age:', e);
+      }
+
+      // Issue 3: Check geofence if event coordinates available
+      if (currentEventData && currentEventData.eventLat && currentEventData.eventLon) {
+        const distance = calculateDistanceClient(
+          location.lat,
+          location.lon,
+          currentEventData.eventLat,
+          currentEventData.eventLon
+        );
+
+        const GEOFENCE_RADIUS = 100; // meters
+        if (distance > GEOFENCE_RADIUS) {
+          issues.push({
+            type: 'outside_geofence',
+            message: `You appear to be ${Math.round(distance)}m from ${currentEventData.locationName || 'the event'}.`,
+            suggestion: 'Make sure you are at the event venue before submitting.'
+          });
+          severity = 'error';
+        }
+      }
+
+      // Issue 4: Poor GPS accuracy (>100m)
+      const ACCURACY_THRESHOLD = 100;
+      if (location.acc && location.acc > ACCURACY_THRESHOLD) {
+        issues.push({
+          type: 'poor_accuracy',
+          message: `GPS accuracy is low (±${Math.round(location.acc)}m).`,
+          suggestion: 'Try moving to an open area with clear sky view.'
+        });
+        // Only set to warning if not already error
+        if (severity !== 'error') {
+          severity = 'warning';
+        }
+      }
+
+      return {
+        valid: issues.length === 0,
+        issues,
+        severity
+      };
+    }
+
+    /**
+     * Build HTML for location warning modal message based on validation issues
+     * @param {Array} issues - Array of issue objects from validateLocationForSubmission()
+     * @return {string} HTML string for modal content
+     */
+    function buildLocationWarningMessage(issues) {
+      if (issues.length === 0) {
+        return '<p>No location issues detected.</p>';
+      }
+
+      let html = '<ul class="list-disc list-inside space-y-2">';
+
+      issues.forEach(issue => {
+        html += `
+          <li>
+            <span class="font-semibold">${issue.message}</span>
+            <br>
+            <span class="text-xs text-gray-500 dark:text-gray-400 ml-5">${issue.suggestion}</span>
+          </li>
+        `;
+      });
+
+      html += '</ul>';
+      return html;
+    }
+
+    /**
      * Request user location with caching and proper error handling
      * NOW checks if location was passed from Firebase wrapper first
      * @param {Function} onSuccess - Callback with location {lat, lon, acc}
@@ -1424,6 +1554,114 @@
         document.getElementById('success-modal').classList.add('hidden');
         navigateToPage('profile');
       });
+
+      // Location Warning Modal Handlers
+      document.getElementById('location-refresh-btn').addEventListener('click', () => {
+        console.log('[Modal] User clicked Refresh Location');
+        document.getElementById('location-warning-modal').classList.add('hidden');
+        document.getElementById('loading-modal').classList.remove('hidden');
+
+        // Clear all location caches
+        localStorage.removeItem('spartan_cup_wrapper_location');
+        console.log('[Location] Cleared wrapper location from localStorage');
+
+        // Clear sessionStorage cache
+        try {
+          sessionStorage.removeItem('spartan_cup_location');
+          console.log('[Location] Cleared sessionStorage cache');
+        } catch (e) {
+          console.error('[Location] Error clearing sessionStorage:', e);
+        }
+
+        // Request fresh location with force refresh
+        requestLocation(
+          (location) => {
+            console.log('[Modal] Refresh successful, got new location:', location);
+
+            // Update pending form data with new location
+            if (pendingFormData) {
+              pendingFormData.location = location;
+            }
+
+            // Re-validate with fresh location
+            const validation = validateLocationForSubmission(location);
+
+            if (!validation.valid) {
+              // Still has issues, show modal again
+              console.log('[Modal] Location still has issues after refresh:', validation.issues);
+              document.getElementById('loading-modal').classList.add('hidden');
+
+              const messageDiv = document.getElementById('location-warning-message');
+              messageDiv.innerHTML = buildLocationWarningMessage(validation.issues);
+              document.getElementById('location-warning-modal').classList.remove('hidden');
+              hapticFeedback('medium');
+            } else {
+              // Validation passed! Proceed with submission
+              console.log('[Modal] Location validated after refresh, proceeding with submission');
+              document.getElementById('loading-modal').classList.remove('hidden');
+
+              if (pendingFormData && pendingPhotoBlob) {
+                // If photoBlob is still a File object, process it
+                if (pendingPhotoBlob instanceof File) {
+                  processPhotoAndSubmit(pendingFormData, pendingPhotoBlob);
+                } else {
+                  // Already processed, submit directly
+                  google.script.run
+                    .withSuccessHandler(handleSubmissionResponse)
+                    .withFailureHandler(handleFailure)
+                    .submitEvent(pendingFormData, pendingPhotoBlob);
+                }
+              }
+            }
+          },
+          (errorMessage) => {
+            console.error('[Modal] Location refresh failed:', errorMessage);
+            document.getElementById('loading-modal').classList.add('hidden');
+
+            // Show modal again with error
+            const messageDiv = document.getElementById('location-warning-message');
+            messageDiv.innerHTML = buildLocationWarningMessage([{
+              type: 'no_location',
+              message: 'Location refresh failed: ' + errorMessage,
+              suggestion: 'Check your device location settings and permissions, or submit without location.'
+            }]);
+
+            document.getElementById('location-warning-modal').classList.remove('hidden');
+            hapticFeedback('error');
+          },
+          true // Force refresh
+        );
+      });
+
+      document.getElementById('location-submit-anyway-btn').addEventListener('click', () => {
+        console.log('[Modal] User clicked Submit Anyway');
+        document.getElementById('location-warning-modal').classList.add('hidden');
+        document.getElementById('loading-modal').classList.remove('hidden');
+
+        if (pendingFormData && pendingPhotoBlob) {
+          // Submit with whatever location we have (could be null)
+          if (pendingPhotoBlob instanceof File) {
+            processPhotoAndSubmit(pendingFormData, pendingPhotoBlob);
+          } else {
+            // Already processed
+            google.script.run
+              .withSuccessHandler(handleSubmissionResponse)
+              .withFailureHandler(handleFailure)
+              .submitEvent(pendingFormData, pendingPhotoBlob);
+          }
+        }
+      });
+
+      document.getElementById('location-warning-cancel-btn').addEventListener('click', () => {
+        console.log('[Modal] User cancelled submission');
+        document.getElementById('location-warning-modal').classList.add('hidden');
+
+        // Clear pending data
+        pendingFormData = null;
+        pendingPhotoBlob = null;
+
+        hapticFeedback('light');
+      });
     });
 
     // --- SHARED STATE ---
@@ -1755,6 +1993,9 @@
       }
     }
 
+    // Global variable to store current event data for location validation
+    let currentEventData = null;
+
     /**
      * Populate the event details on the submit page
      * Displays sport + event name (e.g., "Girls Basketball vs. Edina")
@@ -1762,8 +2003,19 @@
     function populateEventDetails(eventData) {
       if (eventData.status === 'error') {
         document.getElementById('event-name').value = 'Error: ' + eventData.message;
+        currentEventData = null; // Clear on error
         return;
       }
+
+      // Store event data globally for location validation
+      currentEventData = {
+        eventId: eventData.eventId,
+        eventName: eventData.eventName,
+        sportArt: eventData.sportArt,
+        eventLat: eventData.eventLat,
+        eventLon: eventData.eventLon,
+        locationName: eventData.locationName
+      };
 
       // Combine Sport (Column B) + Event Name (Column C)
       const displayName = eventData.sportArt + ' ' + eventData.eventName;
@@ -1985,79 +2237,134 @@
         location: null
       };
 
-      // Request location (will use cache if available within 5 minutes)
+      // Request location (will use cache if available within 15 minutes)
       requestLocation(
         (location) => {
-          // Success: Location obtained
+          // Success: Location obtained, now validate it
           formData.location = location;
 
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-              // OPTIMIZED PHOTO COMPRESSION
-              // Calculate optimal dimensions while maintaining aspect ratio
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 800;
-              const MAX_HEIGHT = 600;
-              let width = img.width;
-              let height = img.height;
+          // Validate location before proceeding
+          const validation = validateLocationForSubmission(location);
 
-              // Maintain aspect ratio
-              if (width > height) {
-                if (width > MAX_WIDTH) {
-                  height *= MAX_WIDTH / width;
-                  width = MAX_WIDTH;
-                }
-              } else {
-                if (height > MAX_HEIGHT) {
-                  width *= MAX_HEIGHT / height;
-                  height = MAX_HEIGHT;
-                }
-              }
+          if (!validation.valid) {
+            // Location has issues - show warning modal
+            console.log('[Submit] Location validation issues:', validation.issues);
+            document.getElementById('loading-modal').classList.add('hidden');
 
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d', { alpha: false }); // Disable alpha channel for smaller size
+            // Store formData and photoFile for later use
+            pendingFormData = formData;
+            pendingPhotoBlob = photoFile; // Store file object, not blob yet
 
-              // Use higher quality rendering
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, width, height);
+            // Populate modal message
+            const messageDiv = document.getElementById('location-warning-message');
+            messageDiv.innerHTML = buildLocationWarningMessage(validation.issues);
 
-              // Adaptive quality: use lower quality for smaller dimensions to reduce file size
-              let quality = 0.75; // Default 75% quality
-              if (width <= 400 || height <= 300) {
-                quality = 0.65; // Smaller images: lower quality (65%)
-              } else if (width <= 600 && height <= 450) {
-                quality = 0.70; // Medium images: 70%
-              }
+            // Show modal
+            document.getElementById('location-warning-modal').classList.remove('hidden');
+            hapticFeedback('medium');
+            return; // Stop here, wait for user action
+          }
 
-              // Encode as progressive JPEG for faster perceived loading
-              const dataUrl = canvas.toDataURL('image/jpeg', quality);
-
-              const photoBlob = dataUrl;
-              pendingFormData = formData;
-              pendingPhotoBlob = photoBlob;
-
-              google.script.run
-                .withSuccessHandler(handleSubmissionResponse)
-                .withFailureHandler(handleFailure)
-                .submitEvent(formData, photoBlob);
-            }
-            img.src = e.target.result;
-          };
-          reader.readAsDataURL(photoFile);
+          // Location is valid, proceed with submission
+          processPhotoAndSubmit(formData, photoFile);
         },
         (errorMessage) => {
-          // Error: Location not available
+          // Error: Location not available at all (permissions denied, timeout, etc.)
           console.error('Geolocation error:', errorMessage);
           document.getElementById('loading-modal').classList.add('hidden');
-          showToast(`Location Required: ${errorMessage}. Please enable location in your browser settings.`, 'error', 5000);
+
+          // Still show warning modal with option to submit anyway
+          const formDataWithoutLocation = {
+            eventId: new URLSearchParams(window.location.search).get('event'),
+            eventCode: document.getElementById('event-code-input')?.value || '',
+            theme: document.getElementById('theme-check').checked,
+            notes: document.getElementById('notes').value,
+            location: null
+          };
+
+          pendingFormData = formDataWithoutLocation;
+          pendingPhotoBlob = photoFile;
+
+          // Show modal with error message
+          const messageDiv = document.getElementById('location-warning-message');
+          messageDiv.innerHTML = buildLocationWarningMessage([{
+            type: 'no_location',
+            message: errorMessage,
+            suggestion: 'Enable location permissions in your browser settings, or submit without location (photo must clearly show attendance).'
+          }]);
+
+          document.getElementById('location-warning-modal').classList.remove('hidden');
           hapticFeedback('error');
         },
         true // Force fresh location for accurate geofence validation
       );
+    }
+
+    /**
+     * Process photo (resize, compress) and submit to backend
+     * Extracted from handleFormSubmit for reuse by modal actions
+     * @param {Object} formData - Form data object with event info
+     * @param {File} photoFile - Photo file object from input
+     */
+    function processPhotoAndSubmit(formData, photoFile) {
+      document.getElementById('loading-modal').classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // OPTIMIZED PHOTO COMPRESSION
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 600;
+          let width = img.width;
+          let height = img.height;
+
+          // Maintain aspect ratio
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d', { alpha: false });
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Adaptive quality
+          let quality = 0.75;
+          if (width <= 400 || height <= 300) {
+            quality = 0.65;
+          } else if (width <= 600 && height <= 450) {
+            quality = 0.70;
+          }
+
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          const photoBlob = dataUrl;
+
+          // Update pending variables for potential resubmission
+          pendingFormData = formData;
+          pendingPhotoBlob = photoBlob;
+
+          // Submit to backend
+          google.script.run
+            .withSuccessHandler(handleSubmissionResponse)
+            .withFailureHandler(handleFailure)
+            .submitEvent(formData, photoBlob);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(photoFile);
     }
 
     function handleSubmissionResponse(response) {

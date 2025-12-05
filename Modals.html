@@ -140,3 +140,42 @@
     </div>
   </div>
 </div>
+
+<!-- Location Verification Warning Modal -->
+<div id="location-warning-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-background-light dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full">
+    <!-- Warning Icon -->
+    <div class="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 mx-auto mb-4">
+      <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+    </div>
+
+    <h3 class="text-lg font-bold text-[#111318] dark:text-white text-center mb-2">Location Verification Issue</h3>
+
+    <!-- Dynamic warning message (populated by JavaScript) -->
+    <div id="location-warning-message" class="text-gray-700 dark:text-gray-300 text-sm mb-4 space-y-2">
+      <!-- Dynamically populated -->
+    </div>
+
+    <!-- Info text about admin review -->
+    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+      <p class="text-xs text-gray-600 dark:text-gray-400">
+        <span class="font-semibold">Note:</span> Submissions without location verification may be denied if your photo doesn't clearly show attendance at the event.
+      </p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="space-y-2">
+      <button id="location-refresh-btn" class="w-full px-4 py-3 rounded bg-primary text-white font-semibold hover:bg-opacity-90 active:scale-95 transition-transform flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-lg">refresh</span> Refresh Location
+      </button>
+      <button id="location-submit-anyway-btn" class="w-full px-4 py-3 rounded bg-gray-500 hover:bg-gray-600 text-white font-semibold active:scale-95 transition-transform flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined text-lg">send</span> Submit Anyway
+      </button>
+      <button id="location-warning-cancel-btn" class="w-full px-4 py-3 rounded bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-white font-semibold active:scale-95 transition-transform">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
