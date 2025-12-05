@@ -1,8 +1,8 @@
 # The Spartan Cup - Spreadsheet Schema Documentation
 
 **Last Updated:** November 2025  
-**Version:** 1.0  
-**App:** The Spartan Cup (Orono K-12 Education)
+**Version:** 1.0.11  
+**App:** The Spartan Cup (Orono Public Schools Event Attendance)
 
 ---
 
@@ -144,6 +144,8 @@ GBB-001 | GBB | Girls Basketball vs. Hopkins | 2025-11-15 | Orono HS Gym | 44.96
 | G | 7 | Location_Data_JSON | JSON Object | Geolocation at submission | Format: `{"lat": 44.965, "lon": -93.625, "acc": 15}` |
 | H | 8 | Dressed_For_Theme | String | Theme compliance | "Yes" or "No" |
 | I | 9 | Notes | String | Student comment | Optional; max ~500 chars |
+| J | 10 | Share_In_Fan_Feed | Boolean | Fan feed visibility | TRUE = photo shown in fan feed, FALSE = photo hidden (user opt-out) |
+
 
 **Sample Data:**
 ```
@@ -189,6 +191,8 @@ a1b2c3d4-e5f6... | 2025-11-15 19:30:00 | student@orono.k12.mn.us | GBB-001 | htt
 | J | 9 | Points_Total | Number | Final calculated points | (Points_Base × Points_Spotlight_Multiplier) + Points_Theme |
 | K | 10 | Photo_URL | String | URL to submission photo | Google Drive export link; used for fan feed |
 | L | 11 | Photo_ID | String | Google Drive file ID | Permanent ID for regenerating image data URLs |
+| M | 12 | Share_In_Fan_Feed | Boolean | Fan feed visibility | TRUE = photo shown in fan feed, FALSE = photo hidden; copied from Submissions_Pending |
+
 
 **Sample Data:**
 ```
