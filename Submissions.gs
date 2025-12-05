@@ -277,6 +277,21 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
       }
 
       const eventInfo = eventMap[pendingData[i][3]] || { name: 'Unknown', sportArt: 'Other', date: 'N/A', isSpotlightGame: false };
+
+      // Determine if location data is present
+      const locationJson = pendingData[i][6]; // Column G (Location_Data_JSON) is index 6
+      let hasLocationData = false;
+      if (locationJson && locationJson.trim() !== '' && locationJson !== '{}') {
+        try {
+          const loc = JSON.parse(locationJson);
+          if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+            hasLocationData = true;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+
       fullQueue.push({
         submissionId: pendingData[i][0],
         email: pendingData[i][2],
@@ -289,7 +304,8 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
         dressedForTheme: pendingData[i][7] || false,
         notes: pendingData[i][8] || '',
         timestamp: new Date(pendingData[i][1]).toISOString(),
-        isSpotlightGame: eventInfo.isSpotlightGame || false
+        isSpotlightGame: eventInfo.isSpotlightGame || false,
+        hasLocationData: hasLocationData
       });
     }
     // Logger.log('Full queue built: ' + fullQueue.length + ' items');

@@ -83,6 +83,10 @@
           <div id="spotlight-badge" class="absolute top-3 left-3 bg-secondary text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
             ⭐ SPOTLIGHT
           </div>
+          <!-- Location verification badge: displays either "VERIFIED LOCATION" or "LOCATION MISSING" dynamically -->
+          <div id="location-badge" class="absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
+            📍 Location verification badge
+          </div>
           <!-- Mobile hint: Always visible with subtle styling -->
           <div class="md:hidden absolute bottom-2 left-2 right-2 text-center">
             <span class="text-white text-xs font-semibold bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Double-tap image for theme bonus</span>
@@ -765,7 +769,10 @@
       // Reset card animation and feedback overlay
       const card = document.getElementById('swipe-card');
       const feedback = document.getElementById('swipe-feedback');
+
+      // Reset classes
       card.classList.remove('animate-slide-right', 'animate-slide-left', 'hidden');
+      card.classList.remove('border-4', 'border-green-500', 'border-yellow-400');
       card.style.transform = '';
       card.classList.add('animate-fade-in');
       feedback.style.opacity = '0';
@@ -807,6 +814,32 @@
         document.getElementById('spotlight-badge').classList.remove('hidden');
       } else {
         document.getElementById('spotlight-badge').classList.add('hidden');
+      }
+
+      // Handle location verification display
+      const locationBadge = document.getElementById('location-badge');
+      if (submission.hasLocationData) {
+        // Verified Location: Green outline + Green badge
+        card.classList.add('border-4', 'border-green-500');
+        locationBadge.textContent = '📍 VERIFIED LOCATION';
+        locationBadge.setAttribute('aria-label', 'Verified Location');
+        // Set base classes
+        locationBadge.className = 'absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        // Remove any previous color class, then add green
+        locationBadge.classList.remove('bg-yellow-500');
+        locationBadge.classList.add('bg-green-500');
+        locationBadge.classList.remove('hidden');
+      } else {
+        // Missing Location: Yellow outline + Yellow badge
+        card.classList.add('border-4', 'border-yellow-400');
+        locationBadge.textContent = '⚠ LOCATION MISSING';
+        locationBadge.setAttribute('aria-label', 'Location Missing');
+        // Set base classes
+        locationBadge.className = 'absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        // Remove any previous color class, then add yellow
+        locationBadge.classList.remove('bg-green-500');
+        locationBadge.classList.add('bg-yellow-500');
+        locationBadge.classList.remove('hidden');
       }
 
       updatePointsDisplay();
