@@ -167,7 +167,8 @@ function submitEvent(formObject, photoBlob) {
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),
-      formObject.theme, formObject.notes
+      formObject.theme, formObject.notes,
+      formObject.shareInFanFeed !== false  // Default TRUE if undefined for backward compatibility
     ]);
 
     // Clear pending submissions cache since we added a new submission
@@ -220,7 +221,8 @@ function resubmitEvent(formObject, photoBlob) {
     pendingSheet.appendRow([
       Utilities.getUuid(), new Date(), email, eventId,
       file.url, file.id, JSON.stringify(formObject.location),
-      formObject.theme, formObject.notes
+      formObject.theme, formObject.notes,
+      formObject.shareInFanFeed !== false  // Default TRUE if undefined for backward compatibility
     ]);
 
     // Clear pending submissions cache since we modified submissions
@@ -303,6 +305,7 @@ function getAdminQueue(page = 1, itemsPerPage = 20) {
         photoId: pendingData[i][5],
         dressedForTheme: pendingData[i][7] || false,
         notes: pendingData[i][8] || '',
+        shareInFanFeed: pendingData[i][9] !== false, // Default TRUE if undefined for backward compatibility
         timestamp: new Date(pendingData[i][1]).toISOString(),
         isSpotlightGame: eventInfo.isSpotlightGame || false,
         hasLocationData: hasLocationData

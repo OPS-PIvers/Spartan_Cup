@@ -41,9 +41,14 @@ function getFanFeed() {
       const eventInfo = eventMap[verifiedData[i][4]] || { eventName: 'Event', sportArt: 'Event' };
       const photoUrl = verifiedData[i][10]; // Photo_URL (column K, index 10)
       const photoId = verifiedData[i][11]; // Photo_ID (column L, index 11)
+      const shareInFanFeed = verifiedData[i][12]; // Share_In_Fan_Feed (column M, index 12)
 
       // Skip if no photo URL or ID
       if (!photoUrl && !photoId) continue;
+
+      // Skip if student opted out of fan feed sharing
+      // Default to TRUE for backward compatibility with existing submissions
+      if (shareInFanFeed === false || shareInFanFeed === 'FALSE') continue;
 
       feedItems.push({
         type: 'photo',

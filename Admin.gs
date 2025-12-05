@@ -79,7 +79,8 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
       pointsMultiplier, // Points_Spotlight_Multiplier
       pointsTotal, // Points_Total
       submissionInfo[4], // Photo_URL (expired URLs)
-      submissionInfo[5] // Photo_ID (permanent - used to regenerate images)
+      submissionInfo[5], // Photo_ID (permanent - used to regenerate images)
+      submissionInfo[9] !== false // Share_In_Fan_Feed (default TRUE for backward compatibility)
     ]);
 
     // Clear row from Submissions_Pending (don't delete to avoid "can't delete last row" error)

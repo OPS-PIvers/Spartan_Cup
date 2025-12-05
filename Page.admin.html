@@ -87,6 +87,10 @@
           <div id="location-badge" class="absolute bottom-12 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
             📍 Location verification badge
           </div>
+          <!-- Fan feed sharing badge: displays either green check or red X dynamically -->
+          <div id="fanfeed-badge" class="absolute top-16 left-3 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg hidden">
+            Fan feed badge
+          </div>
           <!-- Mobile hint: Always visible with subtle styling -->
           <div class="md:hidden absolute bottom-2 left-2 right-2 text-center">
             <span class="text-white text-xs font-semibold bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">Double-tap image for theme bonus</span>
@@ -840,6 +844,22 @@
         locationBadge.classList.remove('bg-green-500');
         locationBadge.classList.add('bg-yellow-500');
         locationBadge.classList.remove('hidden');
+      }
+
+      // Handle fan feed sharing preference display
+      const fanfeedBadge = document.getElementById('fanfeed-badge');
+      if (submission.shareInFanFeed === false) {
+        // Student opted OUT of fan feed sharing
+        fanfeedBadge.textContent = '✗ FAN FEED';
+        fanfeedBadge.setAttribute('aria-label', 'Will not share in fan feed');
+        fanfeedBadge.className = 'absolute top-16 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        fanfeedBadge.classList.remove('hidden');
+      } else {
+        // Student opted IN to fan feed sharing (default)
+        fanfeedBadge.textContent = '✓ FAN FEED';
+        fanfeedBadge.setAttribute('aria-label', 'Will share in fan feed');
+        fanfeedBadge.className = 'absolute top-16 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10';
+        fanfeedBadge.classList.remove('hidden');
       }
 
       updatePointsDisplay();
