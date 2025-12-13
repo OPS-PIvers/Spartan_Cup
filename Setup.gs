@@ -11,7 +11,6 @@
  * - installActiveEventsTrigger: Installs 10-minute timer trigger
  * - setupDriveFolders: Creates Drive folder structure
  * - setupSpreadsheet: Creates and validates all spreadsheet sheets
- * - setupBadgeDropdowns: Sets up data validation dropdowns (placeholder)
  * - generateSampleSubmissions: Generates test data for development
  * - populateSampleBadges: Populates sample badge definitions
  * - createHtmlFiles: Creates all HTML template files
@@ -296,19 +295,6 @@ function setupSpreadsheet() {
 
   // Note: Config_Event_Codes has been removed - Events tab is now the single source of truth
   // Is_Active status is updated by the updateActiveEventStatus() trigger
-}
-
-function setupBadgeDropdowns() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const badgesSheet = ss.getSheetByName('Config_Badges');
-
-  if (!badgesSheet) {
-    SpreadsheetApp.getUi().alert('Error: Config_Badges sheet not found. Please run First-Time Setup first.');
-    return;
-  }
-
-  // TODO: Implement data validation dropdowns for badge configuration
-  // This function is a placeholder for future implementation
 }
 
 /**
