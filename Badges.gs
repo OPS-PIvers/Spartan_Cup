@@ -62,15 +62,26 @@ function getSuperfanDefinitions() {
       return { status: 'error', message: 'Activities_Data sheet is empty or missing.' };
     }
 
+    // Define superfan groups with precise matching logic
     const groups = [
-      { key: "Girls Hockey", keywords: ["Girls Hockey"], label: "Girls Hockey Superfan" },
-      { key: "Boys Hockey", keywords: ["Boys Hockey"], label: "Boys Hockey Superfan" },
-      { key: "Boys Basketball", keywords: ["Boys Basketball"], label: "Boys Basketball Superfan" },
-      { key: "Girls Basketball", keywords: ["Girls Basketball"], label: "Girls Basketball Superfan" },
-      { key: "Meet Sports", keywords: ["Swim", "Dance", "Wrestling"], label: "Meet Sports Superfan (Swim, Dance, Wrestling)" }
+      { key: "Girls Hockey", requiredWords: ["Girls", "Hockey"], label: "Girls Hockey Superfan" },
+      { key: "Boys Hockey", requiredWords: ["Boys", "Hockey"], label: "Boys Hockey Superfan" },
+      { key: "Boys Basketball", requiredWords: ["Boys", "Basketball"], label: "Boys Basketball Superfan" },
+      { key: "Girls Basketball", requiredWords: ["Girls", "Basketball"], label: "Girls Basketball Superfan" },
+      {
+        key: "Meet Sports",
+        components: [
+          { name: "Swim", keywords: ["Swim"] },
+          { name: "Dance", keywords: ["Dance"] },
+          { name: "Wrestling", keywords: ["Wrest"] }
+        ],
+        label: "Meet Sports Superfan (Swim, Dance, Wrestling)"
+      }
     ];
 
     const results = {};
+    const componentsFound = { "Swim": false, "Dance": false, "Wrestling": false };
+
     groups.forEach(g => {
       results[g.key] = {
         label: g.label,
@@ -78,31 +89,60 @@ function getSuperfanDefinitions() {
       };
     });
 
-    let totalCodesFound = 0;
     for (let i = 1; i < activitiesData.length; i++) {
       const code = String(activitiesData[i][0] || "").trim();
       const name = String(activitiesData[i][1] || "").trim();
       if (!code || !name) continue;
 
+      const lowerName = name.toLowerCase();
+
       groups.forEach(g => {
-        const matches = g.keywords.some(k => name.toLowerCase().includes(k.toLowerCase()));
-        if (matches) {
-          results[g.key].codes.push(code);
-          totalCodesFound++;
+        if (g.requiredWords) {
+          // Robust word-based matching: ALL required words must be present
+          const matchesAll = g.requiredWords.every(word => lowerName.includes(word.toLowerCase()));
+          if (matchesAll) {
+            results[g.key].codes.push(code);
+          }
+        } else if (g.components) {
+          // Combined group matching: check against each sub-component
+          g.components.forEach(comp => {
+            const matchesComp = comp.keywords.some(k => lowerName.includes(k.toLowerCase()));
+            if (matchesComp) {
+              // Only add code to result if not already present
+              if (!results[g.key].codes.includes(code)) {
+                results[g.key].codes.push(code);
+              }
+              componentsFound[comp.name] = true;
+            }
+          });
         }
       });
     }
 
-    // Validate that ALL expected groups have at least one discovered code
-    const missingGroups = groups
-      .filter(g => results[g.key].codes.length === 0)
-      .map(g => g.key);
+    // VALIDATION: Ensure every group and component is discovered
+    const errorMessages = [];
 
-    if (missingGroups.length > 0) {
+    groups.forEach(g => {
+      if (g.requiredWords) {
+        if (results[g.key].codes.length === 0) {
+          errorMessages.push(`No activity found for "${g.key}"`);
+        }
+      } else if (g.components) {
+        const missingComps = g.components
+          .filter(comp => !componentsFound[comp.name])
+          .map(comp => comp.name);
+
+        if (missingComps.length > 0) {
+          errorMessages.push(`Missing components for Meet Sports: ${missingComps.join(', ')}`);
+        }
+      }
+    });
+
+    if (errorMessages.length > 0) {
       return {
         status: 'error',
-        message: 'The following sports categories were not found in Activities_Data: ' + missingGroups.join(', ') +
-                 '. Please ensure these activities are correctly named in the sheet before initializing awards.'
+        message: 'Awards initialization failed: ' + errorMessages.join('; ') +
+                 '. Please ensure all activities are correctly named in the sheet.'
       };
     }
 
