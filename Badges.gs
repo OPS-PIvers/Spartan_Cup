@@ -951,10 +951,14 @@ function processSeasonEndBadges() {
     let superfanBadgesAwarded = 0;
     if (superfanBadges.length > 0) {
       const discovery = getSuperfanDefinitions();
-      if (discovery.status === 'error') throw new Error(discovery.message);
-      const superfanDefs = discovery.definitions;
 
-      const activityToGroups = {};
+      if (discovery.status === 'error') {
+        Logger.log('[processSeasonEndBadges] Superfan discovery failed: ' + discovery.message + '. Skipping superfan awards.');
+        // Notify admin about the skip
+        SpreadsheetApp.getUi().alert('⚠️ Superfan Awards Skipped\n\n' + discovery.message + '\n\nOther end-of-season badges will still be processed.');
+      } else {
+        const superfanDefs = discovery.definitions;
+        const activityToGroups = {};
       Object.keys(superfanDefs).forEach(gk => {
         superfanDefs[gk].codes.forEach(code => {
           if (!activityToGroups[code]) activityToGroups[code] = [];
@@ -1039,7 +1043,7 @@ function processSeasonEndBadges() {
           }
         }
       }
-    }
+    } }
     // --- END SUPERFAN AWARDS ---
 
     // IMPORTANT: Invalidate cache before recalculation loop so calculateBadges()
