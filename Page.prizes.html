@@ -3,13 +3,21 @@
   It is dynamically injected into Index.html by Code.gs
 -->
 <div class="page p-4 pb-24">
-  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm space-y-4">
+  <div class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm space-y-4 mb-4">
     <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">🏆 Season Awards</h2>
     <p class="text-[#111318] dark:text-white">The top 3 fans at the end of the season win!</p>
-    <ul class="list-disc list-inside space-y-1 text-[#111318] dark:text-white">
+    <ul id="season-awards-list" class="list-disc list-inside space-y-1 text-[#111318] dark:text-white">
       <li><span class="font-bold">1st Place:</span> [TBD Prize]</li>
       <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
       <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
+    </ul>
+  </div>
+
+  <div id="superfan-awards-section" class="bg-white dark:bg-gray-800/50 p-6 rounded-xl shadow-sm space-y-4 hidden">
+    <h2 class="text-2xl font-bold text-primary dark:text-blue-300 border-b-2 border-gray-200 dark:border-gray-700 pb-2">🏅 Sport Superfan Awards</h2>
+    <p class="text-[#111318] dark:text-white text-sm">The top fan for each individual sport or art group wins a prize!</p>
+    <ul id="superfan-awards-list" class="list-disc list-inside space-y-1 text-[#111318] dark:text-white">
+      <!-- Populated by JS -->
     </ul>
   </div>
 
@@ -51,31 +59,41 @@
     });
 
     function loadPrizes() {
-      const prizesList = document.querySelector('ul.list-disc');
+      const seasonList = document.getElementById('season-awards-list');
+      const superfanList = document.getElementById('superfan-awards-list');
+      const superfanSection = document.getElementById('superfan-awards-section');
 
       google.script.run.withSuccessHandler((response) => {
         if (response.status === 'error') {
-          prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error loading prizes</li>';
+          seasonList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error loading prizes</li>';
           return;
         }
 
         if (response.prizes && response.prizes.length > 0) {
-          prizesList.innerHTML = '';
-          response.prizes.forEach(prize => {
-            const li = document.createElement('li');
-            li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
-            prizesList.appendChild(li);
-          });
-        } else {
-          // Keep the default [TBD Prize] text if no prizes are configured
-          prizesList.innerHTML = `
-            <li><span class="font-bold">1st Place:</span> [TBD Prize]</li>
-            <li><span class="font-bold">2nd Place:</span> [TBD Prize]</li>
-            <li><span class="font-bold">3rd Place:</span> [TBD Prize]</li>
-          `;
+          const seasonPrizes = response.prizes.filter(p => !p.rank.toLowerCase().includes('superfan'));
+          const superfanPrizes = response.prizes.filter(p => p.rank.toLowerCase().includes('superfan'));
+
+          if (seasonPrizes.length > 0) {
+            seasonList.innerHTML = '';
+            seasonPrizes.forEach(prize => {
+              const li = document.createElement('li');
+              li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
+              seasonList.appendChild(li);
+            });
+          }
+
+          if (superfanPrizes.length > 0) {
+            superfanSection.classList.remove('hidden');
+            superfanList.innerHTML = '';
+            superfanPrizes.forEach(prize => {
+              const li = document.createElement('li');
+              li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
+              superfanList.appendChild(li);
+            });
+          }
         }
       }).withFailureHandler((error) => {
-        prizesList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + (error.message || error.toString() || 'Unknown error') + '</li>';
+        seasonList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + (error.message || error.toString() || 'Unknown error') + '</li>';
       }).getAllSeasonPrizes();
     }
 

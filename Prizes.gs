@@ -48,6 +48,42 @@ function getAllSeasonPrizes() {
 }
 
 /**
+ * Populates the Active_Season_Prizes sheet with the specific superfan award categories.
+ * Checked during final award initialization.
+ * @return {Object} Status of the operation
+ */
+function setupFinalSuperfanPrizes() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
+    if (!prizesSheet) {
+      return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
+    }
+
+    const superfanDefs = getSuperfanDefinitions();
+    const existingData = prizesSheet.getDataRange().getValues();
+    const existingRanks = existingData.map(row => row[0]);
+
+    let prizesAdded = 0;
+    Object.keys(superfanDefs).forEach(key => {
+      const label = superfanDefs[key].label;
+      if (!existingRanks.includes(label)) {
+        prizesSheet.appendRow([label, `Awarded to the top fan for ${label.replace(' Superfan', '')} based on attendance.`]);
+        prizesAdded++;
+      }
+    });
+
+    return {
+      status: 'success',
+      message: `Successfully initialized ${prizesAdded} superfan prize categories.`
+    };
+  } catch (e) {
+    Logger.log('Error in setupFinalSuperfanPrizes: ' + e.message);
+    return { status: 'error', message: 'Error setting up superfan prizes: ' + e.message };
+  }
+}
+
+/**
  * Creates a new prize in Active_Season_Prizes sheet.
  * @param {string} rank - Prize rank/placement (e.g., "1st Place", "Most Spirited")
  * @param {string} description - Prize description

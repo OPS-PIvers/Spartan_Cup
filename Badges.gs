@@ -51,6 +51,106 @@ function getBadgeData() {
 }
 
 /**
+ * Discovers activity codes for the final superfan awards by searching the Activities_Data sheet.
+ * Maps requested categories to their actual codes.
+ * @return {Object} Map of superfan categories to their labels and discovered activity codes.
+ */
+function getSuperfanDefinitions() {
+  try {
+    const activitiesData = getActivitiesData();
+    const groups = [
+      { key: "Girls Hockey", keywords: ["Girls Hockey"], label: "Girls Hockey Superfan" },
+      { key: "Boys Hockey", keywords: ["Boys Hockey"], label: "Boys Hockey Superfan" },
+      { key: "Boys Basketball", keywords: ["Boys Basketball"], label: "Boys Basketball Superfan" },
+      { key: "Girls Basketball", keywords: ["Girls Basketball"], label: "Girls Basketball Superfan" },
+      { key: "Meet Sports", keywords: ["Swim", "Dance", "Wrestling"], label: "Meet Sports Superfan (Swim, Dance, Wrestling)" }
+    ];
+
+    const results = {};
+    groups.forEach(g => {
+      results[g.key] = {
+        label: g.label,
+        codes: []
+      };
+    });
+
+    for (let i = 1; i < activitiesData.length; i++) {
+      const code = String(activitiesData[i][0] || "").trim();
+      const name = String(activitiesData[i][1] || "").trim();
+      if (!code || !name) continue;
+
+      groups.forEach(g => {
+        const matches = g.keywords.some(k => name.toLowerCase().includes(k.toLowerCase()));
+        if (matches) {
+          results[g.key].codes.push(code);
+        }
+      });
+    }
+
+    Logger.log('[getSuperfanDefinitions] Discovered codes: ' + JSON.stringify(results));
+    return results;
+  } catch (e) {
+    Logger.log('Error in getSuperfanDefinitions: ' + e.message);
+    return {};
+  }
+}
+
+/**
+ * Populates the Config_Badges sheet with the specific superfan badges.
+ * @return {Object} Status of the operation
+ */
+function setupFinalSuperfanBadges() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const badgesSheet = ss.getSheetByName('Config_Badges');
+    if (!badgesSheet) {
+      return { status: 'error', message: 'Config_Badges sheet not found' };
+    }
+
+    const superfanDefs = getSuperfanDefinitions();
+    const badgeMap = getBadgeMapCache();
+    const existingNames = Object.values(badgeMap).map(b => b.name);
+
+    let badgesCreated = 0;
+    Object.keys(superfanDefs).forEach(key => {
+      const def = superfanDefs[key];
+      if (!existingNames.includes(def.label)) {
+        // Generate new ID
+        let maxId = 0;
+        Object.keys(badgeMap).forEach(badgeId => {
+          const idNum = parseInt(badgeId.replace('badge_', ''));
+          if (idNum > maxId) maxId = idNum;
+        });
+        const newBadgeId = 'badge_' + String(maxId + 1 + badgesCreated).padStart(3, '0');
+
+        badgesSheet.appendRow([
+          newBadgeId,
+          def.label,
+          'Special',
+          'Superfan_Placement',
+          key, // Use the group key as trigger value
+          `Top fan for ${def.label.replace(' Superfan', '')} this season.`,
+          'https://the-spartan-cup.web.app/badges/super_fan.svg'
+        ]);
+        badgesCreated++;
+      }
+    });
+
+    if (badgesCreated > 0) {
+      CacheService.getScriptCache().remove('badge_map_cache');
+    }
+
+    return {
+      status: 'success',
+      message: `Successfully initialized ${badgesCreated} superfan badge definitions.`
+    };
+  } catch (e) {
+    Logger.log('Error in setupFinalSuperfanBadges: ' + e.message);
+    return { status: 'error', message: 'Error setting up superfan badges: ' + e.message };
+  }
+}
+
+/**
  * Calculates badges earned based on student points and saves to Student_Profiles.
  * Called after a submission is approved.
  * @param {string} email - Student email
@@ -716,7 +816,9 @@ function processSeasonEndBadges() {
         // Award badge if not already earned
         if (!currentBadges.includes(badge.badgeId)) {
           currentBadges.push(badge.badgeId);
-          studentSheet.getRange(studentRowIndex + 1, 5).setValue(JSON.stringify(currentBadges));
+          const badgeJson = JSON.stringify(currentBadges);
+          studentSheet.getRange(studentRowIndex + 1, 5).setValue(badgeJson);
+          studentData[studentRowIndex][4] = badgeJson; // Update local cache to prevent overwrite
           placementBadgesAwarded++;
 
           // Log badge award to Badge_Awards sheet for fan feed
@@ -754,6 +856,104 @@ function processSeasonEndBadges() {
         }
       }
     }
+
+    // --- START SUPERFAN AWARDS ---
+    // Find all Superfan_Placement badges
+    const superfanBadges = [];
+    for (let i = 1; i < badgesData.length; i++) {
+      if (badgesData[i][3] === 'Superfan_Placement' && badgesData[i][0]) {
+        superfanBadges.push({
+          badgeId: badgesData[i][0],
+          badgeName: badgesData[i][1],
+          groupKey: badgesData[i][4],
+          imageUrl: badgesData[i][6],
+          description: badgesData[i][5]
+        });
+      }
+    }
+
+    let superfanBadgesAwarded = 0;
+    if (superfanBadges.length > 0) {
+      const superfanDefs = getSuperfanDefinitions();
+      const activityToGroups = {};
+      Object.keys(superfanDefs).forEach(gk => {
+        superfanDefs[gk].codes.forEach(code => {
+          if (!activityToGroups[code]) activityToGroups[code] = [];
+          activityToGroups[code].push(gk);
+        });
+      });
+
+      const verifiedData = getVerifiedSubmissionsData();
+      const eventData = getEventsData();
+      const eventToActivity = {};
+      for (let j = 1; j < eventData.length; j++) {
+        eventToActivity[eventData[j][0]] = eventData[j][1];
+      }
+
+      const studentSuperfanCounts = {}; // email -> { groupKey -> count }
+      for (let j = 1; j < verifiedData.length; j++) {
+        const email = verifiedData[j][3];
+        const eventId = verifiedData[j][4];
+        const activityCode = eventToActivity[eventId];
+        const groups = activityToGroups[activityCode];
+        if (groups) {
+          if (!studentSuperfanCounts[email]) studentSuperfanCounts[email] = {};
+          groups.forEach(gk => {
+            studentSuperfanCounts[email][gk] = (studentSuperfanCounts[email][gk] || 0) + 1;
+          });
+        }
+      }
+
+      for (const badge of superfanBadges) {
+        const groupKey = badge.groupKey;
+        const groupRankings = [];
+        for (let i = 1; i < studentData.length; i++) {
+          const email = studentData[i][0];
+          if (!email) continue;
+          groupRankings.push({
+            email: email,
+            name: studentData[i][1],
+            attendance: (studentSuperfanCounts[email] && studentSuperfanCounts[email][groupKey]) || 0,
+            points: studentData[i][2] || 0,
+            rowIndex: i
+          });
+        }
+
+        groupRankings.sort((a, b) => {
+          if (b.attendance !== a.attendance) return b.attendance - a.attendance;
+          return b.points - a.points;
+        });
+
+        if (groupRankings.length > 0 && groupRankings[0].attendance > 0) {
+          const winner = groupRankings[0];
+          const studentRowIndex = winner.rowIndex;
+          const currentBadges = studentData[studentRowIndex][4] ? safeJSONParse(studentData[studentRowIndex][4], [], 'badge array') : [];
+
+          if (!currentBadges.includes(badge.badgeId)) {
+            currentBadges.push(badge.badgeId);
+            const badgeJson = JSON.stringify(currentBadges);
+            studentSheet.getRange(studentRowIndex + 1, 5).setValue(badgeJson);
+            studentData[studentRowIndex][4] = badgeJson; // Update local cache to prevent overwrite
+            superfanBadgesAwarded++;
+
+            const badgeAwardsSheet = ss.getSheetByName('Badge_Awards');
+            if (badgeAwardsSheet) {
+              badgeAwardsSheet.appendRow([
+                Utilities.getUuid(),
+                new Date(),
+                winner.email,
+                winner.name,
+                badge.badgeId,
+                badge.badgeName,
+                badge.imageUrl
+              ]);
+            }
+            sendBadgeAwardEmail(winner.email, badge.badgeName, badge.description, badge.imageUrl);
+          }
+        }
+      }
+    }
+    // --- END SUPERFAN AWARDS ---
 
     // Recalculate all other badges for all students (to catch season-completion badges)
     let studentsProcessed = 0;
@@ -793,6 +993,7 @@ function processSeasonEndBadges() {
       `✅ ${activeSeason} Season End - Badges Awarded!\n\n` +
       '📊 Final Season Rankings:\n' + top3Summary + '\n' +
       '🏆 Placement Badges Awarded: ' + placementBadgesAwarded + '\n' +
+      '🏅 Superfan Badges Awarded: ' + superfanBadgesAwarded + '\n' +
       '⭐ Other Season Badges Awarded: ' + otherBadgesAwarded + '\n' +
       '👥 Students Processed: ' + studentsProcessed + '\n\n' +
       'All students have been awarded their final season badges!'

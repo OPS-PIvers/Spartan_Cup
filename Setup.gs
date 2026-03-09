@@ -36,7 +36,43 @@ function onOpen() {
     .addItem('Set Data Validation', 'setDataValidation')
     .addItem('7. Award Retroactive Badges (Run Once)', 'awardRetroactiveBadges')
     .addItem('8. End Season & Award Final Badges', 'processSeasonEndBadges')
+    .addSeparator()
+    .addItem('9. Initialize Final Superfan Awards', 'initializeFinalSuperfanAwards')
     .addToUi();
+}
+
+/**
+ * Orchestrates the initialization of final superfan awards.
+ * Populates prizes and badge definitions.
+ */
+function initializeFinalSuperfanAwards() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    'Initialize Final Superfan Awards',
+    'This will create prize categories in "Active_Season_Prizes" and badge definitions in "Config_Badges" for the following:\n' +
+    '• Girls Hockey\n' +
+    '• Boys Hockey\n' +
+    '• Boys Basketball\n' +
+    '• Girls Basketball\n' +
+    '• Meet Sports (Swim, Dance, Wrestling)\n\n' +
+    'Continue?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response !== ui.Button.YES) return;
+
+  try {
+    const prizeResult = setupFinalSuperfanPrizes();
+    const badgeResult = setupFinalSuperfanBadges();
+
+    ui.alert(
+      'Initialization Complete',
+      prizeResult.message + '\n' + badgeResult.message,
+      ui.ButtonSet.OK
+    );
+  } catch (e) {
+    ui.alert('Error during initialization: ' + e.message);
+  }
 }
 
 function setDataValidation() {
@@ -57,7 +93,7 @@ function setDataValidation() {
   // Set data validation for Trigger_Type column (D)
   const triggerTypeRange = sheet.getRange('D2:D');
   const triggerTypeRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Points_Season', 'Submission_Count', 'Submission_Count_Week_1', 'Events_In_7_Days', 'Distinct_Sports', 'Activity_Pct', 'Activity_Event_Count', 'Home_Game_Pct', 'Activity_Pct_Season', 'Activity_Pct_Lifetime', 'Activity_Event_Count_Season', 'Season_Placement', 'AllTime_Placement_Reached', 'Career_Events_Attended', 'Career_Seasons_Participated', 'Career_Badges_Earned', 'Weekday_Coverage', 'Specific_Activities', 'manual', 'activity_pct_season', 'activity_count_season', 'career_seasons', 'alltime_placement', 'career_badges', 'career_events'], true)
+      .requireValueInList(['Points_Season', 'Submission_Count', 'Submission_Count_Week_1', 'Events_In_7_Days', 'Distinct_Sports', 'Activity_Pct', 'Activity_Event_Count', 'Home_Game_Pct', 'Activity_Pct_Season', 'Activity_Pct_Lifetime', 'Activity_Event_Count_Season', 'Season_Placement', 'AllTime_Placement_Reached', 'Career_Events_Attended', 'Career_Seasons_Participated', 'Career_Badges_Earned', 'Weekday_Coverage', 'Specific_Activities', 'manual', 'activity_pct_season', 'activity_count_season', 'career_seasons', 'alltime_placement', 'career_badges', 'career_events', 'Superfan_Placement'], true)
       .setAllowInvalid(false)
       .build();
   triggerTypeRange.setDataValidation(triggerTypeRule);
