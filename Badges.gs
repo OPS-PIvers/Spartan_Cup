@@ -93,8 +93,17 @@ function getSuperfanDefinitions() {
       });
     }
 
-    if (totalCodesFound === 0) {
-      return { status: 'error', message: 'No matching sports found in Activities_Data to create superfan awards.' };
+    // Validate that ALL expected groups have at least one discovered code
+    const missingGroups = groups
+      .filter(g => results[g.key].codes.length === 0)
+      .map(g => g.key);
+
+    if (missingGroups.length > 0) {
+      return {
+        status: 'error',
+        message: 'The following sports categories were not found in Activities_Data: ' + missingGroups.join(', ') +
+                 '. Please ensure these activities are correctly named in the sheet before initializing awards.'
+      };
     }
 
     Logger.log('[getSuperfanDefinitions] Discovered codes: ' + JSON.stringify(results));
