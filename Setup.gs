@@ -46,6 +46,12 @@ function onOpen() {
  * Populates prizes and badge definitions.
  */
 function initializeFinalSuperfanAwards() {
+  const email = Session.getActiveUser().getEmail();
+  if (!getAdminEmails().includes(email.toLowerCase())) {
+    SpreadsheetApp.getUi().alert('Access denied. Admin privileges required.');
+    return;
+  }
+
   const ui = SpreadsheetApp.getUi();
   const response = ui.alert(
     'Initialize Final Superfan Awards',

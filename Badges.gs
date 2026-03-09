@@ -96,10 +96,29 @@ function getSuperfanDefinitions() {
 }
 
 /**
+ * Internal helper to build map of event IDs to activity codes.
+ * Improves DRY by centralizing event-activity mapping logic.
+ */
+function _createEventToActivityMap(eventData) {
+  const eventToActivity = {};
+  for (let j = 1; j < eventData.length; j++) {
+    if (eventData[j][0]) {
+      eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
+    }
+  }
+  return eventToActivity;
+}
+
+/**
  * Populates the Config_Badges sheet with the specific superfan badges.
  * @return {Object} Status of the operation
  */
 function setupFinalSuperfanBadges() {
+  const email = Session.getActiveUser().getEmail();
+  if (!getAdminEmails().includes(email.toLowerCase())) {
+    return { status: 'error', message: 'Access denied. Admin privileges required.' };
+  }
+
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const badgesSheet = ss.getSheetByName('Config_Badges');
@@ -111,17 +130,18 @@ function setupFinalSuperfanBadges() {
     const badgeMap = getBadgeMapCache();
     const existingNames = Object.values(badgeMap).map(b => b.name);
 
+    // Calculate max badge ID concisely using functional methods
+    const baseMaxId = Object.keys(badgeMap)
+      .map(badgeId => parseInt(badgeId.replace('badge_', ''), 10))
+      .filter(idNum => !isNaN(idNum))
+      .reduce((max, id) => Math.max(max, id), 0);
+
     let badgesCreated = 0;
     Object.keys(superfanDefs).forEach(key => {
       const def = superfanDefs[key];
       if (!existingNames.includes(def.label)) {
         // Generate new ID
-        let maxId = 0;
-        Object.keys(badgeMap).forEach(badgeId => {
-          const idNum = parseInt(badgeId.replace('badge_', ''));
-          if (idNum > maxId) maxId = idNum;
-        });
-        const newBadgeId = 'badge_' + String(maxId + 1 + badgesCreated).padStart(3, '0');
+        const newBadgeId = 'badge_' + String(baseMaxId + 1 + badgesCreated).padStart(3, '0');
 
         badgesSheet.appendRow([
           newBadgeId,
@@ -215,10 +235,7 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
 
     // PERFORMANCE OPTIMIZATION: Pre-calculate user-specific aggregates in ONE pass
     // This changes complexity from O(badges × submissions) to O(submissions + badges)
-    const eventToActivity = {};
-    for (let j = 1; j < eventData.length; j++) {
-      eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
-    }
+    const eventToActivity = _createEventToActivityMap(eventData);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const userAggregates = {
@@ -301,10 +318,7 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
         if (!activityCodesStr || isNaN(requiredCount) || requiredCount <= 0) continue;
 
         // Build map of event IDs to activity codes
-        const eventToActivity = {};
-        for (let j = 1; j < eventData.length; j++) {
-          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
-        }
+        const eventToActivity = _createEventToActivityMap(eventData);
 
         // Count attended events for ANY of the selected activities (combined total)
         let attendedActivityEvents = 0;
@@ -597,10 +611,7 @@ function calculateBadges(email, skipSeasonEndBadges = false) {
         if (requiredActivities.length === 0) continue;
 
         // Build event to activity map
-        const eventToActivity = {};
-        for (let j = 1; j < eventData.length; j++) {
-          eventToActivity[eventData[j][0]] = eventData[j][1]; // Event_ID -> Activity_Code
-        }
+        const eventToActivity = _createEventToActivityMap(eventData);
 
         // Track which required activities have been attended
         const activitiesAttended = new Set();
@@ -885,10 +896,7 @@ function processSeasonEndBadges() {
 
       const verifiedData = getVerifiedSubmissionsData();
       const eventData = getEventsData();
-      const eventToActivity = {};
-      for (let j = 1; j < eventData.length; j++) {
-        eventToActivity[eventData[j][0]] = eventData[j][1];
-      }
+      const eventToActivity = _createEventToActivityMap(eventData);
 
       const studentSuperfanCounts = {}; // email -> { groupKey -> count }
       for (let j = 1; j < verifiedData.length; j++) {

@@ -74,27 +74,29 @@
           const superfanPrizes = response.prizes.filter(p => p.rank.toLowerCase().includes('superfan'));
 
           if (seasonPrizes.length > 0) {
-            seasonList.innerHTML = '';
-            seasonPrizes.forEach(prize => {
-              const li = document.createElement('li');
-              li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
-              seasonList.appendChild(li);
-            });
+            populatePrizeList(seasonList, seasonPrizes);
           }
 
           if (superfanPrizes.length > 0) {
             superfanSection.classList.remove('hidden');
-            superfanList.innerHTML = '';
-            superfanPrizes.forEach(prize => {
-              const li = document.createElement('li');
-              li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
-              superfanList.appendChild(li);
-            });
+            populatePrizeList(superfanList, superfanPrizes);
           }
         }
       }).withFailureHandler((error) => {
         seasonList.innerHTML = '<li class="text-red-600 dark:text-red-400">Error: ' + (error.message || error.toString() || 'Unknown error') + '</li>';
       }).getAllSeasonPrizes();
+    }
+
+    /**
+     * Helper to populate a prize list element.
+     */
+    function populatePrizeList(listElement, prizes) {
+      listElement.innerHTML = '';
+      prizes.forEach(prize => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="font-bold">${escapeHTML(prize.rank)}:</span> ${escapeHTML(prize.description)}`;
+        listElement.appendChild(li);
+      });
     }
 
     function populateEvents(response) {

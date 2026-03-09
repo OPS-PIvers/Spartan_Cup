@@ -53,6 +53,11 @@ function getAllSeasonPrizes() {
  * @return {Object} Status of the operation
  */
 function setupFinalSuperfanPrizes() {
+  const email = Session.getActiveUser().getEmail();
+  if (!getAdminEmails().includes(email.toLowerCase())) {
+    return { status: 'error', message: 'Access denied. Admin privileges required.' };
+  }
+
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const prizesSheet = ss.getSheetByName('Active_Season_Prizes');
