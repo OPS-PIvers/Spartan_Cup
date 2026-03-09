@@ -65,7 +65,10 @@ function setupFinalSuperfanPrizes() {
       return { status: 'error', message: 'Active_Season_Prizes sheet not found' };
     }
 
-    const superfanDefs = getSuperfanDefinitions();
+    const discovery = getSuperfanDefinitions();
+    if (discovery.status === 'error') return discovery;
+    const superfanDefs = discovery.definitions;
+
     const existingData = prizesSheet.getDataRange().getValues();
     const existingRanks = existingData.map(row => row[0]);
 

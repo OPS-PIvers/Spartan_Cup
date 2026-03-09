@@ -53,11 +53,15 @@ function getBadgeData() {
 /**
  * Discovers activity codes for the final superfan awards by searching the Activities_Data sheet.
  * Maps requested categories to their actual codes.
- * @return {Object} Map of superfan categories to their labels and discovered activity codes.
+ * @return {Object} Object with status and definitions map.
  */
 function getSuperfanDefinitions() {
   try {
     const activitiesData = getActivitiesData();
+    if (!activitiesData || activitiesData.length <= 1) {
+      return { status: 'error', message: 'Activities_Data sheet is empty or missing.' };
+    }
+
     const groups = [
       { key: "Girls Hockey", keywords: ["Girls Hockey"], label: "Girls Hockey Superfan" },
       { key: "Boys Hockey", keywords: ["Boys Hockey"], label: "Boys Hockey Superfan" },
@@ -74,6 +78,7 @@ function getSuperfanDefinitions() {
       };
     });
 
+    let totalCodesFound = 0;
     for (let i = 1; i < activitiesData.length; i++) {
       const code = String(activitiesData[i][0] || "").trim();
       const name = String(activitiesData[i][1] || "").trim();
@@ -83,15 +88,20 @@ function getSuperfanDefinitions() {
         const matches = g.keywords.some(k => name.toLowerCase().includes(k.toLowerCase()));
         if (matches) {
           results[g.key].codes.push(code);
+          totalCodesFound++;
         }
       });
     }
 
+    if (totalCodesFound === 0) {
+      return { status: 'error', message: 'No matching sports found in Activities_Data to create superfan awards.' };
+    }
+
     Logger.log('[getSuperfanDefinitions] Discovered codes: ' + JSON.stringify(results));
-    return results;
+    return { status: 'success', definitions: results };
   } catch (e) {
     Logger.log('Error in getSuperfanDefinitions: ' + e.message);
-    return {};
+    return { status: 'error', message: 'Error discovering sports: ' + e.message };
   }
 }
 
@@ -126,12 +136,18 @@ function setupFinalSuperfanBadges() {
       return { status: 'error', message: 'Config_Badges sheet not found' };
     }
 
-    const superfanDefs = getSuperfanDefinitions();
-    const badgeMap = getBadgeMapCache();
-    const existingNames = Object.values(badgeMap).map(b => b.name);
+    const discovery = getSuperfanDefinitions();
+    if (discovery.status === 'error') return discovery;
+    const superfanDefs = discovery.definitions;
 
-    // Calculate max badge ID concisely using functional methods
-    const baseMaxId = Object.keys(badgeMap)
+    // Direct read from sheet to ensure fresh data for ID generation
+    const badgesData = badgesSheet.getDataRange().getValues();
+    const existingNames = badgesData.map(row => row[1]);
+
+    // Calculate max badge ID concisely using functional methods from sheet data
+    const baseMaxId = badgesData
+      .map(row => String(row[0] || ""))
+      .filter(id => id.startsWith('badge_'))
       .map(badgeId => parseInt(badgeId.replace('badge_', ''), 10))
       .filter(idNum => !isNaN(idNum))
       .reduce((max, id) => Math.max(max, id), 0);
@@ -885,7 +901,10 @@ function processSeasonEndBadges() {
 
     let superfanBadgesAwarded = 0;
     if (superfanBadges.length > 0) {
-      const superfanDefs = getSuperfanDefinitions();
+      const discovery = getSuperfanDefinitions();
+      if (discovery.status === 'error') throw new Error(discovery.message);
+      const superfanDefs = discovery.definitions;
+
       const activityToGroups = {};
       Object.keys(superfanDefs).forEach(gk => {
         superfanDefs[gk].codes.forEach(code => {
@@ -898,11 +917,22 @@ function processSeasonEndBadges() {
       const eventData = getEventsData();
       const eventToActivity = _createEventToActivityMap(eventData);
 
+      // Build activity-to-season map for filtering
+      const activitiesData = getActivitiesData();
+      const activitySeasonMap = {};
+      for (let j = 1; j < activitiesData.length; j++) {
+        activitySeasonMap[activitiesData[j][0]] = activitiesData[j][2]; // Activity_Code -> Season
+      }
+
       const studentSuperfanCounts = {}; // email -> { groupKey -> count }
       for (let j = 1; j < verifiedData.length; j++) {
         const email = verifiedData[j][3];
         const eventId = verifiedData[j][4];
         const activityCode = eventToActivity[eventId];
+
+        // Filter: only count attendance for the CURRENT season being processed
+        if (activitySeasonMap[activityCode] !== activeSeason) continue;
+
         const groups = activityToGroups[activityCode];
         if (groups) {
           if (!studentSuperfanCounts[email]) studentSuperfanCounts[email] = {};
@@ -962,6 +992,10 @@ function processSeasonEndBadges() {
       }
     }
     // --- END SUPERFAN AWARDS ---
+
+    // IMPORTANT: Invalidate cache before recalculation loop so calculateBadges()
+    // reads the updated sheet state (with newly awarded placement/superfan badges).
+    CacheService.getScriptCache().remove('student_profiles_data');
 
     // Recalculate all other badges for all students (to catch season-completion badges)
     let studentsProcessed = 0;

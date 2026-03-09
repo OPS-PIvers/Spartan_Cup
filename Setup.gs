@@ -69,7 +69,16 @@ function initializeFinalSuperfanAwards() {
 
   try {
     const prizeResult = setupFinalSuperfanPrizes();
+    if (prizeResult.status === 'error') {
+      ui.alert('Error initializing prizes: ' + prizeResult.message);
+      return;
+    }
+
     const badgeResult = setupFinalSuperfanBadges();
+    if (badgeResult.status === 'error') {
+      ui.alert('Error initializing badges: ' + badgeResult.message);
+      return;
+    }
 
     ui.alert(
       'Initialization Complete',
@@ -77,7 +86,7 @@ function initializeFinalSuperfanAwards() {
       ui.ButtonSet.OK
     );
   } catch (e) {
-    ui.alert('Error during initialization: ' + e.message);
+    ui.alert('Critical error during initialization: ' + e.message);
   }
 }
 
