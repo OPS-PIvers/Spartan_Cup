@@ -53,90 +53,17 @@ function recalculateAllStudentPoints() {
     const verifiedData = verifiedSheet.getDataRange().getValues();
     const badgesData = badgesSheet.getDataRange().getValues();
 
-    // Build badge points map (Badge_ID -> points)
-    const badgePointsMap = {};
-    for (let i = 1; i < badgesData.length; i++) {
-      const badgeId = badgesData[i][0]; // Badge_ID
-      const pointsBase = badgesData[i][7] || 0; // Badge_Points_Base
-      const pointsMultiplier = badgesData[i][8] || 1.0; // Badge_Points_Multiplier
-      badgePointsMap[badgeId] = Math.round(pointsBase * pointsMultiplier);
-    }
+    // Calculate updates
+    const result = calculateStudentPointsUpdates(studentData, verifiedData, badgesData);
+    const updates = result.updates;
+    const studentsUpdated = result.studentsUpdated;
 
-    // Calculate points for each student
-    const studentPointsMap = {}; // Email -> {submissionPoints, badgePoints, totalPoints}
-
-    // Step 1: Calculate submission points
-    for (let i = 1; i < verifiedData.length; i++) {
-      const email = verifiedData[i][3]; // Email column
-      const points = verifiedData[i][9] || 0; // Points_Total column (column J, index 9)
-
-      if (!email) continue;
-
-      if (!studentPointsMap[email]) {
-        studentPointsMap[email] = {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
-      }
-
-      studentPointsMap[email].submissionPoints += points;
-    }
-
-    // Step 2: Calculate badge points
-    for (let i = 1; i < studentData.length; i++) {
-      const email = studentData[i][0]; // Email column
-      const badgesJson = studentData[i][4]; // Badges_Earned column (JSON array)
-
-      if (!email) continue;
-
-      // Initialize if needed
-      if (!studentPointsMap[email]) {
-        studentPointsMap[email] = {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
-      }
-
-      // Parse badges and calculate points
-      const earnedBadges = safeJSONParse(badgesJson, [], 'badges array');
-      for (const badgeId of earnedBadges) {
-        const badgePoints = badgePointsMap[badgeId] || 0;
-        studentPointsMap[email].badgePoints += badgePoints;
-      }
-    }
-
-    // Step 3: Calculate total points
-    for (const email in studentPointsMap) {
-      studentPointsMap[email].totalPoints =
-        studentPointsMap[email].submissionPoints +
-        studentPointsMap[email].badgePoints;
-    }
-
-    // Step 4: Update Student_Profiles sheet
-    let studentsUpdated = 0;
-    const updates = [];
-
-    for (let i = 1; i < studentData.length; i++) {
-      const email = studentData[i][0];
-
-      if (!email) continue;
-
-      const points = studentPointsMap[email] || {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
-
-      // For this system, season points = all-time points (no season reset yet)
-      // If you want to separate seasons in the future, modify this logic
-      const seasonPoints = points.totalPoints;
-      const allTimePoints = points.totalPoints;
-
-      // Store update for batch write
-      updates.push({
-        row: i + 1,
-        seasonPoints: seasonPoints,
-        allTimePoints: allTimePoints
-      });
-
-      studentsUpdated++;
-    }
-
-    // Batch update all student points (more efficient than one-by-one)
-    for (const update of updates) {
-      studentSheet.getRange(update.row, 3, 1, 2).setValues([
-        [update.seasonPoints, update.allTimePoints]
-      ]);
+    // Batch update all student points (efficient single call)
+    if (updates.length > 0) {
+      // Updates correspond to row 2 onwards (index 2-3 in 0-indexed terms? No, row indices)
+      // studentData[1] is row 2. updates[0] is for row 2.
+      // Range starts at row 2, col 3 (Season_Points), numRows = updates.length, numCols = 2
+      studentSheet.getRange(2, 3, updates.length, 2).setValues(updates);
     }
 
     // Clear cache to ensure fresh data
@@ -160,4 +87,93 @@ function recalculateAllStudentPoints() {
     Logger.log('ERROR in recalculateAllStudentPoints: ' + e.message + ' | Stack: ' + e.stack);
     SpreadsheetApp.getUi().alert('❌ Error: ' + e.message);
   }
+}
+
+/**
+ * Calculates student points updates based on verified submissions and badges.
+ * Extracted logic for easier testing and cleaner code.
+ *
+ * @param {Array<Array<any>>} studentData - Data from Student_Profiles sheet
+ * @param {Array<Array<any>>} verifiedData - Data from Submissions_Verified sheet
+ * @param {Array<Array<any>>} badgesData - Data from Config_Badges sheet
+ * @returns {Object} { updates: Array<Array<number>>, studentsUpdated: number }
+ */
+function calculateStudentPointsUpdates(studentData, verifiedData, badgesData) {
+  // Build badge points map (Badge_ID -> points)
+  const badgePointsMap = {};
+  for (let i = 1; i < badgesData.length; i++) {
+    const badgeId = badgesData[i][0]; // Badge_ID
+    const pointsBase = badgesData[i][7] || 0; // Badge_Points_Base
+    const pointsMultiplier = badgesData[i][8] || 1.0; // Badge_Points_Multiplier
+    badgePointsMap[badgeId] = Math.round(pointsBase * pointsMultiplier);
+  }
+
+  // Calculate points for each student
+  const studentPointsMap = {}; // Email -> {submissionPoints, badgePoints, totalPoints}
+
+  // Step 1: Calculate submission points
+  for (let i = 1; i < verifiedData.length; i++) {
+    const email = verifiedData[i][3]; // Email column
+    const points = verifiedData[i][9] || 0; // Points_Total column (column J, index 9)
+
+    if (!email) continue;
+
+    if (!studentPointsMap[email]) {
+      studentPointsMap[email] = {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
+    }
+
+    studentPointsMap[email].submissionPoints += points;
+  }
+
+  // Step 2: Calculate badge points
+  for (let i = 1; i < studentData.length; i++) {
+    const email = studentData[i][0]; // Email column
+    const badgesJson = studentData[i][4]; // Badges_Earned column (JSON array)
+
+    if (!email) continue;
+
+    // Initialize if needed
+    if (!studentPointsMap[email]) {
+      studentPointsMap[email] = {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
+    }
+
+    // Parse badges and calculate points
+    // safeJSONParse is assumed to be globally available from Config.gs or similar
+    const earnedBadges = safeJSONParse(badgesJson, [], 'badges array');
+    for (const badgeId of earnedBadges) {
+      const badgePoints = badgePointsMap[badgeId] || 0;
+      studentPointsMap[email].badgePoints += badgePoints;
+    }
+  }
+
+  // Step 3: Calculate total points
+  for (const email in studentPointsMap) {
+    studentPointsMap[email].totalPoints =
+      studentPointsMap[email].submissionPoints +
+      studentPointsMap[email].badgePoints;
+  }
+
+  // Step 4: Prepare batch updates
+  let studentsUpdated = 0;
+  const updates = [];
+
+  for (let i = 1; i < studentData.length; i++) {
+    const email = studentData[i][0];
+
+    if (email) {
+      const points = studentPointsMap[email] || {submissionPoints: 0, badgePoints: 0, totalPoints: 0};
+
+      const seasonPoints = points.totalPoints;
+      const allTimePoints = points.totalPoints;
+
+      updates.push([seasonPoints, allTimePoints]);
+      studentsUpdated++;
+    } else {
+       // Preserve existing values for rows without email
+       // Columns 2 and 3 in studentData correspond to indices 2 and 3 (Season_Points, All_Time_Points)
+       updates.push([studentData[i][2], studentData[i][3]]);
+    }
+  }
+
+  return { updates, studentsUpdated };
 }
