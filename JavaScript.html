@@ -1822,6 +1822,9 @@
       document.getElementById('profile-points').innerText = data.seasonPoints;
       document.getElementById('profile-rank').innerText = `#${data.seasonRank}`;
       document.getElementById('profile-alltime').innerText = `${data.allTimePoints} PTS / Rank #${data.allTimeRank}`;
+      if (data.activeSeason) {
+        document.getElementById('current-season-label').innerText = `Current Season: ${data.activeSeason}`;
+      }
 
       // CLIENT-SIDE ADMIN CHECK: Show admin button only if data.isAdmin is true
       const adminButton = document.getElementById('admin-button');

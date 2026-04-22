@@ -516,7 +516,8 @@ function getProfileData() {
       leaderboard: topSeasonLeaderboard, // Default to season; will swap on toggle
       allTimeLeaderboard: topAllTimeLeaderboard,
       history: history,
-      isAdmin: getUserIsAdmin() // Return admin status from Config_Admins sheet
+      isAdmin: getUserIsAdmin(), // Return admin status from Config_Admins sheet
+      activeSeason: getActiveSeason()
     };
 
   } catch (e) {

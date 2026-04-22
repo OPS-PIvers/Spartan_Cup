@@ -36,6 +36,7 @@ function onOpen() {
     .addItem('Set Data Validation', 'setDataValidation')
     .addItem('7. Award Retroactive Badges (Run Once)', 'awardRetroactiveBadges')
     .addItem('8. End Season & Award Final Badges', 'processSeasonEndBadges')
+    .addItem('9. Start New Season (Reset Season Points)', 'startNewSeasonDialog')
     .addSeparator()
     .addItem('📊 Generate Final Season Awards Report', 'generateFinalSeasonAwardsReport')
     .addToUi();

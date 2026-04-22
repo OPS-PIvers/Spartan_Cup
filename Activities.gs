@@ -71,6 +71,107 @@ function setActiveSeason(season) {
 }
 
 /**
+ * Starts a new season: resets Total_Points_Season to 0 for all students and activates the new season.
+ * Total_Points_AllTime is never touched.
+ * @param {string} newSeason - The season name to activate (e.g. "Fall", "Spring", "Winter")
+ * @return {Object} Status object with success/error message
+ */
+function startNewSeason(newSeason) {
+  const adminEmail = Session.getActiveUser().getEmail();
+  if (!getAdminEmails().includes(adminEmail.toLowerCase())) {
+    return { status: 'error', message: 'Access denied. You are not an admin.' };
+  }
+
+  if (!newSeason || !newSeason.trim()) {
+    return { status: 'error', message: 'Season name is required.' };
+  }
+
+  newSeason = newSeason.trim();
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const studentSheet = ss.getSheetByName('Student_Profiles');
+    if (!studentSheet) {
+      return { status: 'error', message: 'CRITICAL: Student_Profiles sheet not found.' };
+    }
+
+    const studentData = studentSheet.getDataRange().getValues();
+    let studentsReset = 0;
+
+    // Reset Total_Points_Season (column C, 1-indexed = 3) to 0 for every student row.
+    // Column D (Total_Points_AllTime) is deliberately untouched.
+    for (let i = 1; i < studentData.length; i++) {
+      if (!studentData[i][0]) continue; // skip empty rows
+      studentSheet.getRange(i + 1, 3).setValue(0);
+      studentsReset++;
+    }
+
+    // Switch the active season (also clears active_season and active_events_data caches)
+    setActiveSeason(newSeason);
+
+    // Clear student profiles cache so updated values are read immediately
+    CacheService.getScriptCache().remove('student_profiles_data');
+
+    return {
+      status: 'success',
+      message: 'Season started: ' + newSeason + '. Season points reset to 0 for ' + studentsReset + ' students.'
+    };
+  } catch (e) {
+    Logger.log('ERROR in startNewSeason: ' + e.message + ' | Stack: ' + e.stack);
+    return { status: 'error', message: 'Error starting new season: ' + e.message };
+  }
+}
+
+/**
+ * Admin menu wrapper for startNewSeason().
+ * Prompts for the new season name, shows a confirmation dialog, then calls startNewSeason().
+ */
+function startNewSeasonDialog() {
+  const ui = SpreadsheetApp.getUi();
+  const currentSeason = getActiveSeason();
+
+  const nameResponse = ui.prompt(
+    'Start New Season',
+    'Current active season: ' + currentSeason + '\n\nEnter the name of the new season (e.g. Spring, Fall, Winter):',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (nameResponse.getSelectedButton() !== ui.Button.OK) {
+    ui.alert('Cancelled.');
+    return;
+  }
+
+  const newSeason = (nameResponse.getResponseText() || '').trim();
+  if (!newSeason) {
+    ui.alert('❌ No season name entered. Operation cancelled.');
+    return;
+  }
+
+  const confirm = ui.alert(
+    '⚠️ Confirm Season Transition',
+    'You are about to:\n' +
+    '  • Reset ALL student season points to 0\n' +
+    '  • Switch active season from "' + currentSeason + '" to "' + newSeason + '"\n\n' +
+    'All-time points are NOT affected.\n\n' +
+    'This cannot be undone. Are you sure?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirm !== ui.Button.YES) {
+    ui.alert('Cancelled.');
+    return;
+  }
+
+  const result = startNewSeason(newSeason);
+
+  if (result.status === 'success') {
+    ui.alert('✅ ' + result.message);
+  } else {
+    ui.alert('❌ ' + result.message);
+  }
+}
+
+/**
  * Gets all unique seasons from Activities_Data.
  * @return {string[]} Array of available seasons
  */
