@@ -282,6 +282,38 @@ function getVerifiedSubmissionsData() {
 }
 
 /**
+ * Gets a map of verified submissions for O(1) lookups.
+ * Key: email_eventId
+ * Value: { row: number }
+ */
+function getVerifiedSubmissionsMap() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'verified_submissions_map';
+  let cachedMap = cache.get(cacheKey);
+
+  if (cachedMap) {
+    const parsed = safeJSONParse(cachedMap, null, 'verified_submissions_map cache');
+    if (parsed) return parsed;
+    cache.remove(cacheKey);
+  }
+
+  // Build map from data
+  const data = getVerifiedSubmissionsData();
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    // data[i][3] is Email, data[i][4] is Event_ID
+    if (data[i][3] && data[i][4]) {
+      const key = data[i][3] + '_' + data[i][4];
+      map[key] = { row: i + 1 };
+    }
+  }
+
+  // Cache it
+  cache.put(cacheKey, JSON.stringify(map), CACHE_TTL.SUBMISSIONS_VERIFIED);
+  return map;
+}
+
+/**
  * Gets pending submissions data with caching.
  * Cached for 5 minutes since it changes frequently as users submit.
  * @return {Array} 2D array of pending submission data
@@ -293,6 +325,38 @@ function getPendingSubmissionsData() {
     CACHE_TTL.SUBMISSIONS_PENDING,
     'pending_submissions cache'
   );
+}
+
+/**
+ * Gets a map of pending submissions for O(1) lookups.
+ * Key: email_eventId
+ * Value: { row: number, photoId: string }
+ */
+function getPendingSubmissionsMap() {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'pending_submissions_map';
+  let cachedMap = cache.get(cacheKey);
+
+  if (cachedMap) {
+    const parsed = safeJSONParse(cachedMap, null, 'pending_submissions_map cache');
+    if (parsed) return parsed;
+    cache.remove(cacheKey);
+  }
+
+  // Build map from data
+  const data = getPendingSubmissionsData();
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    // data[i][2] is Email, data[i][3] is Event_ID, data[i][5] is Photo_ID
+    if (data[i][2] && data[i][3]) {
+      const key = data[i][2] + '_' + data[i][3];
+      map[key] = { row: i + 1, photoId: data[i][5] };
+    }
+  }
+
+  // Cache it
+  cache.put(cacheKey, JSON.stringify(map), CACHE_TTL.SUBMISSIONS_PENDING);
+  return map;
 }
 
 /**
@@ -336,7 +400,9 @@ function clearAllCaches() {
       'active_events_data',
       'active_season',
       'verified_submissions_data',
+      'verified_submissions_map',
       'pending_submissions_data',
+      'pending_submissions_map',
       'activities_data'
     ]);
 

@@ -112,7 +112,9 @@ function approveSubmission(submissionId, basePoints, themeBonus, spotlightMultip
 
     // Clear submission caches since we moved submission from pending to verified
     cache.remove('pending_submissions_data');
+    cache.remove('pending_submissions_map');
     cache.remove('verified_submissions_data');
+    cache.remove('verified_submissions_map');
 
     // CRITICAL: Clear student profiles cache BEFORE calling calculateBadges
     // This ensures calculateBadges reads the UPDATED points from the sheet
@@ -244,6 +246,7 @@ function denySubmission(submissionId, reason, isResubmittable) {
     // Clear pending submissions cache since we modified the sheet
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
+    cache.remove('pending_submissions_map');
 
     // Get event details for email notification
     const eventMap = getEventMapCache();
@@ -420,6 +423,7 @@ function submitManualEvent(studentEmail, eventId, photoBlob, theme, notes) {
     // 10. Clear caches
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
+    cache.remove('pending_submissions_map');
 
     // 11. Return success response
     return {

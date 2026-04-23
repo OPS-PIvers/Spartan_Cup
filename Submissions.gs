@@ -15,30 +15,22 @@
 
 /**
  * Utility function to find a pending submission.
- * Uses cached pending submissions data to reduce API calls.
+ * Uses cached pending submissions map to reduce API calls and improve performance.
  */
 function findPendingSubmission(email, eventId) {
-  const data = getPendingSubmissionsData();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] === email && data[i][3] === eventId) {
-      return { row: i + 1, photoId: data[i][5] };
-    }
-  }
-  return null;
+  const map = getPendingSubmissionsMap();
+  const key = email + '_' + eventId;
+  return map[key] || null;
 }
 
 /**
  * Utility function to find a verified submission.
- * Uses cached verified submissions data to reduce API calls.
+ * Uses cached verified submissions map to reduce API calls and improve performance.
  */
 function findVerifiedSubmission(email, eventId) {
-  const data = getVerifiedSubmissionsData();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][3] === email && data[i][4] === eventId) {
-      return { row: i + 1 };
-    }
-  }
-  return null;
+  const map = getVerifiedSubmissionsMap();
+  const key = email + '_' + eventId;
+  return map[key] || null;
 }
 
 /**
@@ -174,6 +166,7 @@ function submitEvent(formObject, photoBlob) {
     // Clear pending submissions cache since we added a new submission
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
+    cache.remove('pending_submissions_map');
 
     return { status: 'success', message: 'Submission received! You can view it in your "My History" page.' };
 
@@ -228,6 +221,7 @@ function resubmitEvent(formObject, photoBlob) {
     // Clear pending submissions cache since we modified submissions
     const cache = CacheService.getScriptCache();
     cache.remove('pending_submissions_data');
+    cache.remove('pending_submissions_map');
 
     return { status: 'success', message: 'Your previous submission has been replaced.' };
 
